@@ -1,0 +1,240 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "ECS Fargate infrastructure for {{ app_name }}",
+  "Parameters": {
+    "AppName": {
+      "Type": "String",
+      "Default": "{{ app_name }}",
+      "Description": "Name of the application"
+    },
+    "ContainerPort": {
+      "Type": "Number",
+      "Default": {{ container_port }},
+      "Description": "Port the container listens on"
+    },
+    "TaskCpu": {
+      "Type": "Number",
+      "Default": {{ cpu }},
+      "Description": "CPU units for the task"
+    },
+    "TaskMemory": {
+      "Type": "Number",
+      "Default": {{ memory }},
+      "Description": "Memory (MB) for the task"
+    },
+    "DesiredCount": {
+      "Type": "Number",
+      "Default": {{ desired_count }},
+      "Description": "Desired number of tasks"
+    },
+    "HealthCheckPath": {
+      "Type": "String",
+      "Default": "{{ health_check_path }}",
+      "Description": "Path for ALB health checks"
+    }
+  },
+  "Resources": {
+    "ECSCluster": {
+      "Type": "AWS::ECS::Cluster",
+      "Properties": {
+        "ClusterName": { "Fn::Sub": "${AppName}-cluster" }
+      }
+    },
+    "LogGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": { "Fn::Sub": "/ecs/${AppName}" },
+        "RetentionInDays": 30
+      }
+    },
+    "ExecutionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ecs-tasks.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+        ]
+      }
+    },
+    "TaskRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ecs-tasks.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        }
+      }
+    },
+    "TaskDefinition": {
+      "Type": "AWS::ECS::TaskDefinition",
+      "Properties": {
+        "Family": { "Fn::Sub": "${AppName}-task" },
+        "Cpu": { "Ref": "TaskCpu" },
+        "Memory": { "Ref": "TaskMemory" },
+        "NetworkMode": "awsvpc",
+        "RequiresCompatibilities": ["FARGATE"],
+        "ExecutionRoleArn": { "Fn::GetAtt": "ExecutionRole.Arn" },
+        "TaskRoleArn": { "Fn::GetAtt": "TaskRole.Arn" },
+        "ContainerDefinitions": [
+          {
+            "Name": { "Ref": "AppName" },
+            "Image": "{{ repository_uri }}:{{ image_tag }}",
+            "Essential": true,
+            "PortMappings": [
+              {
+                "ContainerPort": { "Ref": "ContainerPort" },
+                "Protocol": "tcp"
+              }
+            ],
+            "Environment": [
+              {% for key, value in environment_vars.items() %}
+              {
+                "Name": "{{ key }}",
+                "Value": "{{ value }}"
+              }{% if not loop.last %},{% endif %}
+              {% endfor %}
+            ],
+            "LogConfiguration": {
+              "LogDriver": "awslogs",
+              "Options": {
+                "awslogs-group": { "Fn::Sub": "/ecs/${AppName}" },
+                "awslogs-region": { "Ref": "AWS::Region" },
+                "awslogs-stream-prefix": "ecs"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "SecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": { "Fn::Sub": "${AppName} security group" },
+        "VpcId": "{{ vpc_id }}",
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": { "Ref": "ContainerPort" },
+            "ToPort": { "Ref": "ContainerPort" },
+            "CidrIp": "0.0.0.0/0"
+          }
+        ]
+      }
+    },
+    "LoadBalancer": {
+      "Type": "AWS::ElasticLoadBalancingV2::LoadBalancer",
+      "Properties": {
+        "Name": { "Fn::Sub": "${AppName}-alb" },
+        "Subnets": {{ subnet_ids }},
+        "SecurityGroups": [{ "Ref": "LoadBalancerSecurityGroup" }],
+        "Scheme": "internet-facing",
+        "Type": "application",
+        "IpAddressType": "ipv4"
+      }
+    },
+    "LoadBalancerSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": { "Fn::Sub": "${AppName} ALB security group" },
+        "VpcId": "{{ vpc_id }}",
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 80,
+            "ToPort": 80,
+            "CidrIp": "0.0.0.0/0"
+          }
+        ]
+      }
+    },
+    "TargetGroup": {
+      "Type": "AWS::ElasticLoadBalancingV2::TargetGroup",
+      "Properties": {
+        "Name": { "Fn::Sub": "${AppName}-tg" },
+        "Port": { "Ref": "ContainerPort" },
+        "Protocol": "HTTP",
+        "VpcId": "{{ vpc_id }}",
+        "TargetType": "ip",
+        "HealthCheckPath": { "Ref": "HealthCheckPath" },
+        "HealthCheckIntervalSeconds": 30,
+        "HealthCheckTimeoutSeconds": 5,
+        "HealthyThresholdCount": 2,
+        "UnhealthyThresholdCount": 3
+      }
+    },
+    "Listener": {
+      "Type": "AWS::ElasticLoadBalancingV2::Listener",
+      "Properties": {
+        "DefaultActions": [
+          {
+            "Type": "forward",
+            "TargetGroupArn": { "Ref": "TargetGroup" }
+          }
+        ],
+        "LoadBalancerArn": { "Ref": "LoadBalancer" },
+        "Port": 80,
+        "Protocol": "HTTP"
+      }
+    },
+    "Service": {
+      "Type": "AWS::ECS::Service",
+      "DependsOn": "Listener",
+      "Properties": {
+        "ServiceName": { "Fn::Sub": "${AppName}-service" },
+        "Cluster": { "Ref": "ECSCluster" },
+        "TaskDefinition": { "Ref": "TaskDefinition" },
+        "LaunchType": "FARGATE",
+        "DesiredCount": { "Ref": "DesiredCount" },
+        "NetworkConfiguration": {
+          "AwsvpcConfiguration": {
+            "AssignPublicIp": "ENABLED",
+            "SecurityGroups": [{ "Ref": "SecurityGroup" }],
+            "Subnets": {{ subnet_ids }}
+          }
+        },
+        "LoadBalancers": [
+          {
+            "ContainerName": { "Ref": "AppName" },
+            "ContainerPort": { "Ref": "ContainerPort" },
+            "TargetGroupArn": { "Ref": "TargetGroup" }
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "ClusterName": {
+      "Description": "ECS Cluster Name",
+      "Value": { "Ref": "ECSCluster" }
+    },
+    "ServiceName": {
+      "Description": "ECS Service Name",
+      "Value": { "Fn::GetAtt": "Service.Name" }
+    },
+    "LoadBalancerDNS": {
+      "Description": "Load Balancer DNS Name",
+      "Value": { "Fn::GetAtt": "LoadBalancer.DNSName" }
+    },
+    "LoadBalancerURL": {
+      "Description": "Load Balancer URL",
+      "Value": { "Fn::Join": ["", ["http://", { "Fn::GetAtt": "LoadBalancer.DNSName" }]] }
+    }
+  }
+}

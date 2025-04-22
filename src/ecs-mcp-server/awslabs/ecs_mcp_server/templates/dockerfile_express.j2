@@ -1,0 +1,15 @@
+FROM {{ base_image }}
+
+WORKDIR /app
+
+{% for env_var, value in env_vars.items() %}
+ENV {{ env_var }}={{ value }}
+{% endfor %}
+
+{% for step in build_steps %}
+{{ step }}
+{% endfor %}
+
+EXPOSE {{ port }}
+
+CMD ["{{ cmd }}"]

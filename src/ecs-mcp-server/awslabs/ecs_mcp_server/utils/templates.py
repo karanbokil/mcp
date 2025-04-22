@@ -4,7 +4,7 @@ Template utilities for the ECS MCP Server.
 
 import logging
 import os
-import pkg_resources
+import importlib.resources
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -18,7 +18,8 @@ def get_templates_dir() -> str:
     """
     # First, try to get templates from the package resources
     try:
-        templates_dir = pkg_resources.resource_filename("awslabs.ecs_mcp_server", "templates")
+        # Use importlib.resources instead of pkg_resources
+        templates_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates")
         if os.path.isdir(templates_dir):
             return templates_dir
     except Exception as e:

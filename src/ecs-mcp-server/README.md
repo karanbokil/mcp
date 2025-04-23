@@ -99,6 +99,140 @@ The ECS MCP Server is designed to recognize casual, conversational deployment re
 - "Create an ECS deployment for this web application with auto-scaling"
 - "Set up a containerized environment for this Django app on AWS ECS"
 
+## Development
+
+This section provides guidance for developers who want to contribute to the ECS MCP Server.
+
+### Setting Up a Development Environment
+
+1. **Clone the Repository**
+
+   ```bash
+   git clone https://github.com/awslabs/mcp.git
+   cd mcp
+   ```
+
+2. **Set Up a Virtual Environment**
+
+   Using `uv` (recommended):
+   ```bash
+   uv venv
+   source .venv/bin/activate  # On Unix/macOS
+   .venv\Scripts\activate     # On Windows
+   ```
+
+   Or using standard Python tools:
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate  # On Unix/macOS
+   .venv\Scripts\activate     # On Windows
+   ```
+
+3. **Install Development Dependencies**
+
+   ```bash
+   cd src/ecs-mcp-server
+   uv pip install -e ".[dev]"
+   ```
+
+4. **Configure AWS Credentials**
+
+   Ensure you have AWS credentials configured with appropriate permissions:
+   ```bash
+   aws configure
+   ```
+
+### Running the Server Locally
+
+To run the server locally for development:
+
+```bash
+cd src/ecs-mcp-server
+python -m awslabs.ecs_mcp_server.main
+```
+
+### Testing
+
+The ECS MCP Server uses pytest for testing. The tests are organized into unit tests and integration tests.
+
+#### Running Unit Tests
+
+To run all unit tests:
+
+```bash
+cd src/ecs-mcp-server
+python -m pytest tests/unit
+```
+
+To run a specific test file:
+
+```bash
+python -m pytest tests/unit/test_main.py
+```
+
+To run a specific test case with verbose output:
+
+```bash
+python -m pytest tests/unit/test_main.py::TestMain::test_server_tools -v
+```
+
+#### Test Coverage
+
+To generate a test coverage report:
+
+```bash
+# Generate coverage report
+python -m pytest --cov=awslabs.ecs_mcp_server tests/
+```
+
+For a detailed HTML coverage report:
+
+```bash
+python -m pytest --cov=awslabs.ecs_mcp_server --cov-report=html tests/
+```
+
+This will create an `htmlcov` directory with an interactive HTML report that you can open in your browser.
+
+### Code Style and Linting
+
+The project follows PEP 8 style guidelines. To check code style:
+
+```bash
+# Run flake8
+flake8 awslabs/ecs_mcp_server
+
+# Run black in check mode
+black --check awslabs/ecs_mcp_server
+
+# Run isort in check mode
+isort --check-only awslabs/ecs_mcp_server
+```
+
+To automatically format the code:
+
+```bash
+# Format with black
+black awslabs/ecs_mcp_server
+
+# Sort imports with isort
+isort awslabs/ecs_mcp_server
+```
+
+### Building and Publishing
+
+To build the package:
+
+```bash
+cd src/ecs-mcp-server
+python -m build
+```
+
+The package can be published to PyPI using twine:
+
+```bash
+twine upload dist/*
+```
+
 ## Requirements
 
 - Python 3.10+

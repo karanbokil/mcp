@@ -7,8 +7,6 @@ configuration separately. Each test method focuses on a specific aspect of the s
 - Tools registration
 - Prompt patterns registration
 
-This approach provides better test failure isolation and makes it easier to identify
-which specific aspect of the server configuration is problematic when a test fails.
 """
 
 import unittest

@@ -4,7 +4,7 @@ Configuration utilities for the ECS MCP Server.
 
 import logging
 import os
-from typing import Dict, Any
+from typing import Any, Dict
 
 logger = logging.getLogger(__name__)
 

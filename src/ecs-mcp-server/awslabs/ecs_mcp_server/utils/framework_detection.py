@@ -2,9 +2,9 @@
 Utilities for detecting web application frameworks.
 """
 
+import json
 import logging
 import os
-import json
 from typing import Optional
 
 logger = logging.getLogger(__name__)

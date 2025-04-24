@@ -3,16 +3,16 @@ Unit tests for AWS utility functions.
 """
 
 import unittest
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import boto3
 import pytest
 
 from awslabs.ecs_mcp_server.utils.aws import (
-    get_aws_client,
-    get_aws_account_id,
-    get_default_vpc_and_subnets,
     create_ecr_repository,
+    get_aws_account_id,
+    get_aws_client,
+    get_default_vpc_and_subnets,
     get_ecr_login_password,
 )
 

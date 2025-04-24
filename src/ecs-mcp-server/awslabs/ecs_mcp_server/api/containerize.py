@@ -2,10 +2,10 @@
 API for containerizing web applications.
 """
 
+import json
 import logging
 import os
-import json
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
 from jinja2 import Environment, FileSystemLoader
 

@@ -5,13 +5,13 @@ Unit tests for Docker utility functions.
 import os
 import tempfile
 import unittest
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
 from awslabs.ecs_mcp_server.utils.docker import (
-    validate_dockerfile,
     build_and_push_image,
+    validate_dockerfile,
 )
 
 

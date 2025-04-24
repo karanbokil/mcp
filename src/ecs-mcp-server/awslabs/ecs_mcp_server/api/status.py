@@ -3,7 +3,7 @@ API for getting the status of ECS deployments.
 """
 
 import logging
-from typing import Dict, Optional, Any
+from typing import Any, Dict, Optional
 
 from awslabs.ecs_mcp_server.utils.aws import get_aws_client
 

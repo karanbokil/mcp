@@ -2,9 +2,9 @@
 Template utilities for the ECS MCP Server.
 """
 
+import importlib.resources
 import logging
 import os
-import importlib.resources
 from typing import Optional
 
 logger = logging.getLogger(__name__)

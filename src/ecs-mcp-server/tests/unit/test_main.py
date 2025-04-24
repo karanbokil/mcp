@@ -10,7 +10,8 @@ configuration separately. Each test method focuses on a specific aspect of the s
 """
 
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 
 # We need to patch the imports before importing the module under test
 class MockFastMCP:

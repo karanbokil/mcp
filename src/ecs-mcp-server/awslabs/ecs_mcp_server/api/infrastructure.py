@@ -2,21 +2,21 @@
 API for creating ECS infrastructure using CloudFormation/CDK.
 """
 
+import json
 import logging
 import os
-import json
 import tempfile
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
 import boto3
 from jinja2 import Environment, FileSystemLoader
 
-from awslabs.ecs_mcp_server.utils.templates import get_templates_dir
 from awslabs.ecs_mcp_server.utils.aws import (
-    get_aws_client,
     get_aws_account_id,
+    get_aws_client,
     get_default_vpc_and_subnets,
 )
+from awslabs.ecs_mcp_server.utils.templates import get_templates_dir
 
 logger = logging.getLogger(__name__)
 

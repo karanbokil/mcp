@@ -5,17 +5,17 @@ Unit tests for framework detection utilities.
 import os
 import tempfile
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from awslabs.ecs_mcp_server.utils.framework_detection import (
-    detect_framework,
-    _is_flask,
     _is_django,
     _is_express,
-    _is_react,
+    _is_flask,
     _is_node,
+    _is_react,
+    detect_framework,
 )
 
 

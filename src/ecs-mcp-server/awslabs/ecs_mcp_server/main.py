@@ -7,14 +7,14 @@ import asyncio
 import logging
 import os
 import sys
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
+from awslabs.ecs_mcp_server.api.analyze import analyze_app
 from awslabs.ecs_mcp_server.api.containerize import containerize_app
 from awslabs.ecs_mcp_server.api.deploy import deploy_to_ecs
-from awslabs.ecs_mcp_server.api.analyze import analyze_app
 from awslabs.ecs_mcp_server.api.infrastructure import create_infrastructure
 from awslabs.ecs_mcp_server.api.status import get_deployment_status
 from awslabs.ecs_mcp_server.utils.config import get_config

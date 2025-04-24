@@ -5,9 +5,9 @@ Docker utility functions.
 import logging
 import os
 import subprocess
-from typing import Dict, Any
+from typing import Any, Dict
 
-from awslabs.ecs_mcp_server.utils.aws import get_ecr_login_password, get_aws_account_id
+from awslabs.ecs_mcp_server.utils.aws import get_aws_account_id, get_ecr_login_password
 
 logger = logging.getLogger(__name__)
 

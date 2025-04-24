@@ -2,17 +2,17 @@
 API for deploying containerized applications to AWS ECS.
 """
 
+import json
 import logging
 import os
-import json
 import time
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
 import boto3
 
 from awslabs.ecs_mcp_server.api.containerize import containerize_app
 from awslabs.ecs_mcp_server.api.infrastructure import create_infrastructure
-from awslabs.ecs_mcp_server.utils.aws import get_aws_client, get_aws_account_id
+from awslabs.ecs_mcp_server.utils.aws import get_aws_account_id, get_aws_client
 from awslabs.ecs_mcp_server.utils.docker import build_and_push_image
 
 logger = logging.getLogger(__name__)

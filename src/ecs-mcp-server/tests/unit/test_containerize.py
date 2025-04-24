@@ -5,15 +5,15 @@ Unit tests for containerization API.
 import os
 import tempfile
 import unittest
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from awslabs.ecs_mcp_server.api.containerize import (
-    containerize_app,
+    _generate_docker_compose,
     _generate_dockerfile,
     _get_run_command,
-    _generate_docker_compose,
+    containerize_app,
 )
 
 

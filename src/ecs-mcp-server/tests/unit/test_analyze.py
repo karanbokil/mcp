@@ -5,19 +5,19 @@ Unit tests for application analysis API.
 import os
 import tempfile
 import unittest
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from awslabs.ecs_mcp_server.api.analyze import (
-    analyze_app,
     _analyze_dependencies,
-    _get_default_port,
-    _determine_container_requirements,
-    _get_base_image,
     _detect_environment_variables,
     _determine_build_steps,
+    _determine_container_requirements,
     _determine_runtime_requirements,
+    _get_base_image,
+    _get_default_port,
+    analyze_app,
 )
 
 

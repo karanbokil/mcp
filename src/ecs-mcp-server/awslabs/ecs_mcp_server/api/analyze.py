@@ -2,13 +2,13 @@
 API for analyzing web applications to determine containerization requirements.
 """
 
+import json
 import logging
 import os
-import json
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
-from awslabs.ecs_mcp_server.utils.framework_detection import detect_framework
 from awslabs.ecs_mcp_server.models.app_analysis import AppAnalysis
+from awslabs.ecs_mcp_server.utils.framework_detection import detect_framework
 
 logger = logging.getLogger(__name__)
 

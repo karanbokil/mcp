@@ -95,9 +95,16 @@ async def build_and_push_image(app_path: str, repository_uri: str, tag: str = "l
     login_cmd = f"docker login --username AWS --password {password} {account_id}.dkr.ecr.{region}.amazonaws.com"
     subprocess.run(login_cmd, shell=True, check=True, capture_output=True)
 
-    # Build the image
-    build_cmd = f"docker build -t {repository_uri}:{tag} {app_path}"
-    subprocess.run(build_cmd, shell=True, check=True)
+    # Build the image with platform specification for AMD64 (x86_64)
+    # This ensures compatibility with ECS which runs on x86_64 architecture
+    build_cmd = f"docker buildx build --platform linux/amd64 -t {repository_uri}:{tag} {app_path} --load"
+    try:
+        subprocess.run(build_cmd, shell=True, check=True)
+    except subprocess.CalledProcessError:
+        # Fallback to regular build if buildx is not available
+        logger.warning("Docker buildx not available, falling back to regular build")
+        build_cmd = f"docker build -t {repository_uri}:{tag} {app_path}"
+        subprocess.run(build_cmd, shell=True, check=True)
 
     # Push the image
     push_cmd = f"docker push {repository_uri}:{tag}"

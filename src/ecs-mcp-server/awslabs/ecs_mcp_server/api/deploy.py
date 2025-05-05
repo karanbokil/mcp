@@ -195,7 +195,9 @@ async def _update_ecs_service(
                 {
                     "targetGroupArn": target_group_arn,
                     "containerName": f"{app_name}-container",
-                    "containerPort": 80,  # This should match the container port
+                "containerPort": container_port,
+                    "hostPort": container_port,
+                    "protocol": "tcp"
                 }
             ],
         )

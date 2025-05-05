@@ -1,0 +1,11 @@
+version: '3'
+
+services:
+  {{ app_name }}:
+    build: .
+    ports:
+      - "{{ port }}:{{ port }}"
+    environment:
+      {% for key, value in env_vars.items() %}
+      - {{ key }}={{ value }}
+      {% endfor %}

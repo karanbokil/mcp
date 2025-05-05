@@ -119,25 +119,39 @@ async def _generate_dockerfile(
 def _get_run_command(framework: str, app_path: str) -> str:
     """Returns the appropriate command to run the application based on framework."""
     if framework == "flask":
-        return "flask run --host=0.0.0.0"
+        return ["flask", "run", "--host=0.0.0.0"]
     elif framework == "django":
-        return "python manage.py runserver 0.0.0.0:8000"
+        return ["python", "manage.py", "runserver", "0.0.0.0:8000"]
     elif framework == "express" or framework == "node":
-        # Check package.json for start script
+        # Check package.json for start script and main file
         pkg_path = os.path.join(app_path, "package.json")
         if os.path.exists(pkg_path):
             try:
                 with open(pkg_path, "r") as f:
                     pkg_data = json.load(f)
                     if "scripts" in pkg_data and "start" in pkg_data["scripts"]:
-                        return "npm start"
+                        # Get the actual command from the start script
+                        start_script = pkg_data["scripts"]["start"]
+                        if start_script.startswith("node "):
+                            # Extract the file name from the start script
+                            file_name = start_script.replace("node ", "").strip()
+                            return ["node", file_name]
+                    # If no start script or it's not a node command, check for main file
+                    if "main" in pkg_data:
+                        return ["node", pkg_data["main"]]
             except (json.JSONDecodeError, IOError):
                 pass
-        return "node index.js"
+        
+        # Check for common entry point files
+        for file_name in ["server.js", "app.js", "index.js"]:
+            if os.path.exists(os.path.join(app_path, file_name)):
+                return ["node", file_name]
+                
+        return ["node", "index.js"]
     elif framework == "rails":
-        return "rails server -b 0.0.0.0"
+        return ["rails", "server", "-b", "0.0.0.0"]
     else:
-        return "nginx -g 'daemon off;'"
+        return ["nginx", "-g", "daemon off;"]
 
 
 async def _generate_docker_compose(app_name: str, port: int, env_vars: Dict[str, str]) -> str:

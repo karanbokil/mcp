@@ -14,7 +14,10 @@ logger = logging.getLogger(__name__)
 async def get_aws_client(service_name: str):
     """Gets an AWS service client."""
     region = os.environ.get("AWS_REGION", "us-east-1")
-    return boto3.client(service_name, region_name=region)
+    profile = os.environ.get("AWS_PROFILE", "default")
+    logger.info(f"Using AWS profile: {profile} and region: {region}")
+    session = boto3.Session(profile_name=profile, region_name=region)
+    return session.client(service_name, region_name=region)
 
 
 async def get_aws_account_id() -> str:

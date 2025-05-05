@@ -1,0 +1,255 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "ECS Infrastructure for {{ app_name }}",
+  "Parameters": {
+    "AppName": {
+      "Type": "String",
+      "Description": "Name of the application"
+    },
+    "VpcId": {
+      "Type": "String",
+      "Description": "VPC ID for deployment"
+    },
+    "SubnetIds": {
+      "Type": "CommaDelimitedList",
+      "Description": "List of subnet IDs for deployment"
+    },
+    "TaskCpu": {
+      "Type": "Number",
+      "Description": "CPU units for the task",
+      "Default": 256
+    },
+    "TaskMemory": {
+      "Type": "Number",
+      "Description": "Memory (MB) for the task",
+      "Default": 512
+    },
+    "DesiredCount": {
+      "Type": "Number",
+      "Description": "Desired number of tasks",
+      "Default": 1
+    },
+    "EnableAutoScaling": {
+      "Type": "String",
+      "Description": "Enable auto-scaling for the service",
+      "Default": "false",
+      "AllowedValues": ["true", "false"]
+    }
+  },
+  "Resources": {
+    "ECSCluster": {
+      "Type": "AWS::ECS::Cluster",
+      "Properties": {
+        "ClusterName": {"Fn::Sub": "${AppName}-cluster"}
+      }
+    },
+    "ECSTaskExecutionRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ecs-tasks.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+        ],
+        "RoleName": {"Fn::Sub": "${AppName}-task-execution-role"}
+      }
+    },
+    "ECSTaskRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ecs-tasks.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "RoleName": {"Fn::Sub": "${AppName}-task-role"}
+      }
+    },
+    "ECRRepository": {
+      "Type": "AWS::ECR::Repository",
+      "Properties": {
+        "RepositoryName": {"Fn::Sub": "${AppName}-repo"}
+      }
+    },
+    "ALBSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": {"Fn::Sub": "Security group for ${AppName} ALB"},
+        "VpcId": {"Ref": "VpcId"},
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 80,
+            "ToPort": 80,
+            "CidrIp": "0.0.0.0/0"
+          }
+        ]
+      }
+    },
+    "ECSSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": {"Fn::Sub": "Security group for ${AppName} ECS tasks"},
+        "VpcId": {"Ref": "VpcId"},
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 0,
+            "ToPort": 65535,
+            "SourceSecurityGroupId": {"Ref": "ALBSecurityGroup"}
+          }
+        ]
+      }
+    },
+    "ApplicationLoadBalancer": {
+      "Type": "AWS::ElasticLoadBalancingV2::LoadBalancer",
+      "Properties": {
+        "Name": {"Fn::Sub": "${AppName}-alb"},
+        "Scheme": "internet-facing",
+        "LoadBalancerAttributes": [
+          {
+            "Key": "idle_timeout.timeout_seconds",
+            "Value": "60"
+          }
+        ],
+        "Subnets": {"Ref": "SubnetIds"},
+        "SecurityGroups": [{"Ref": "ALBSecurityGroup"}]
+      }
+    },
+    "ALBListener": {
+      "Type": "AWS::ElasticLoadBalancingV2::Listener",
+      "Properties": {
+        "DefaultActions": [
+          {
+            "Type": "forward",
+            "TargetGroupArn": {"Ref": "ALBTargetGroup"}
+          }
+        ],
+        "LoadBalancerArn": {"Ref": "ApplicationLoadBalancer"},
+        "Port": 80,
+        "Protocol": "HTTP"
+      }
+    },
+    "ALBTargetGroup": {
+      "Type": "AWS::ElasticLoadBalancingV2::TargetGroup",
+      "Properties": {
+        "HealthCheckIntervalSeconds": 30,
+        "HealthCheckPath": "/",
+        "HealthCheckProtocol": "HTTP",
+        "HealthCheckTimeoutSeconds": 5,
+        "HealthyThresholdCount": 2,
+        "Name": {"Fn::Sub": "${AppName}-tg"},
+        "Port": 80,
+        "Protocol": "HTTP",
+        "TargetType": "ip",
+        "UnhealthyThresholdCount": 5,
+        "VpcId": {"Ref": "VpcId"}
+      }
+    },
+    "ECSTaskDefinition": {
+      "Type": "AWS::ECS::TaskDefinition",
+      "Properties": {
+        "Family": {"Fn::Sub": "${AppName}-task"},
+        "Cpu": {"Ref": "TaskCpu"},
+        "Memory": {"Ref": "TaskMemory"},
+        "NetworkMode": "awsvpc",
+        "RequiresCompatibilities": ["FARGATE"],
+        "ExecutionRoleArn": {"Ref": "ECSTaskExecutionRole"},
+        "TaskRoleArn": {"Ref": "ECSTaskRole"},
+        "ContainerDefinitions": [
+          {
+            "Name": {"Fn::Sub": "${AppName}-container"},
+            "Image": {"Fn::Sub": "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AppName}-repo:latest"},
+            "Essential": true,
+            "PortMappings": [
+              {
+                "ContainerPort": 3000,
+                "HostPort": 3000,
+                "Protocol": "tcp"
+              }
+            ],
+            "LogConfiguration": {
+              "LogDriver": "awslogs",
+              "Options": {
+                "awslogs-group": {"Fn::Sub": "/ecs/${AppName}"},
+                "awslogs-region": {"Ref": "AWS::Region"},
+                "awslogs-stream-prefix": "ecs"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "CloudWatchLogsGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": {"Fn::Sub": "/ecs/${AppName}"},
+        "RetentionInDays": 14
+      }
+    },
+    "ECSService": {
+      "Type": "AWS::ECS::Service",
+      "DependsOn": ["ALBListener"],
+      "Properties": {
+        "ServiceName": {"Fn::Sub": "${AppName}-service"},
+        "Cluster": {"Ref": "ECSCluster"},
+        "TaskDefinition": {"Ref": "ECSTaskDefinition"},
+        "DesiredCount": {"Ref": "DesiredCount"},
+        "LaunchType": "FARGATE",
+        "NetworkConfiguration": {
+          "AwsvpcConfiguration": {
+            "AssignPublicIp": "ENABLED",
+            "SecurityGroups": [{"Ref": "ECSSecurityGroup"}],
+            "Subnets": {"Ref": "SubnetIds"}
+          }
+        },
+        "LoadBalancers": [
+          {
+            "ContainerName": {"Fn::Sub": "${AppName}-container"},
+            "ContainerPort": 3000,
+            "TargetGroupArn": {"Ref": "ALBTargetGroup"}
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "ClusterName": {
+      "Description": "ECS Cluster Name",
+      "Value": {"Ref": "ECSCluster"}
+    },
+    "ServiceName": {
+      "Description": "ECS Service Name",
+      "Value": {"Fn::Sub": "${AppName}-service"}
+    },
+    "TaskDefinitionArn": {
+      "Description": "ECS Task Definition ARN",
+      "Value": {"Ref": "ECSTaskDefinition"}
+    },
+    "ECRRepositoryURI": {
+      "Description": "ECR Repository URI",
+      "Value": {"Fn::Sub": "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AppName}-repo"}
+    },
+    "LoadBalancerDNS": {
+      "Description": "Load Balancer DNS Name",
+      "Value": {"Fn::GetAtt": ["ApplicationLoadBalancer", "DNSName"]}
+    }
+  }
+}

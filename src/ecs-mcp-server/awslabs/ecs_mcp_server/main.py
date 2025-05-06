@@ -176,6 +176,10 @@ async def mcp_create_ecs_infrastructure(
         ...,
         description="Name of the application",
     ),
+    app_path: str = Field(
+        ...,
+        description="Path to the web application directory",
+    ),
     vpc_id: Optional[str] = Field(
         default=None,
         description="VPC ID for deployment (optional, will create new if not provided)",
@@ -210,9 +214,10 @@ async def mcp_create_ecs_infrastructure(
 
     USAGE INSTRUCTIONS:
     1. Provide a name for your application
-    2. Optionally specify VPC and subnet IDs if you want to use existing resources
-    3. Configure CPU, memory, and scaling options as needed
-    4. The tool will create the infrastructure and return the details
+    2. Provide the path to your web application directory
+    3. Optionally specify VPC and subnet IDs if you want to use existing resources
+    4. Configure CPU, memory, and scaling options as needed
+    5. The tool will create the infrastructure and return the details
 
     The created infrastructure includes:
     - VPC and subnets (if not provided)
@@ -225,6 +230,7 @@ async def mcp_create_ecs_infrastructure(
 
     Parameters:
         app_name: Name of the application
+        app_path: Path to the web application directory
         vpc_id: VPC ID for deployment (optional, will create new if not provided)
         subnet_ids: List of subnet IDs for deployment
         cpu: CPU units for the task (e.g., 256, 512, 1024)
@@ -236,7 +242,14 @@ async def mcp_create_ecs_infrastructure(
         Dictionary containing infrastructure details
     """
     return await create_infrastructure(
-        app_name, vpc_id, subnet_ids, cpu, memory, desired_count, enable_auto_scaling
+        app_name=app_name,
+        app_path=app_path,
+        vpc_id=vpc_id, 
+        subnet_ids=subnet_ids, 
+        cpu=cpu, 
+        memory=memory, 
+        desired_count=desired_count, 
+        enable_auto_scaling=enable_auto_scaling
     )
 
 

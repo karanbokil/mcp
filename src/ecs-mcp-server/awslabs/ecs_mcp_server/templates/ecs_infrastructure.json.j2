@@ -34,6 +34,10 @@
       "Description": "Enable auto-scaling for the service",
       "Default": "false",
       "AllowedValues": ["true", "false"]
+    },
+    "ImageUri": {
+      "Type": "String",
+      "Description": "URI of the container image"
     }
   },
   "Resources": {
@@ -81,13 +85,6 @@
         },
         "RoleName": {"Fn::Sub": "${AppName}-task-role"}
       }
-    },
-    "ECRRepository": {
-      "Type": "AWS::ECR::Repository",
-      "Properties": {
-        "RepositoryName": {"Fn::Sub": "${AppName}-repo"}
-      },
-      "DeletionPolicy": "Delete"
     },
     "ALBSecurityGroup": {
       "Type": "AWS::EC2::SecurityGroup",
@@ -177,7 +174,7 @@
         "ContainerDefinitions": [
           {
             "Name": {"Fn::Sub": "${AppName}-container"},
-            "Image": {"Fn::Sub": "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AppName}-repo:latest"},
+            "Image": {"Ref": "ImageUri"},
             "Essential": true,
             "PortMappings": [
               {
@@ -243,10 +240,6 @@
     "TaskDefinitionArn": {
       "Description": "ECS Task Definition ARN",
       "Value": {"Ref": "ECSTaskDefinition"}
-    },
-    "ECRRepositoryURI": {
-      "Description": "ECR Repository URI",
-      "Value": {"Fn::Sub": "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AppName}-repo"}
     },
     "LoadBalancerDNS": {
       "Description": "Load Balancer DNS Name",

@@ -86,7 +86,8 @@
       "Type": "AWS::ECR::Repository",
       "Properties": {
         "RepositoryName": {"Fn::Sub": "${AppName}-repo"}
-      }
+      },
+      "DeletionPolicy": "Delete"
     },
     "ALBSecurityGroup": {
       "Type": "AWS::EC2::SecurityGroup",

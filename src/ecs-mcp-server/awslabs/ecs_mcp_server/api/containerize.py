@@ -108,6 +108,10 @@ async def _generate_dockerfile(
     # Determine the command to run the application
     cmd = _get_run_command(framework, app_path)
 
+    # Convert cmd list to proper JSON format for Dockerfile CMD instruction
+    if isinstance(cmd, list):
+        cmd = json.dumps(cmd)
+
     # Render the template
     dockerfile_content = template.render(
         base_image=base_image, build_steps=build_steps, port=port, env_vars=env_vars, cmd=cmd

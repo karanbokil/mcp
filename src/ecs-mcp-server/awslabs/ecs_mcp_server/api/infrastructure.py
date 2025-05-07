@@ -132,6 +132,8 @@ async def create_ecs_infrastructure(
     memory: Optional[int] = None,
     desired_count: Optional[int] = None,
     enable_auto_scaling: Optional[bool] = None,
+    container_port: Optional[int] = None,
+    health_check_path: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Creates ECS infrastructure using CloudFormation.
@@ -145,6 +147,8 @@ async def create_ecs_infrastructure(
         memory: Memory (MB) for the task (optional, default: 512)
         desired_count: Desired number of tasks (optional, default: 1)
         enable_auto_scaling: Enable auto-scaling for the service (optional, default: False)
+        container_port: Port the container listens on (optional, default: 80)
+        health_check_path: Path for ALB health checks (optional, default: "/")
 
     Returns:
         Dict containing infrastructure creation results
@@ -156,6 +160,8 @@ async def create_ecs_infrastructure(
     memory = memory or 512
     desired_count = desired_count or 1
     enable_auto_scaling = enable_auto_scaling or False
+    container_port = container_port or 80
+    health_check_path = health_check_path or "/"
 
     # Get AWS account ID
     account_id = await get_aws_account_id()
@@ -178,6 +184,8 @@ async def create_ecs_infrastructure(
         enable_auto_scaling=enable_auto_scaling,
         account_id=account_id,
         image_uri=image_uri,
+        container_port=container_port,
+        health_check_path=health_check_path,
     )
 
     # Create a temporary file for the CloudFormation template
@@ -215,6 +223,8 @@ async def create_ecs_infrastructure(
                         "ParameterValue": str(enable_auto_scaling).lower(),
                     },
                     {"ParameterKey": "ImageUri", "ParameterValue": image_uri},
+                    {"ParameterKey": "ContainerPort", "ParameterValue": str(container_port)},
+                    {"ParameterKey": "HealthCheckPath", "ParameterValue": health_check_path}
                 ],
             )
             operation = "update"
@@ -236,6 +246,8 @@ async def create_ecs_infrastructure(
                         "ParameterValue": str(enable_auto_scaling).lower(),
                     },
                     {"ParameterKey": "ImageUri", "ParameterValue": image_uri},
+                    {"ParameterKey": "ContainerPort", "ParameterValue": str(container_port)},
+                    {"ParameterKey": "HealthCheckPath", "ParameterValue": health_check_path}
                 ],
             )
             operation = "create"
@@ -306,6 +318,10 @@ async def _generate_cloudformation_template(
         template_params["enable_auto_scaling"] = enable_auto_scaling
     if image_uri:
         template_params["image_uri"] = image_uri
+    if container_port:
+        template_params["container_port"] = container_port
+    if health_check_path:
+        template_params["health_check_path"] = health_check_path
 
     # Render the template
     cf_template = template.render(**template_params)
@@ -320,6 +336,9 @@ async def create_infrastructure(
     memory: Optional[int] = None,
     desired_count: Optional[int] = None,
     enable_auto_scaling: Optional[bool] = None,
+    container_port: Optional[int] = None,
+    environment_vars: Optional[Dict[str, str]] = None,
+    health_check_path: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Creates complete ECS infrastructure using CloudFormation.
@@ -335,6 +354,9 @@ async def create_infrastructure(
         memory: Memory (MB) for the task (optional, default: 512)
         desired_count: Desired number of tasks (optional, default: 1)
         enable_auto_scaling: Enable auto-scaling for the service (optional, default: False)
+        container_port: Port the container listens on (optional, will be detected from app)
+        environment_vars: Environment variables as a dictionary (optional)
+        health_check_path: Path for ALB health checks (optional, default: "/")
 
     Returns:
         Dict containing infrastructure creation results
@@ -381,6 +403,8 @@ async def create_infrastructure(
             memory=memory,
             desired_count=desired_count,
             enable_auto_scaling=enable_auto_scaling,
+            container_port=container_port,
+            health_check_path=health_check_path if health_check_path else "/"
         )
     except Exception as e:
         logger.error(f"Error creating ECS infrastructure: {e}")

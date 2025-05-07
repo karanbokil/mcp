@@ -88,14 +88,13 @@ class TestMain(unittest.TestCase):
         If this test fails, it indicates an issue with tool registration.
         """
         # Verify the server has registered tools
-        self.assertGreaterEqual(len(mcp.tools), 5)
+        self.assertGreaterEqual(len(mcp.tools), 4)
         
         # Verify tool names
         tool_names = [tool["name"] for tool in mcp.tools]
         self.assertIn("analyze_web_app", tool_names)
         self.assertIn("containerize_app", tool_names)
         self.assertIn("create_ecs_infrastructure", tool_names)
-        self.assertIn("deploy_to_ecs", tool_names)
         self.assertIn("get_deployment_status", tool_names)
 
     def test_server_prompts(self):

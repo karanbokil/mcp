@@ -12,6 +12,7 @@
       "Type": "AWS::ECR::Repository",
       "Properties": {
         "RepositoryName": {"Fn::Sub": "${AppName}-repo"},
+        "EmptyOnDelete": true,
         "LifecyclePolicy": {
           "LifecyclePolicyText": "{\"rules\":[{\"rulePriority\":1,\"description\":\"Keep only the latest 5 images\",\"selection\":{\"tagStatus\":\"any\",\"countType\":\"imageCountMoreThan\",\"countNumber\":5},\"action\":{\"type\":\"expire\"}}]}"
         },

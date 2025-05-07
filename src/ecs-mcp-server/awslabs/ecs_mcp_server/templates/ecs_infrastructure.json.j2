@@ -38,6 +38,16 @@
     "ImageUri": {
       "Type": "String",
       "Description": "URI of the container image"
+    },
+    "ContainerPort": {
+      "Type": "Number",
+      "Description": "Port the container listens on",
+      "Default": 80
+    },
+    "HealthCheckPath": {
+      "Type": "String",
+      "Description": "Path for ALB health checks",
+      "Default": "/"
     }
   },
   "Resources": {
@@ -149,7 +159,7 @@
       "Type": "AWS::ElasticLoadBalancingV2::TargetGroup",
       "Properties": {
         "HealthCheckIntervalSeconds": 30,
-        "HealthCheckPath": "/",
+        "HealthCheckPath": {"Ref": "HealthCheckPath"},
         "HealthCheckProtocol": "HTTP",
         "HealthCheckTimeoutSeconds": 5,
         "HealthyThresholdCount": 2,
@@ -178,8 +188,8 @@
             "Essential": true,
             "PortMappings": [
               {
-                "ContainerPort": 3000,
-                "HostPort": 3000,
+                "ContainerPort": {"Ref": "ContainerPort"},
+                "HostPort": {"Ref": "ContainerPort"},
                 "Protocol": "tcp"
               }
             ],
@@ -221,7 +231,7 @@
         "LoadBalancers": [
           {
             "ContainerName": {"Fn::Sub": "${AppName}-container"},
-            "ContainerPort": 3000,
+            "ContainerPort": {"Ref": "ContainerPort"},
             "TargetGroupArn": {"Ref": "ALBTargetGroup"}
           }
         ]

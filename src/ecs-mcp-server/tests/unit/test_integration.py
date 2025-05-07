@@ -10,7 +10,6 @@ import pytest
 
 from awslabs.ecs_mcp_server.api.analyze import analyze_app
 from awslabs.ecs_mcp_server.api.containerize import containerize_app
-from awslabs.ecs_mcp_server.api.deploy import deploy_to_ecs
 from awslabs.ecs_mcp_server.api.status import get_deployment_status
 
 

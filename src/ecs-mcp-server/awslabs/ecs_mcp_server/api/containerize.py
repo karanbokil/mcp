@@ -111,11 +111,38 @@ async def _generate_dockerfile(
     # Convert cmd list to proper JSON format for Dockerfile CMD instruction
     if isinstance(cmd, list):
         cmd = json.dumps(cmd)
+        
+    # Additional template parameters
+    template_params = {
+        "base_image": base_image,
+        "build_steps": build_steps,
+        "port": port,
+        "env_vars": env_vars,
+        "cmd": cmd,
+    }
+    
+    # For React applications, check if nginx.conf exists
+    if framework == "react":
+        nginx_conf_exists = os.path.exists(os.path.join(app_path, "nginx.conf"))
+        template_params["nginx_conf_exists"] = nginx_conf_exists
+        if not nginx_conf_exists:
+            logger.info("No nginx.conf found for React app, will create a default one")
+            # Create a default nginx.conf if it doesn't exist
+            default_nginx_conf = """server {
+    listen 80;
+    location / {
+        root /usr/share/nginx/html;
+        index index.html;
+        try_files $uri $uri/ /index.html;
+    }
+}"""
+            nginx_conf_path = os.path.join(app_path, "nginx.conf")
+            with open(nginx_conf_path, "w") as f:
+                f.write(default_nginx_conf)
+            logger.info(f"Created default nginx.conf at {nginx_conf_path}")
 
     # Render the template
-    dockerfile_content = template.render(
-        base_image=base_image, build_steps=build_steps, port=port, env_vars=env_vars, cmd=cmd
-    )
+    dockerfile_content = template.render(**template_params)
 
     return dockerfile_content
 
@@ -125,6 +152,8 @@ def _get_run_command(framework: str, app_path: str) -> str:
     if framework == "flask":
         return ["flask", "run", "--host=0.0.0.0"]
     elif framework == "django":
+        # For Django, we use the standard runserver command
+        # We could consider using gunicorn for production, but runserver is simpler for development/demo
         return ["python", "manage.py", "runserver", "0.0.0.0:8000"]
     elif framework == "express" or framework == "node":
         # Check package.json for start script and main file

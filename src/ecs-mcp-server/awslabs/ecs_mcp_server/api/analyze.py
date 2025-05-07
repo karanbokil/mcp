@@ -129,8 +129,8 @@ async def _determine_container_requirements(app_path: str, framework: str) -> Di
 def _get_base_image(framework: str) -> str:
     """Returns the appropriate base image for a given framework."""
     image_map = {
-        "flask": "python:3.9-slim",
-        "django": "python:3.9-slim",
+        "flask": "python:3.10-slim",
+        "django": "python:3.10-slim",
         "express": "node:18-alpine",
         "react": "node:18-alpine",
         "node": "node:18-alpine",
@@ -162,8 +162,25 @@ async def _detect_environment_variables(app_path: str, framework: str) -> Dict[s
         env_vars["FLASK_APP"] = "app.py"
         env_vars["FLASK_ENV"] = "production"
     elif framework == "django":
-        env_vars["DJANGO_SETTINGS_MODULE"] = "project.settings"
+        # Try to detect Django project name
+        project_name = "project"  # Default fallback
+        manage_py_path = os.path.join(app_path, "manage.py")
+        if os.path.exists(manage_py_path):
+            try:
+                with open(manage_py_path, "r") as f:
+                    content = f.read()
+                    # Look for "os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'projectname.settings')"
+                    import re
+                    settings_match = re.search(r"DJANGO_SETTINGS_MODULE['\"],\s*['\"]([^.]+)\.settings", content)
+                    if settings_match:
+                        project_name = settings_match.group(1)
+            except Exception as e:
+                logger.warning(f"Error detecting Django project name: {e}")
+        
+        env_vars["DJANGO_SETTINGS_MODULE"] = f"{project_name}.settings"
         env_vars["DJANGO_SECRET_KEY"] = "<secret_key>"
+        env_vars["PYTHONDONTWRITEBYTECODE"] = "1"
+        env_vars["PYTHONUNBUFFERED"] = "1"
     elif framework == "rails":
         env_vars["RAILS_ENV"] = "production"
         env_vars["SECRET_KEY_BASE"] = "<secret_key>"
@@ -175,12 +192,34 @@ async def _determine_build_steps(app_path: str, framework: str) -> List[str]:
     """Determines build steps based on framework."""
     build_steps = []
 
-    if framework in ["flask", "django"]:
+    if framework == "flask":
         build_steps = [
             "COPY requirements.txt .",
             "RUN pip install --no-cache-dir -r requirements.txt",
             "COPY . .",
         ]
+    elif framework == "django":
+        # Check if requirements.txt exists
+        req_path = os.path.join(app_path, "requirements.txt")
+        if not os.path.exists(req_path):
+            # Try to detect Django version from installed packages or create a default
+            try:
+                import pkg_resources
+                django_version = pkg_resources.get_distribution("django").version
+                logger.info(f"Detected Django version: {django_version}")
+            except:
+                django_version = "5.2.1"  # Default to latest stable if can't detect
+                logger.info(f"Using default Django version: {django_version}")
+            
+            build_steps.append(f"RUN echo \"django>={django_version}\" > requirements.txt")
+        
+        build_steps.extend([
+            "COPY requirements.txt .",
+            "RUN pip install --no-cache-dir -r requirements.txt",
+            "COPY . .",
+            "RUN python manage.py collectstatic --noinput || echo 'Skipping collectstatic'",
+            "RUN python manage.py migrate || echo 'Skipping migrations'"
+        ])
     elif framework in ["express", "react", "node"]:
         build_steps = [
             "COPY package*.json .",

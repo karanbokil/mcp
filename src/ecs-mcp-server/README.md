@@ -50,10 +50,8 @@ The ECS MCP Server provides tools for AI assistants to:
 
 1. Analyze web applications to determine containerization requirements
 2. Generate appropriate Dockerfiles and container configurations
-3. Create ECS task definitions and service configurations
-4. Deploy applications to ECS Fargate with appropriate networking and security settings
-5. Configure Application Load Balancers for public access
-6. Return public URLs for accessing the deployed application
+3. Create ECS infrastructure including task definitions, service configurations, and load balancers
+4. Return public URLs for accessing the deployed application
 
 ## Vibe Coder Prompts
 

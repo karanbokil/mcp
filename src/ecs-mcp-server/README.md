@@ -345,25 +345,10 @@ tasks = await ecs_resource_management(
 
 The ECS MCP Server provides tools for AI assistants to:
 
-1. Provide guidance on containerizing web applications with best practices
-2. Create ECS infrastructure including task definitions, service configurations, and load balancers
-3. Return public URLs for accessing the deployed application
-4. List and inspect ECS resources across your AWS environment
-5. Explore ECR repositories and container images
-
-## Workflow
-
-The typical workflow when using the ECS MCP Server is:
-
-1. Use `containerize_app` to get guidance on how to containerize your application
-2. Follow the guidance to create your Dockerfile and build your container image
-3. Use `create_ecs_infrastructure` with `force_deploy=False` to generate CloudFormation templates
-4. Review the generated templates and make any necessary adjustments
-5. Either:
-   - Deploy the templates manually using AWS CLI, CloudFormation console, or other IaC tools
-   - Use `create_ecs_infrastructure` with `force_deploy=True` to automatically build, push, and deploy
-6. Use `get_deployment_status` to monitor the deployment and get the public URL
-7. Use `ecs_resource_management` to explore and manage your ECS resources
+1. Analyze web applications to determine containerization requirements
+2. Generate appropriate Dockerfiles and container configurations
+3. Create ECS infrastructure including task definitions, service configurations, and load balancers
+4. Return public URLs for accessing the deployed application
 
 ## Vibe Coder Prompts
 

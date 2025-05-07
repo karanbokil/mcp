@@ -289,6 +289,8 @@ async def _generate_cloudformation_template(
     desired_count: Optional[int] = None,
     enable_auto_scaling: Optional[bool] = None,
     image_uri: Optional[str] = None,
+    container_port: Optional[int] = None,
+    health_check_path: Optional[str] = None,
 ) -> str:
     """Generates a CloudFormation template."""
     templates_dir = get_templates_dir()

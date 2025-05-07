@@ -35,11 +35,7 @@
     },
     "ImageUri": {
       "Type": "String",
-      "Description": "URI of the container image repository"
-    },
-    "ImageTag": {
-      "Type": "String",
-      "Description": "Tag of the container image to deploy"
+      "Description": "URI of the container image"
     },
     "ContainerPort": {
       "Type": "Number",
@@ -50,10 +46,6 @@
       "Type": "String",
       "Description": "Path for ALB health checks",
       "Default": "/"
-    },
-    "Timestamp": {
-      "Type": "String",
-      "Description": "Deployment timestamp for tracking purposes"
     }
   },
   "Resources": {
@@ -214,8 +206,8 @@
             "PortMappings": [
               {
                 "ContainerPort": {"Ref": "ContainerPort"},
-                "Protocol": "tcp",
-                "Name": {"Fn::Sub": "${AppName}-port"}
+                "HostPort": {"Ref": "ContainerPort"},
+                "Protocol": "tcp"
               }
             ],
             "LogConfiguration": {

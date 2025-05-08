@@ -6,6 +6,10 @@ services:
     ports:
       - "{{ port }}:{{ port }}"
     environment:
+      {% if env_vars %}
       {% for key, value in env_vars.items() %}
-      - {{ key }}={{ value }}
+      {{ key }}: {{ value }}
       {% endfor %}
+      {% else %}
+      {}
+      {% endif %}

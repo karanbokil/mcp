@@ -34,6 +34,20 @@
       "Description": "Enable auto-scaling for the service",
       "Default": "false",
       "AllowedValues": ["true", "false"]
+    },
+    "ImageUri": {
+      "Type": "String",
+      "Description": "URI of the container image"
+    },
+    "ContainerPort": {
+      "Type": "Number",
+      "Description": "Port the container listens on",
+      "Default": 80
+    },
+    "HealthCheckPath": {
+      "Type": "String",
+      "Description": "Path for ALB health checks",
+      "Default": "/"
     }
   },
   "Resources": {
@@ -80,12 +94,6 @@
           ]
         },
         "RoleName": {"Fn::Sub": "${AppName}-task-role"}
-      }
-    },
-    "ECRRepository": {
-      "Type": "AWS::ECR::Repository",
-      "Properties": {
-        "RepositoryName": {"Fn::Sub": "${AppName}-repo"}
       }
     },
     "ALBSecurityGroup": {
@@ -151,7 +159,7 @@
       "Type": "AWS::ElasticLoadBalancingV2::TargetGroup",
       "Properties": {
         "HealthCheckIntervalSeconds": 30,
-        "HealthCheckPath": "/",
+        "HealthCheckPath": {"Ref": "HealthCheckPath"},
         "HealthCheckProtocol": "HTTP",
         "HealthCheckTimeoutSeconds": 5,
         "HealthyThresholdCount": 2,
@@ -176,12 +184,12 @@
         "ContainerDefinitions": [
           {
             "Name": {"Fn::Sub": "${AppName}-container"},
-            "Image": {"Fn::Sub": "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AppName}-repo:latest"},
+            "Image": {"Ref": "ImageUri"},
             "Essential": true,
             "PortMappings": [
               {
-                "ContainerPort": 3000,
-                "HostPort": 3000,
+                "ContainerPort": {"Ref": "ContainerPort"},
+                "HostPort": {"Ref": "ContainerPort"},
                 "Protocol": "tcp"
               }
             ],
@@ -223,7 +231,7 @@
         "LoadBalancers": [
           {
             "ContainerName": {"Fn::Sub": "${AppName}-container"},
-            "ContainerPort": 3000,
+            "ContainerPort": {"Ref": "ContainerPort"},
             "TargetGroupArn": {"Ref": "ALBTargetGroup"}
           }
         ]
@@ -242,10 +250,6 @@
     "TaskDefinitionArn": {
       "Description": "ECS Task Definition ARN",
       "Value": {"Ref": "ECSTaskDefinition"}
-    },
-    "ECRRepositoryURI": {
-      "Description": "ECR Repository URI",
-      "Value": {"Fn::Sub": "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AppName}-repo"}
     },
     "LoadBalancerDNS": {
       "Description": "Load Balancer DNS Name",

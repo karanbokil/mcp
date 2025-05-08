@@ -415,6 +415,53 @@ async def mcp_ecs_resource_management(
     return await ecs_resource_management(action, resource_type, identifier, filters)
 
 
+# ECS resource management prompt patterns
+@mcp.prompt("list ecs resources")
+def list_ecs_resources_prompt():
+    """User wants to list ECS resources"""
+    return ["ecs_resource_management"]
+
+@mcp.prompt("show ecs clusters")
+def show_ecs_clusters_prompt():
+    """User wants to see ECS clusters"""
+    return ["ecs_resource_management"]
+
+@mcp.prompt("describe ecs service")
+def describe_ecs_service_prompt():
+    """User wants to describe an ECS service"""
+    return ["ecs_resource_management"]
+
+@mcp.prompt("view ecs tasks")
+def view_ecs_tasks_prompt():
+    """User wants to view ECS tasks"""
+    return ["ecs_resource_management"]
+
+@mcp.prompt("check task definitions")
+def check_task_definitions_prompt():
+    """User wants to check ECS task definitions"""
+    return ["ecs_resource_management"]
+
+@mcp.prompt("show running containers")
+def show_running_containers_prompt():
+    """User wants to see running containers in ECS"""
+    return ["ecs_resource_management"]
+
+@mcp.prompt("view ecs resources")
+def view_ecs_resources_prompt():
+    """User wants to view ECS resources"""
+    return ["ecs_resource_management"]
+
+@mcp.prompt("inspect ecs")
+def inspect_ecs_prompt():
+    """User wants to inspect ECS resources"""
+    return ["ecs_resource_management"]
+
+@mcp.prompt("check ecs status")
+def check_ecs_status_prompt():
+    """User wants to check ECS status"""
+    return ["ecs_resource_management"]
+
+
 # Register prompt patterns
 @mcp.prompt("dockerize")
 def dockerize_prompt():

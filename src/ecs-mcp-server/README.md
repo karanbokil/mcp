@@ -44,6 +44,209 @@ Add the ECS MCP Server to your MCP client configuration:
 }
 ```
 
+## MCP Tools
+
+The ECS MCP Server provides the following tools for containerization and deployment:
+
+### 1. analyze_web_app
+
+Analyzes a web application to determine containerization requirements.
+
+**Parameters:**
+```json
+{
+  "app_path": {
+    "type": "string",
+    "description": "Path to the web application directory",
+    "required": true
+  },
+  "framework": {
+    "type": "string",
+    "description": "Web framework used (e.g., flask, express, django, rails, etc.)",
+    "required": false
+  }
+}
+```
+
+**Returns:**
+- Framework detection (Flask, Django, Express, etc.)
+- Dependency identification
+- Default port determination
+- Container requirements (base image, exposed ports)
+- Environment variable detection
+- Build steps for containerization
+- Runtime requirements (memory, CPU)
+
+**Example:**
+```python
+result = await analyze_web_app(app_path="/path/to/app")
+```
+
+### 2. containerize_app
+
+Generates Dockerfile and container configurations for a web application.
+
+**Parameters:**
+```json
+{
+  "app_path": {
+    "type": "string",
+    "description": "Path to the web application directory",
+    "required": true
+  },
+  "framework": {
+    "type": "string",
+    "description": "Web framework used (e.g., flask, express, django, rails, etc.)",
+    "required": false
+  },
+  "port": {
+    "type": "integer",
+    "description": "Port the application listens on",
+    "required": false
+  },
+  "environment_vars": {
+    "type": "object",
+    "description": "Environment variables as a JSON object",
+    "required": false
+  }
+}
+```
+
+**Returns:**
+- Dockerfile path
+- docker-compose.yml path
+- Container port
+- Environment variables
+- Validation results
+
+**Example:**
+```python
+result = await containerize_app(
+    app_path="/path/to/app",
+    port=8000,
+    environment_vars={"DEBUG": "False"}
+)
+```
+
+### 3. create_ecs_infrastructure
+
+Creates ECS infrastructure using CloudFormation.
+
+**Parameters:**
+```json
+{
+  "app_name": {
+    "type": "string",
+    "description": "Name of the application",
+    "required": true
+  },
+  "app_path": {
+    "type": "string",
+    "description": "Path to the web application directory",
+    "required": true
+  },
+  "vpc_id": {
+    "type": "string",
+    "description": "VPC ID for deployment (optional, will create new if not provided)",
+    "required": false
+  },
+  "subnet_ids": {
+    "type": "array",
+    "items": {
+      "type": "string"
+    },
+    "description": "List of subnet IDs for deployment",
+    "required": false
+  },
+  "cpu": {
+    "type": "integer",
+    "description": "CPU units for the task (e.g., 256, 512, 1024)",
+    "required": false
+  },
+  "memory": {
+    "type": "integer",
+    "description": "Memory (MB) for the task (e.g., 512, 1024, 2048)",
+    "required": false
+  },
+  "desired_count": {
+    "type": "integer",
+    "description": "Desired number of tasks",
+    "required": false
+  },
+  "enable_auto_scaling": {
+    "type": "boolean",
+    "description": "Enable auto-scaling for the service",
+    "required": false
+  },
+  "container_port": {
+    "type": "integer",
+    "description": "Port the container listens on",
+    "required": false
+  },
+  "environment_vars": {
+    "type": "object",
+    "description": "Environment variables as a JSON object",
+    "required": false
+  },
+  "health_check_path": {
+    "type": "string",
+    "description": "Path for ALB health checks",
+    "required": false
+  }
+}
+```
+
+**Returns:**
+- Stack name and ID
+- VPC and subnet IDs
+- Resources (cluster, service, task definition, load balancer)
+- ECR repository URI
+- Image URI
+
+**Example:**
+```python
+result = await create_ecs_infrastructure(
+    app_name="my-app",
+    app_path="/path/to/app",
+    memory=1024,
+    cpu=512,
+    health_check_path="/health/"
+)
+```
+
+### 4. get_deployment_status
+
+Gets the status of an ECS deployment and returns the ALB URL.
+
+**Parameters:**
+```json
+{
+  "app_name": {
+    "type": "string",
+    "description": "Name of the application",
+    "required": true
+  },
+  "cluster_name": {
+    "type": "string",
+    "description": "Name of the ECS cluster (optional, defaults to app_name)",
+    "required": false
+  }
+}
+```
+
+**Returns:**
+- Service status (active, draining, etc.)
+- Running task count
+- Desired task count
+- Application Load Balancer URL
+- Recent deployment events
+- Health check status
+
+**Example:**
+```python
+status = await get_deployment_status(app_name="my-app")
+```
+
 ## Usage
 
 The ECS MCP Server provides tools for AI assistants to:

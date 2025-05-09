@@ -13,6 +13,9 @@ A server for automating containerization and deployment of web applications to A
 - **URL Management**: Return public ALB URLs for immediate access to deployed applications
 - **Scaling Configuration**: Set up auto-scaling policies based on application requirements
 - **Security Best Practices**: Implement AWS security best practices for container deployments
+- **Resource Management**: List and explore ECS resources such as task definitions, services, clusters, and tasks
+- **ECR Integration**: View repositories and container images in Amazon ECR
+
 
 ## Installation
 
@@ -52,6 +55,8 @@ The ECS MCP Server provides tools for AI assistants to:
 2. Generate appropriate Dockerfiles and container configurations
 3. Create ECS infrastructure including task definitions, service configurations, and load balancers
 4. Return public URLs for accessing the deployed application
+7. List and inspect ECS resources across your AWS environment
+8. Explore ECR repositories and container images
 
 ## Vibe Coder Prompts
 

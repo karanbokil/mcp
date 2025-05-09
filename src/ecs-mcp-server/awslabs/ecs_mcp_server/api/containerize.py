@@ -47,6 +47,21 @@ async def containerize_app(
     if environment_vars:
         env_vars.update(environment_vars)
 
+    # For Django apps, ensure we have gunicorn for production
+    if analysis["framework"] == "django":
+        # Check if we need to add gunicorn to requirements.txt
+        req_path = os.path.join(app_path, "requirements.txt")
+        if os.path.exists(req_path):
+            try:
+                with open(req_path, "r") as f:
+                    content = f.read()
+                    if "gunicorn" not in content.lower():
+                        logger.info("Adding gunicorn to requirements.txt for production readiness")
+                        with open(req_path, "a") as f:
+                            f.write("\ngunicorn>=20.1.0\n")
+            except Exception as e:
+                logger.warning(f"Error modifying requirements.txt: {e}")
+
     # Generate Dockerfile
     dockerfile_content = await _generate_dockerfile(
         app_path=app_path,
@@ -150,11 +165,27 @@ async def _generate_dockerfile(
 def _get_run_command(framework: str, app_path: str) -> str:
     """Returns the appropriate command to run the application based on framework."""
     if framework == "flask":
+        # Check if gunicorn is in requirements.txt for Flask
+        if _has_gunicorn(app_path):
+            logger.info("Detected gunicorn in Flask app, using it for production deployment")
+            # Get the Flask application module
+            app_module = _detect_flask_app_module(app_path) or "app:app"
+            return ["gunicorn", "--bind", "0.0.0.0:5000", app_module]
         return ["flask", "run", "--host=0.0.0.0"]
     elif framework == "django":
-        # For Django, we use the standard runserver command
-        # We could consider using gunicorn for production, but runserver is simpler for development/demo
-        return ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+        # For Django, prefer gunicorn for production but support both options
+        use_gunicorn = _has_gunicorn(app_path)
+        
+        # Get the Django project name
+        project_name = _detect_django_project_name(app_path) or "project"
+        
+        if use_gunicorn:
+            logger.info("Using gunicorn for Django app (recommended for production)")
+            # Add workers and timeout for better performance and reliability
+            return ["gunicorn", "--bind", "0.0.0.0:8000", "--workers=3", "--timeout=120", f"{project_name}.wsgi:application"]
+        else:
+            logger.warning("Using Django development server. Consider adding gunicorn for production.")
+            return ["python", "manage.py", "runserver", "0.0.0.0:8000"]
     elif framework == "express" or framework == "node":
         # Check package.json for start script and main file
         pkg_path = os.path.join(app_path, "package.json")
@@ -185,6 +216,79 @@ def _get_run_command(framework: str, app_path: str) -> str:
         return ["rails", "server", "-b", "0.0.0.0"]
     else:
         return ["nginx", "-g", "daemon off;"]
+
+
+def _has_gunicorn(app_path: str) -> bool:
+    """Check if gunicorn is in requirements.txt or Pipfile."""
+    # Check requirements.txt
+    req_path = os.path.join(app_path, "requirements.txt")
+    if os.path.exists(req_path):
+        try:
+            with open(req_path, "r") as f:
+                content = f.read().lower()
+                if "gunicorn" in content:
+                    return True
+        except Exception as e:
+            logger.warning(f"Error reading requirements.txt: {e}")
+    
+    # Check Pipfile
+    pipfile_path = os.path.join(app_path, "Pipfile")
+    if os.path.exists(pipfile_path):
+        try:
+            with open(pipfile_path, "r") as f:
+                content = f.read().lower()
+                if "gunicorn" in content:
+                    return True
+        except Exception as e:
+            logger.warning(f"Error reading Pipfile: {e}")
+    
+    return False
+
+
+def _detect_flask_app_module(app_path: str) -> str:
+    """Detect the Flask application module."""
+    # Common Flask app patterns
+    for file_name in ["app.py", "main.py", "wsgi.py", "application.py"]:
+        file_path = os.path.join(app_path, file_name)
+        if os.path.exists(file_path):
+            try:
+                with open(file_path, "r") as f:
+                    content = f.read()
+                    # Look for app = Flask(__name__) pattern
+                    if "Flask(__name__)" in content:
+                        module_name = file_name.replace(".py", "")
+                        # Check if there's a specific app variable name
+                        import re
+                        app_var_match = re.search(r"(\w+)\s*=\s*Flask\(__name__\)", content)
+                        if app_var_match:
+                            app_var = app_var_match.group(1)
+                            return f"{module_name}:{app_var}"
+                        return f"{module_name}:app"
+            except Exception as e:
+                logger.warning(f"Error analyzing Flask app file {file_name}: {e}")
+    
+    # Default to app:app if we can't detect
+    return "app:app"
+
+
+def _detect_django_project_name(app_path: str) -> str:
+    """Detect the Django project name."""
+    # Check manage.py for project name
+    manage_py_path = os.path.join(app_path, "manage.py")
+    if os.path.exists(manage_py_path):
+        try:
+            with open(manage_py_path, "r") as f:
+                content = f.read()
+                # Look for "os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'projectname.settings')"
+                import re
+                settings_match = re.search(r"DJANGO_SETTINGS_MODULE['\"],\s*['\"]([^.]+)\.settings", content)
+                if settings_match:
+                    return settings_match.group(1)
+        except Exception as e:
+            logger.warning(f"Error detecting Django project name: {e}")
+    
+    # Default to project if we can't detect
+    return "project"
 
 
 async def _generate_docker_compose(app_name: str, port: int, env_vars: Dict[str, str]) -> str:

@@ -193,11 +193,17 @@ async def _determine_build_steps(app_path: str, framework: str) -> List[str]:
     build_steps = []
 
     if framework == "flask":
-        build_steps = [
+        # Check if requirements.txt exists
+        req_path = os.path.join(app_path, "requirements.txt")
+        if not os.path.exists(req_path):
+            # Create a basic requirements.txt with Flask and gunicorn
+            build_steps.append("RUN echo \"flask>=2.0.0\\ngunicorn>=20.1.0\" > requirements.txt")
+        
+        build_steps.extend([
             "COPY requirements.txt .",
             "RUN pip install --no-cache-dir -r requirements.txt",
             "COPY . .",
-        ]
+        ])
     elif framework == "django":
         # Check if requirements.txt exists
         req_path = os.path.join(app_path, "requirements.txt")
@@ -211,7 +217,18 @@ async def _determine_build_steps(app_path: str, framework: str) -> List[str]:
                 django_version = "5.2.1"  # Default to latest stable if can't detect
                 logger.info(f"Using default Django version: {django_version}")
             
-            build_steps.append(f"RUN echo \"django>={django_version}\" > requirements.txt")
+            # Include gunicorn in the default requirements for production readiness
+            build_steps.append(f"RUN echo \"django>={django_version}\\ngunicorn>=20.1.0\" > requirements.txt")
+        else:
+            # Check if gunicorn is in requirements.txt, add it if not
+            try:
+                with open(req_path, "r") as f:
+                    content = f.read()
+                    if "gunicorn" not in content.lower():
+                        logger.info("Adding gunicorn to requirements.txt for production readiness")
+                        build_steps.append("RUN echo \"gunicorn>=20.1.0\" >> requirements.txt")
+            except Exception as e:
+                logger.warning(f"Error reading requirements.txt: {e}")
         
         build_steps.extend([
             "COPY requirements.txt .",

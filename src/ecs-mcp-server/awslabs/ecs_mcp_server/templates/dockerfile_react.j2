@@ -1,0 +1,20 @@
+FROM {{ base_image }} as build
+
+WORKDIR /app
+
+{% for env_var, value in env_vars.items() %}
+ENV {{ env_var }}={{ value }}
+{% endfor %}
+
+{% for step in build_steps %}
+{{ step }}
+{% endfor %}
+
+FROM nginx:alpine
+
+COPY --from=build /app/build /usr/share/nginx/html
+COPY --from=build /app/nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE {{ port }}
+
+CMD ["nginx", "-g", "daemon off;"]

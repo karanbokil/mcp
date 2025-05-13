@@ -43,7 +43,46 @@ async def containerize_app(
     )
 
     return {
-        "container_port": port,
+        "dockerfile_path": dockerfile_path,
+        "docker_compose_path": docker_compose_path,
+        "container_port": container_port,
+        "environment_variables": env_vars,
+        "validation_result": validation_result,
+        "framework": analysis["framework"],
+        "base_image": analysis["container_requirements"]["base_image"],
+    }
+
+
+async def _generate_dockerfile(
+    app_path: str,
+    framework: str,
+    build_steps: List[str],
+    base_image: str,
+    port: int,
+    env_vars: Dict[str, str],
+) -> str:
+    """Generates a Dockerfile based on the application framework and requirements."""
+    templates_dir = get_templates_dir()
+    env = Environment(
+        loader=FileSystemLoader(templates_dir),
+        autoescape=True
+    )
+
+    # Select the appropriate template based on framework
+    template_name = f"dockerfile_{framework}.j2"
+    if not os.path.exists(os.path.join(templates_dir, template_name)):
+        template_name = "dockerfile_generic.j2"
+
+    template = env.get_template(template_name)
+
+    # Determine the command to run the application
+    cmd = _get_run_command(framework, app_path)
+
+    # No need to convert cmd to JSON string, we'll handle it in the template
+    # The template will properly format the CMD instruction based on the type
+        
+    # Additional template parameters
+    template_params = {
         "base_image": base_image,
         "guidance": containerization_guidance,
     }
@@ -235,4 +274,66 @@ def _generate_containerization_guidance(
         }
     }
     
-    return guidance
+    return False
+
+
+def _detect_flask_app_module(app_path: str) -> str:
+    """Detect the Flask application module."""
+    # Common Flask app patterns
+    for file_name in ["app.py", "main.py", "wsgi.py", "application.py"]:
+        file_path = os.path.join(app_path, file_name)
+        if os.path.exists(file_path):
+            try:
+                with open(file_path, "r") as f:
+                    content = f.read()
+                    # Look for app = Flask(__name__) pattern
+                    if "Flask(__name__)" in content:
+                        module_name = file_name.replace(".py", "")
+                        # Check if there's a specific app variable name
+                        import re
+                        app_var_match = re.search(r"(\w+)\s*=\s*Flask\(__name__\)", content)
+                        if app_var_match:
+                            app_var = app_var_match.group(1)
+                            return f"{module_name}:{app_var}"
+                        return f"{module_name}:app"
+            except Exception as e:
+                logger.warning(f"Error analyzing Flask app file {file_name}: {e}")
+    
+    # Default to app:app if we can't detect
+    return "app:app"
+
+
+def _detect_django_project_name(app_path: str) -> str:
+    """Detect the Django project name."""
+    # Check manage.py for project name
+    manage_py_path = os.path.join(app_path, "manage.py")
+    if os.path.exists(manage_py_path):
+        try:
+            with open(manage_py_path, "r") as f:
+                content = f.read()
+                # Look for "os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'projectname.settings')"
+                import re
+                settings_match = re.search(r"DJANGO_SETTINGS_MODULE['\"],\s*['\"]([^.]+)\.settings", content)
+                if settings_match:
+                    return settings_match.group(1)
+        except Exception as e:
+            logger.warning(f"Error detecting Django project name: {e}")
+    
+    # Default to project if we can't detect
+    return "project"
+
+
+async def _generate_docker_compose(app_name: str, port: int, env_vars: Dict[str, str]) -> str:
+    """Generates a docker-compose.yml file for local testing."""
+    templates_dir = get_templates_dir()
+    env = Environment(
+        loader=FileSystemLoader(templates_dir),
+        autoescape=True
+    )
+
+    template = env.get_template("docker-compose.yml.j2")
+
+    # Render the template
+    docker_compose_content = template.render(app_name=app_name, port=port, env_vars=env_vars)
+
+    return docker_compose_content

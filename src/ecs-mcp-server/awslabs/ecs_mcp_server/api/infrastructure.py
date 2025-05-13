@@ -491,7 +491,10 @@ async def _generate_cloudformation_template(
 ) -> str:
     """Generates a CloudFormation template."""
     templates_dir = get_templates_dir()
-    env = Environment(loader=FileSystemLoader(templates_dir))
+    env = Environment(
+        loader=FileSystemLoader(templates_dir),
+        autoescape=True
+    )
 
     template = env.get_template(template_name)
 

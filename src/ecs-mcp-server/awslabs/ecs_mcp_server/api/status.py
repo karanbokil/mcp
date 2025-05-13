@@ -17,16 +17,14 @@ async def get_deployment_status(
     Gets the status of an ECS deployment and returns the ALB URL.
     
     This function also polls the CloudFormation stack status to provide
-    more complete deployment information. When deployment is successful,
-    it provides guidance on setting up custom domains and HTTPS.
+    more complete deployment information.
 
     Args:
         app_name: Name of the application
         cluster_name: Name of the ECS cluster (optional, defaults to {app_name}-cluster)
 
     Returns:
-        Dict containing deployment status, CloudFormation stack status, ALB URL,
-        and guidance for custom domain and HTTPS setup when deployment is successful
+        Dict containing deployment status, CloudFormation stack status, and ALB URL
     """
     logger.info(f"Getting deployment status for {app_name}")
 
@@ -111,16 +109,11 @@ async def get_deployment_status(
                 
         # Determine overall deployment status
         overall_status = "IN_PROGRESS"
-        if (stack_status.get("status") in ["CREATE_COMPLETE", "UPDATE_COMPLETE"]) and deployment_status == "COMPLETED":
+        if stack_status.get("status") == "CREATE_COMPLETE" and deployment_status == "COMPLETED":
             if service.get("runningCount", 0) == service.get("desiredCount", 0) and service.get("desiredCount", 0) > 0:
                 overall_status = "COMPLETE"
         elif "FAIL" in stack_status.get("status", "") or "ROLLBACK" in stack_status.get("status", ""):
             overall_status = "FAILED"
-            
-        # Generate custom domain and HTTPS guidance if deployment is complete
-        custom_domain_guidance = None
-        if overall_status == "COMPLETE" and alb_url:
-            custom_domain_guidance = _generate_custom_domain_guidance(app_name, alb_url)
 
         return {
             "app_name": app_name,
@@ -135,7 +128,6 @@ async def get_deployment_status(
             "desired_count": service.get("desiredCount", 0),
             "pending_count": service.get("pendingCount", 0),
             "message": f"Application {app_name} deployment status: {overall_status}",
-            "custom_domain_guidance": custom_domain_guidance,
         }
 
     except Exception as e:

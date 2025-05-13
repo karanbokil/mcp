@@ -12,4 +12,8 @@ ENV {{ env_var }}={{ value }}
 
 EXPOSE {{ port }}
 
+{% if cmd is string %}
 CMD {{ cmd }}
+{% else %}
+CMD {{ cmd | tojson }}
+{% endif %}

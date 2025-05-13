@@ -118,7 +118,7 @@ async def mcp_analyze_web_app(
 async def mcp_containerize_app(
     app_path: str = Field(
         ...,
-        description="Path to the web application directory",
+        description="Absolute file path to the web application directory",
     ),
     framework: Optional[str] = Field(
         default=None,
@@ -172,7 +172,7 @@ async def mcp_create_ecs_infrastructure(
     ),
     app_path: str = Field(
         ...,
-        description="Path to the web application directory",
+        description="Absolute file path to the web application directory",
     ),
     vpc_id: Optional[str] = Field(
         default=None,
@@ -216,7 +216,8 @@ async def mcp_create_ecs_infrastructure(
 
     This tool sets up the necessary AWS infrastructure for deploying applications to ECS.
     It creates or uses an existing VPC, sets up security groups, IAM roles, and configures
-    the ECS cluster, task definitions, and services.
+    the ECS cluster, task definitions, and services. Deployment is asynchronous, poll the
+    get_deployment_status tool every 30 seconds after successful invocation of this.
 
     USAGE INSTRUCTIONS:
     1. Provide a name for your application
@@ -286,7 +287,9 @@ async def mcp_get_deployment_status(
     USAGE INSTRUCTIONS:
     1. Provide the name of your application
     2. Optionally specify the cluster name if different from the application name
-    3. The tool will return the deployment status and access URL
+    3. The tool will return the deployment status and access URL once the deployment is complete.
+
+    Poll this tool every 30 seconds till the status is active.
 
     The status information includes:
     - Service status (active, draining, etc.)

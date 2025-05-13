@@ -111,7 +111,10 @@ async def _generate_dockerfile(
 ) -> str:
     """Generates a Dockerfile based on the application framework and requirements."""
     templates_dir = get_templates_dir()
-    env = Environment(loader=FileSystemLoader(templates_dir))
+    env = Environment(
+        loader=FileSystemLoader(templates_dir),
+        autoescape=True
+    )
 
     # Select the appropriate template based on framework
     template_name = f"dockerfile_{framework}.j2"
@@ -123,9 +126,8 @@ async def _generate_dockerfile(
     # Determine the command to run the application
     cmd = _get_run_command(framework, app_path)
 
-    # Convert cmd list to proper JSON format for Dockerfile CMD instruction
-    if isinstance(cmd, list):
-        cmd = json.dumps(cmd)
+    # No need to convert cmd to JSON string, we'll handle it in the template
+    # The template will properly format the CMD instruction based on the type
         
     # Additional template parameters
     template_params = {
@@ -294,7 +296,10 @@ def _detect_django_project_name(app_path: str) -> str:
 async def _generate_docker_compose(app_name: str, port: int, env_vars: Dict[str, str]) -> str:
     """Generates a docker-compose.yml file for local testing."""
     templates_dir = get_templates_dir()
-    env = Environment(loader=FileSystemLoader(templates_dir))
+    env = Environment(
+        loader=FileSystemLoader(templates_dir),
+        autoescape=True
+    )
 
     template = env.get_template("docker-compose.yml.j2")
 

@@ -228,6 +228,49 @@ Gets the status of an ECS deployment and returns the ALB URL.
 status = await get_deployment_status(app_name="my-app")
 ```
 
+### 4. delete_ecs_infrastructure
+
+Deletes ECS infrastructure created by the ECS MCP Server.
+
+**Parameters:**
+```json
+{
+  "app_name": {
+    "type": "string",
+    "description": "Name of the application",
+    "required": true
+  },
+  "ecr_template_path": {
+    "type": "string",
+    "description": "Path to the ECR CloudFormation template file",
+    "required": true
+  },
+  "ecs_template_path": {
+    "type": "string",
+    "description": "Path to the ECS CloudFormation template file",
+    "required": true
+  }
+}
+```
+
+**Returns:**
+- Operation status
+- ECR stack deletion status
+- ECS stack deletion status
+- Guidance for checking deletion status
+- AWS CLI commands for verification
+
+**Example:**
+```python
+result = await delete_ecs_infrastructure(
+    app_name="my-app",
+    ecr_template_path="/path/to/my-app-ecr-infrastructure.json",
+    ecs_template_path="/path/to/my-app-ecs-infrastructure.json"
+)
+```
+
+**Warning:** This tool is not intended for production usage and is best suited for tearing down prototyped work done with the ECS MCP Server.
+
 ## Usage
 
 The ECS MCP Server provides tools for AI assistants to:

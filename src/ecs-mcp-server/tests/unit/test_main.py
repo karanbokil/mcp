@@ -88,13 +88,14 @@ class TestMain(unittest.TestCase):
         If this test fails, it indicates an issue with tool registration.
         """
         # Verify the server has registered tools
-        self.assertGreaterEqual(len(mcp.tools), 3)
+        self.assertGreaterEqual(len(mcp.tools), 4)
         
         # Verify tool names
         tool_names = [tool["name"] for tool in mcp.tools]
         self.assertIn("containerize_app", tool_names)
         self.assertIn("create_ecs_infrastructure", tool_names)
         self.assertIn("get_deployment_status", tool_names)
+        self.assertIn("delete_ecs_infrastructure", tool_names)
 
     def test_server_prompts(self):
         """
@@ -106,7 +107,7 @@ class TestMain(unittest.TestCase):
         If this test fails, it indicates an issue with prompt pattern registration.
         """
         # Verify the server has registered prompt patterns
-        self.assertGreaterEqual(len(mcp.prompt_patterns), 10)
+        self.assertGreaterEqual(len(mcp.prompt_patterns), 14)
         
         # Verify prompt patterns
         patterns = [pattern["pattern"] for pattern in mcp.prompt_patterns]
@@ -117,6 +118,10 @@ class TestMain(unittest.TestCase):
         self.assertIn("ship it", patterns)
         self.assertIn("deploy flask", patterns)
         self.assertIn("deploy django", patterns)
+        self.assertIn("delete infrastructure", patterns)
+        self.assertIn("tear down", patterns)
+        self.assertIn("remove deployment", patterns)
+        self.assertIn("clean up resources", patterns)
 
 
 if __name__ == "__main__":

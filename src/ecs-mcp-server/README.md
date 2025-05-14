@@ -2,11 +2,11 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/awslabs.ecs-mcp-server.svg)](https://pypi.org/project/awslabs.ecs-mcp-server/)
 
-A server for automating containerization and deployment of web applications to AWS ECS.
+A server for providing containerization guidance and deploying web applications to AWS ECS.
 
 ## Features
 
-- **Automated Containerization**: Generate Dockerfiles and container configurations for common web application frameworks
+- **Containerization Guidance**: Provides best practices and guidance for containerizing web applications
 - **ECS Deployment**: Deploy containerized applications to AWS ECS using Fargate
 - **Load Balancer Integration**: Automatically configure Application Load Balancers (ALBs) for web traffic
 - **Infrastructure as Code**: Generate and apply CloudFormation templates for ECS infrastructure
@@ -48,43 +48,9 @@ Add the ECS MCP Server to your MCP client configuration:
 
 The ECS MCP Server provides the following tools for containerization and deployment:
 
-### 1. analyze_web_app
+### 1. containerize_app
 
-Analyzes a web application to determine containerization requirements.
-
-**Parameters:**
-```json
-{
-  "app_path": {
-    "type": "string",
-    "description": "Path to the web application directory",
-    "required": true
-  },
-  "framework": {
-    "type": "string",
-    "description": "Web framework used (e.g., flask, express, django, rails, etc.)",
-    "required": false
-  }
-}
-```
-
-**Returns:**
-- Framework detection (Flask, Django, Express, etc.)
-- Dependency identification
-- Default port determination
-- Container requirements (base image, exposed ports)
-- Environment variable detection
-- Build steps for containerization
-- Runtime requirements (memory, CPU)
-
-**Example:**
-```python
-result = await analyze_web_app(app_path="/path/to/app")
-```
-
-### 2. containerize_app
-
-Generates Dockerfile and container configurations for a web application.
+Provides guidance for containerizing a web application.
 
 **Parameters:**
 ```json
@@ -93,42 +59,42 @@ Generates Dockerfile and container configurations for a web application.
     "type": "string",
     "description": "Path to the web application directory",
     "required": true
-  },
-  "framework": {
-    "type": "string",
-    "description": "Web framework used (e.g., flask, express, django, rails, etc.)",
-    "required": false
   },
   "port": {
     "type": "integer",
     "description": "Port the application listens on",
-    "required": false
+    "required": true
   },
-  "environment_vars": {
-    "type": "object",
-    "description": "Environment variables as a JSON object",
-    "required": false
+  "base_image": {
+    "type": "string",
+    "description": "Base Docker image to use",
+    "required": true
   }
 }
 ```
 
 **Returns:**
-- Dockerfile path
-- docker-compose.yml path
 - Container port
-- Environment variables
-- Validation results
+- Base image recommendation
+- Comprehensive containerization guidance including:
+  - Example Dockerfile content
+  - Example docker-compose.yml content
+  - Tool comparison (Docker vs Finch)
+  - Architecture recommendations (ARM64 vs AMD64)
+  - Validation guidance using Hadolint
+  - Troubleshooting tips
+  - Best practices
 
 **Example:**
 ```python
 result = await containerize_app(
     app_path="/path/to/app",
     port=8000,
-    environment_vars={"DEBUG": "False"}
+    base_image="amazonlinux:2023"
 )
 ```
 
-### 3. create_ecs_infrastructure
+### 2. create_ecs_infrastructure
 
 Creates ECS infrastructure using CloudFormation.
 
@@ -214,7 +180,7 @@ result = await create_ecs_infrastructure(
 )
 ```
 
-### 4. get_deployment_status
+### 3. get_deployment_status
 
 Gets the status of an ECS deployment and returns the ALB URL.
 
@@ -251,10 +217,18 @@ status = await get_deployment_status(app_name="my-app")
 
 The ECS MCP Server provides tools for AI assistants to:
 
-1. Analyze web applications to determine containerization requirements
-2. Generate appropriate Dockerfiles and container configurations
-3. Create ECS infrastructure including task definitions, service configurations, and load balancers
-4. Return public URLs for accessing the deployed application
+1. Provide guidance on containerizing web applications with best practices
+2. Create ECS infrastructure including task definitions, service configurations, and load balancers
+3. Return public URLs for accessing the deployed application
+
+## Workflow
+
+The typical workflow when using the ECS MCP Server is:
+
+1. Use `containerize_app` to get guidance on how to containerize your application
+2. Follow the guidance to create your Dockerfile and build your container image
+3. Use `create_ecs_infrastructure` to deploy your containerized application to AWS ECS
+4. Use `get_deployment_status` to monitor the deployment and get the public URL
 
 ## Vibe Coder Prompts
 

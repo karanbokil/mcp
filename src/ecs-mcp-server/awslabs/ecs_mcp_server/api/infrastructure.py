@@ -21,6 +21,115 @@ from awslabs.ecs_mcp_server.utils.templates import get_templates_dir
 
 logger = logging.getLogger(__name__)
 
+async def create_infrastructure(
+    app_name: str,
+    app_path: str,
+    vpc_id: Optional[str] = None,
+    subnet_ids: Optional[List[str]] = None,
+    cpu: Optional[int] = None,
+    memory: Optional[int] = None,
+    desired_count: Optional[int] = None,
+    enable_auto_scaling: Optional[bool] = None,
+    container_port: Optional[int] = None,
+    environment_vars: Optional[Dict[str, str]] = None,
+    health_check_path: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Creates complete ECS infrastructure using CloudFormation.
+    This method combines the creation of ECR and ECS infrastructure.
+    It will also build and push the Docker image.
+
+    Args:
+        app_name: Name of the application
+        app_path: Path to the application directory (required for building and pushing Docker image)
+        vpc_id: VPC ID for deployment (optional, will create new if not provided)
+        subnet_ids: List of subnet IDs for deployment (optional)
+        cpu: CPU units for the task (optional, default: 256)
+        memory: Memory (MB) for the task (optional, default: 512)
+        desired_count: Desired number of tasks (optional, default: 1)
+        enable_auto_scaling: Enable auto-scaling for the service (optional, default: False)
+        container_port: Port the container listens on (optional, will be detected from app)
+        environment_vars: Environment variables as a dictionary (optional)
+        health_check_path: Path for ALB health checks (optional, default: "/")
+
+    Returns:
+        Dict containing infrastructure creation results
+    """
+    logger.info(f"Creating complete infrastructure for {app_name}")
+    
+    # Step 1: Create ECR infrastructure
+    ecr_result = await create_ecr_infrastructure(app_name=app_name)
+    
+    # Get the ECR repository URI
+    ecr_repo_uri = ecr_result["resources"]["ecr_repository_uri"]
+    
+    # Step 2: Build and push Docker image
+    try:
+        from awslabs.ecs_mcp_server.utils.docker import build_and_push_image
+        logger.info(f"Building and pushing Docker image for {app_name} from {app_path}")
+        
+        image_tag = await build_and_push_image(
+            app_path=app_path, repository_uri=ecr_repo_uri, tag="latest"
+        )
+        logger.info(f"Image successfully built and pushed with tag: {image_tag}")
+        image_uri = f"{ecr_repo_uri}:{image_tag}"
+    except Exception as e:
+        logger.error(f"Error building and pushing Docker image: {e}")
+        # Return partial result with just ECR info if image build fails
+        return {
+            "stack_name": f"{app_name}-ecr-infrastructure",
+            "operation": "create",
+            "resources": {
+                "ecr_repository": f"{app_name}-repo",
+                "ecr_repository_uri": ecr_repo_uri,
+            },
+            "message": f"Created ECR repository, but Docker image build failed: {str(e)}"
+        }
+    
+    # Step 3: Create ECS infrastructure with the image URI
+    try:
+        ecs_result = await create_ecs_infrastructure(
+            app_name=app_name,
+            image_uri=image_uri,
+            vpc_id=vpc_id,
+            subnet_ids=subnet_ids,
+            cpu=cpu,
+            memory=memory,
+            desired_count=desired_count,
+            enable_auto_scaling=enable_auto_scaling,
+            container_port=container_port,
+            health_check_path=health_check_path if health_check_path else "/"
+        )
+    except Exception as e:
+        logger.error(f"Error creating ECS infrastructure: {e}")
+        # Return partial result with just ECR info if ECS creation fails
+        return {
+            "stack_name": f"{app_name}-ecr-infrastructure",
+            "operation": "create",
+            "resources": {
+                "ecr_repository": f"{app_name}-repo",
+                "ecr_repository_uri": ecr_repo_uri,
+            },
+            "message": f"Created ECR repository, but ECS infrastructure creation failed: {str(e)}"
+        }
+    
+    # Combine results
+    combined_result = {
+        "stack_name": ecs_result["stack_name"],
+        "stack_id": ecs_result["stack_id"],
+        "operation": ecs_result["operation"],
+        "template_path": ecs_result["template_path"],
+        "vpc_id": ecs_result["vpc_id"],
+        "subnet_ids": ecs_result["subnet_ids"],
+        "resources": {
+            **ecs_result["resources"],
+            "ecr_repository": ecr_result["resources"]["ecr_repository"],
+            "ecr_repository_uri": ecr_repo_uri,
+        },
+        "image_uri": image_uri
+    }
+    
+    return combined_result
 
 async def create_ecr_infrastructure(
     app_name: str,
@@ -301,11 +410,16 @@ async def _generate_cloudformation_template(
 
     template = env.get_template(template_name)
 
+    # Generate ISO 8601 timestamp for deployment tracking
+    from datetime import datetime
+    timestamp = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+
     # Prepare template parameters
     template_params = {
         "app_name": app_name,
         "account_id": account_id,
         "aws_region": os.environ.get("AWS_REGION", "us-east-1"),
+        "timestamp": timestamp,
     }
     
     # Add optional parameters if provided
@@ -332,112 +446,3 @@ async def _generate_cloudformation_template(
     cf_template = template.render(**template_params)
 
     return cf_template
-async def create_infrastructure(
-    app_name: str,
-    app_path: str,
-    vpc_id: Optional[str] = None,
-    subnet_ids: Optional[List[str]] = None,
-    cpu: Optional[int] = None,
-    memory: Optional[int] = None,
-    desired_count: Optional[int] = None,
-    enable_auto_scaling: Optional[bool] = None,
-    container_port: Optional[int] = None,
-    environment_vars: Optional[Dict[str, str]] = None,
-    health_check_path: Optional[str] = None,
-) -> Dict[str, Any]:
-    """
-    Creates complete ECS infrastructure using CloudFormation.
-    This method combines the creation of ECR and ECS infrastructure.
-    It will also build and push the Docker image.
-
-    Args:
-        app_name: Name of the application
-        app_path: Path to the application directory (required for building and pushing Docker image)
-        vpc_id: VPC ID for deployment (optional, will create new if not provided)
-        subnet_ids: List of subnet IDs for deployment (optional)
-        cpu: CPU units for the task (optional, default: 256)
-        memory: Memory (MB) for the task (optional, default: 512)
-        desired_count: Desired number of tasks (optional, default: 1)
-        enable_auto_scaling: Enable auto-scaling for the service (optional, default: False)
-        container_port: Port the container listens on (optional, will be detected from app)
-        environment_vars: Environment variables as a dictionary (optional)
-        health_check_path: Path for ALB health checks (optional, default: "/")
-
-    Returns:
-        Dict containing infrastructure creation results
-    """
-    logger.info(f"Creating complete infrastructure for {app_name}")
-    
-    # Step 1: Create ECR infrastructure
-    ecr_result = await create_ecr_infrastructure(app_name=app_name)
-    
-    # Get the ECR repository URI
-    ecr_repo_uri = ecr_result["resources"]["ecr_repository_uri"]
-    
-    # Step 2: Build and push Docker image
-    try:
-        from awslabs.ecs_mcp_server.utils.docker import build_and_push_image
-        logger.info(f"Building and pushing Docker image for {app_name} from {app_path}")
-        
-        image_tag = await build_and_push_image(
-            app_path=app_path, repository_uri=ecr_repo_uri, tag="latest"
-        )
-        logger.info(f"Image successfully built and pushed with tag: {image_tag}")
-        image_uri = f"{ecr_repo_uri}:{image_tag}"
-    except Exception as e:
-        logger.error(f"Error building and pushing Docker image: {e}")
-        # Return partial result with just ECR info if image build fails
-        return {
-            "stack_name": f"{app_name}-ecr-infrastructure",
-            "operation": "create",
-            "resources": {
-                "ecr_repository": f"{app_name}-repo",
-                "ecr_repository_uri": ecr_repo_uri,
-            },
-            "message": f"Created ECR repository, but Docker image build failed: {str(e)}"
-        }
-    
-    # Step 3: Create ECS infrastructure with the image URI
-    try:
-        ecs_result = await create_ecs_infrastructure(
-            app_name=app_name,
-            image_uri=image_uri,
-            vpc_id=vpc_id,
-            subnet_ids=subnet_ids,
-            cpu=cpu,
-            memory=memory,
-            desired_count=desired_count,
-            enable_auto_scaling=enable_auto_scaling,
-            container_port=container_port,
-            health_check_path=health_check_path if health_check_path else "/"
-        )
-    except Exception as e:
-        logger.error(f"Error creating ECS infrastructure: {e}")
-        # Return partial result with just ECR info if ECS creation fails
-        return {
-            "stack_name": f"{app_name}-ecr-infrastructure",
-            "operation": "create",
-            "resources": {
-                "ecr_repository": f"{app_name}-repo",
-                "ecr_repository_uri": ecr_repo_uri,
-            },
-            "message": f"Created ECR repository, but ECS infrastructure creation failed: {str(e)}"
-        }
-    
-    # Combine results
-    combined_result = {
-        "stack_name": ecs_result["stack_name"],
-        "stack_id": ecs_result["stack_id"],
-        "operation": ecs_result["operation"],
-        "template_path": ecs_result["template_path"],
-        "vpc_id": ecs_result["vpc_id"],
-        "subnet_ids": ecs_result["subnet_ids"],
-        "resources": {
-            **ecs_result["resources"],
-            "ecr_repository": ecr_result["resources"]["ecr_repository"],
-            "ecr_repository_uri": ecr_repo_uri,
-        },
-        "image_uri": image_uri
-    }
-    
-    return combined_result

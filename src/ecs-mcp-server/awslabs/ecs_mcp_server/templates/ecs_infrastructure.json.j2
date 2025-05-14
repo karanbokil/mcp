@@ -48,6 +48,10 @@
       "Type": "String",
       "Description": "Path for ALB health checks",
       "Default": "/"
+    },
+    "Timestamp": {
+      "Type": "String",
+      "Description": "Deployment timestamp for tracking purposes"
     }
   },
   "Resources": {
@@ -234,6 +238,12 @@
             "ContainerPort": {"Ref": "ContainerPort"},
             "TargetGroupArn": {"Ref": "ALBTargetGroup"}
           }
+        ],
+        "Tags": [
+          {
+            "Key": "ecs-mcp-server",
+            "Value": {"Ref": "Timestamp"}
+          }
         ]
       }
     }
@@ -254,6 +264,10 @@
     "LoadBalancerDNS": {
       "Description": "Load Balancer DNS Name",
       "Value": {"Fn::GetAtt": ["ApplicationLoadBalancer", "DNSName"]}
+    },
+    "DeploymentTimestamp": {
+      "Description": "Deployment Timestamp",
+      "Value": {"Ref": "Timestamp"}
     }
   }
 }

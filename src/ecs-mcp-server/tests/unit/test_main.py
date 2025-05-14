@@ -76,7 +76,7 @@ class TestMain(unittest.TestCase):
         # Verify instructions are provided
         self.assertIsNotNone(mcp.instructions)
         self.assertIn("WORKFLOW", mcp.instructions)
-        self.assertIn("SUPPORTED FRAMEWORKS", mcp.instructions)
+        self.assertIn("IMPORTANT", mcp.instructions)
 
     def test_server_tools(self):
         """
@@ -88,11 +88,10 @@ class TestMain(unittest.TestCase):
         If this test fails, it indicates an issue with tool registration.
         """
         # Verify the server has registered tools
-        self.assertGreaterEqual(len(mcp.tools), 4)
+        self.assertGreaterEqual(len(mcp.tools), 3)
         
         # Verify tool names
         tool_names = [tool["name"] for tool in mcp.tools]
-        self.assertIn("analyze_web_app", tool_names)
         self.assertIn("containerize_app", tool_names)
         self.assertIn("create_ecs_infrastructure", tool_names)
         self.assertIn("get_deployment_status", tool_names)

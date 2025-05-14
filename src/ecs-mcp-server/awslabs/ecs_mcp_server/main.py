@@ -112,13 +112,17 @@ async def mcp_create_ecs_infrastructure(
         ...,
         description="Absolute file path to the web application directory",
     ),
+    force_deploy: bool = Field(
+        default=False,
+        description="Set to True ONLY if you have Docker installed and running, and you agree to let the server build and deploy your image to ECR, as well as deploy ECS infrastructure for you in CloudFormation. If False, template files will be generated locally for your review.",
+    ),
     vpc_id: Optional[str] = Field(
         default=None,
-        description="VPC ID for deployment (optional, will create new if not provided)",
+        description="VPC ID for deployment (optional, will use default if not provided)",
     ),
     subnet_ids: Optional[List[str]] = Field(
         default=None,
-        description="List of subnet IDs for deployment",
+        description="List of subnet IDs for deployment, will use from default VPC if not provided",
     ),
     cpu: Optional[int] = Field(
         default=None,
@@ -140,17 +144,13 @@ async def mcp_create_ecs_infrastructure(
         default=None,
         description="Port the container listens on",
     ),
-    environment_vars: Optional[Dict[str, str]] = Field(
-        default=None,
-        description="Environment variables as a JSON object",
-    ),
     health_check_path: Optional[str] = Field(
         default=None,
         description="Path for ALB health checks",
     ),
 ) -> Dict[str, Any]:
     """
-    Creates ECS infrastructure using CloudFormation/CDK.
+    Creates ECS infrastructure using CloudFormation.
 
     This tool sets up the necessary AWS infrastructure for deploying applications to ECS.
     It creates or uses an existing VPC, sets up security groups, IAM roles, and configures
@@ -160,12 +160,13 @@ async def mcp_create_ecs_infrastructure(
     USAGE INSTRUCTIONS:
     1. Provide a name for your application
     2. Provide the path to your web application directory
-    3. Optionally specify VPC and subnet IDs if you want to use existing resources
-    4. Configure CPU, memory, and scaling options as needed
-    5. The tool will create the infrastructure and return the details
+    3. Decide whether to use force_deploy:
+       - If False (default): Template files will be generated locally for your review
+       - If True: Docker image will be built and pushed to ECR, and CloudFormation stacks will be deployed
+    4. Optionally specify VPC and subnet IDs if you want to use existing resources
+    5. Configure CPU, memory, and scaling options as needed
 
     The created infrastructure includes:
-    - VPC and subnets (if not provided)
     - Security groups
     - IAM roles and policies
     - ECS cluster
@@ -176,22 +177,23 @@ async def mcp_create_ecs_infrastructure(
     Parameters:
         app_name: Name of the application
         app_path: Path to the web application directory
-        vpc_id: VPC ID for deployment (optional, will create new if not provided)
+        force_deploy: Whether to build and deploy the infrastructure or just generate templates
+        vpc_id: VPC ID for deployment
         subnet_ids: List of subnet IDs for deployment
         cpu: CPU units for the task (e.g., 256, 512, 1024)
         memory: Memory (MB) for the task (e.g., 512, 1024, 2048)
         desired_count: Desired number of tasks
         enable_auto_scaling: Enable auto-scaling for the service
         container_port: Port the container listens on
-        environment_vars: Environment variables as a JSON object
         health_check_path: Path for ALB health checks
 
     Returns:
-        Dictionary containing infrastructure details
+        Dictionary containing infrastructure details or template paths
     """
     return await create_infrastructure(
         app_name=app_name,
         app_path=app_path,
+        force_deploy=force_deploy,
         vpc_id=vpc_id, 
         subnet_ids=subnet_ids, 
         cpu=cpu, 
@@ -199,7 +201,6 @@ async def mcp_create_ecs_infrastructure(
         desired_count=desired_count, 
         enable_auto_scaling=enable_auto_scaling,
         container_port=container_port,
-        environment_vars=environment_vars,
         health_check_path=health_check_path
     )
 

@@ -111,6 +111,12 @@ Creates ECS infrastructure using CloudFormation.
     "description": "Path to the web application directory",
     "required": true
   },
+  "force_deploy": {
+    "type": "boolean",
+    "description": "Set to True ONLY if you have Docker installed and running, and you agree to let the server build and deploy your image to ECR, as well as deploy ECS infrastructure for you in CloudFormation. If False, template files will be generated locally for your review.",
+    "required": false,
+    "default": false
+  },
   "vpc_id": {
     "type": "string",
     "description": "VPC ID for deployment (optional, will create new if not provided)",
@@ -163,17 +169,26 @@ Creates ECS infrastructure using CloudFormation.
 ```
 
 **Returns:**
-- Stack name and ID
-- VPC and subnet IDs
-- Resources (cluster, service, task definition, load balancer)
-- ECR repository URI
-- Image URI
+- If force_deploy is False: Template files and guidance for manual deployment
+- If force_deploy is True: Stack name and ID, VPC and subnet IDs, Resources (cluster, service, task definition, load balancer), ECR repository URI, Image URI
 
 **Example:**
 ```python
+# Generate templates only
 result = await create_ecs_infrastructure(
     app_name="my-app",
     app_path="/path/to/app",
+    force_deploy=False,
+    memory=1024,
+    cpu=512,
+    health_check_path="/health/"
+)
+
+# Build, push, and deploy
+result = await create_ecs_infrastructure(
+    app_name="my-app",
+    app_path="/path/to/app",
+    force_deploy=True,
     memory=1024,
     cpu=512,
     health_check_path="/health/"
@@ -227,8 +242,12 @@ The typical workflow when using the ECS MCP Server is:
 
 1. Use `containerize_app` to get guidance on how to containerize your application
 2. Follow the guidance to create your Dockerfile and build your container image
-3. Use `create_ecs_infrastructure` to deploy your containerized application to AWS ECS
-4. Use `get_deployment_status` to monitor the deployment and get the public URL
+3. Use `create_ecs_infrastructure` with `force_deploy=False` to generate CloudFormation templates
+4. Review the generated templates and make any necessary adjustments
+5. Either:
+   - Deploy the templates manually using AWS CLI, CloudFormation console, or other IaC tools
+   - Use `create_ecs_infrastructure` with `force_deploy=True` to automatically build, push, and deploy
+6. Use `get_deployment_status` to monitor the deployment and get the public URL
 
 ## Vibe Coder Prompts
 

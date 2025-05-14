@@ -1,6 +1,6 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "ECS Infrastructure for {{ app_name }}",
+  "Description": "ECS Infrastructure for Application",
   "Parameters": {
     "AppName": {
       "Type": "String",
@@ -205,6 +205,12 @@
                 "awslogs-stream-prefix": "ecs"
               }
             }
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "ecs-mcp-server",
+            "Value": {"Ref": "Timestamp"}
           }
         ]
       }

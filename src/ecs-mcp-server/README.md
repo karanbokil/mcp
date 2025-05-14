@@ -287,65 +287,6 @@ result = await delete_ecs_infrastructure(
 
 **Warning:** This tool is not intended for production usage and is best suited for tearing down prototyped work done with the ECS MCP Server.
 
-### 5. ecs_resource_management
-
-Read-only tool for managing ECS resources.
-
-**Parameters:**
-```json
-{
-  "action": {
-    "type": "string",
-    "description": "Action to perform (list, describe)",
-    "required": true
-  },
-  "resource_type": {
-    "type": "string",
-    "description": "Type of resource (cluster, service, task, task_definition, container_instance, capacity_provider)",
-    "required": true
-  },
-  "identifier": {
-    "type": "string",
-    "description": "Resource identifier (name or ARN) for describe actions",
-    "required": false
-  },
-  "filters": {
-    "type": "object",
-    "description": "Filters for list operations (e.g., {\"cluster\": \"my-cluster\", \"status\": \"RUNNING\"})",
-    "required": false
-  }
-}
-```
-
-**Returns:**
-- Requested ECS resources based on the action and resource type
-- For list actions: collection of resources with counts and statistics
-- For describe actions: detailed information about a specific resource
-
-**Example:**
-```python
-# List all clusters
-clusters = await ecs_resource_management(
-    action="list",
-    resource_type="cluster"
-)
-
-# Describe a specific service in a cluster
-service = await ecs_resource_management(
-    action="describe",
-    resource_type="service",
-    identifier="my-service",
-    filters={"cluster": "my-cluster"}
-)
-
-# List all tasks with a specific status
-tasks = await ecs_resource_management(
-    action="list",
-    resource_type="task",
-    filters={"cluster": "my-cluster", "status": "RUNNING"}
-)
-```
-
 ## Usage
 
 The ECS MCP Server provides tools for AI assistants to:

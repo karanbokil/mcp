@@ -29,6 +29,7 @@ class TestIntegration(unittest.TestCase):
         # For now, we'll just verify that the functions exist and can be imported
         self.assertTrue(callable(containerize_app))
         self.assertTrue(callable(get_deployment_status))
+        self.assertTrue(callable(delete_infrastructure))
 
 
 if __name__ == "__main__":

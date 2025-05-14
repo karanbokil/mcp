@@ -14,63 +14,6 @@ from awslabs.ecs_mcp_server.utils.aws import get_aws_account_id, get_ecr_login_p
 logger = logging.getLogger(__name__)
 
 
-async def validate_dockerfile(dockerfile_path: str) -> Dict[str, Any]:
-    """
-    Validates a Dockerfile.
-
-    Args:
-        dockerfile_path: Path to the Dockerfile
-
-    Returns:
-        Dict containing validation results
-    """
-    # Simple validation - just check if file exists and is readable
-    if not os.path.isfile(dockerfile_path):
-        return {
-            "valid": False,
-            "message": f"Dockerfile not found at {dockerfile_path}",
-            "warnings": [],
-            "errors": [f"File not found: {dockerfile_path}"],
-        }
-    
-    try:
-        with open(dockerfile_path, 'r') as f:
-            content = f.read()
-            
-        # Check for basic Dockerfile syntax
-        if not content.strip():
-            return {
-                "valid": False,
-                "message": "Dockerfile is empty",
-                "warnings": [],
-                "errors": ["Empty Dockerfile"],
-            }
-            
-        # Check if it has a FROM instruction
-        if "FROM " not in content:
-            return {
-                "valid": False,
-                "message": "Dockerfile missing FROM instruction",
-                "warnings": [],
-                "errors": ["Missing FROM instruction"],
-            }
-            
-        return {
-            "valid": True,
-            "message": "Basic Dockerfile validation passed",
-            "warnings": [],
-            "errors": [],
-        }
-    except Exception as e:
-        logger.error(f"Error validating Dockerfile: {e}")
-        return {
-            "valid": False,
-            "message": f"Dockerfile validation error: {str(e)}",
-            "warnings": [],
-            "errors": [str(e)],
-        }
-
-
 async def build_and_push_image(app_path: str, repository_uri: str, tag: str = "latest") -> str:
     """
     Builds and pushes a Docker image to ECR.

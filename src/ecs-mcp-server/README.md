@@ -69,6 +69,11 @@ Provides guidance for containerizing a web application.
     "type": "integer",
     "description": "Port the application listens on",
     "required": true
+  },
+  "base_image": {
+    "type": "string",
+    "description": "Base Docker image to use",
+    "required": true
   }
 }
 ```
@@ -345,10 +350,18 @@ tasks = await ecs_resource_management(
 
 The ECS MCP Server provides tools for AI assistants to:
 
-1. Analyze web applications to determine containerization requirements
-2. Generate appropriate Dockerfiles and container configurations
-3. Create ECS infrastructure including task definitions, service configurations, and load balancers
-4. Return public URLs for accessing the deployed application
+1. Provide guidance on containerizing web applications with best practices
+2. Create ECS infrastructure including task definitions, service configurations, and load balancers
+3. Return public URLs for accessing the deployed application
+
+## Workflow
+
+The typical workflow when using the ECS MCP Server is:
+
+1. Use `containerize_app` to get guidance on how to containerize your application
+2. Follow the guidance to create your Dockerfile and build your container image
+3. Use `create_ecs_infrastructure` to deploy your containerized application to AWS ECS
+4. Use `get_deployment_status` to monitor the deployment and get the public URL
 
 ## Vibe Coder Prompts
 

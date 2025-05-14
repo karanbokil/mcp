@@ -88,7 +88,7 @@ class TestMain(unittest.TestCase):
         If this test fails, it indicates an issue with tool registration.
         """
         # Verify the server has registered tools
-        self.assertGreaterEqual(len(mcp.tools), 4)
+        self.assertGreaterEqual(len(mcp.tools), 3)
         
         # Verify tool names
         tool_names = [tool["name"] for tool in mcp.tools]

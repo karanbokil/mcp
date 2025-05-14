@@ -31,6 +31,7 @@ class TestContainerize(unittest.TestCase):
         result = await containerize_app(
             app_path=self.app_path,
             port=8000,
+            base_image="amazonlinux:2023"
         )
         
         # Verify the result contains expected keys
@@ -62,7 +63,8 @@ class TestContainerize(unittest.TestCase):
         # Call containerize_app with no base_image
         result = await containerize_app(
             app_path=self.app_path,
-            port=8000
+            port=8000,
+            base_image=None
         )
         
         # Verify the base image was set to the default value

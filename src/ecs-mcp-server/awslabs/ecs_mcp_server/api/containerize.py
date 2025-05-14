@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 async def containerize_app(
     app_path: str,
     port: int,
+    base_image: str,
 ) -> Dict[str, Any]:
     """
     Provides guidance for containerizing a web application.
@@ -26,14 +27,16 @@ async def containerize_app(
     Args:
         app_path: Path to the web application directory
         port: Port the application listens on
+        base_image: Base Docker image to use
 
     Returns:
         Dict containing containerization guidance
     """
     logger.info(f"Generating containerization guidance for web application at {app_path}")
 
-    # Use amazonlinux:2023-minimal as default base image if not specified
-    base_image = "Slim Docker Library Images from public.ecr.aws (eg public.ecr.aws/docker/library/node:20.19.2-slim)"
+    # Use amazonlinux:2023 as default base image if not specified
+    if not base_image:
+        base_image = "amazonlinux:2023"
 
     # Create guidance for building and running the container
     containerization_guidance = _generate_containerization_guidance(
@@ -43,46 +46,7 @@ async def containerize_app(
     )
 
     return {
-        "dockerfile_path": dockerfile_path,
-        "docker_compose_path": docker_compose_path,
-        "container_port": container_port,
-        "environment_variables": env_vars,
-        "validation_result": validation_result,
-        "framework": analysis["framework"],
-        "base_image": analysis["container_requirements"]["base_image"],
-    }
-
-
-async def _generate_dockerfile(
-    app_path: str,
-    framework: str,
-    build_steps: List[str],
-    base_image: str,
-    port: int,
-    env_vars: Dict[str, str],
-) -> str:
-    """Generates a Dockerfile based on the application framework and requirements."""
-    templates_dir = get_templates_dir()
-    env = Environment(
-        loader=FileSystemLoader(templates_dir),
-        autoescape=True
-    )
-
-    # Select the appropriate template based on framework
-    template_name = f"dockerfile_{framework}.j2"
-    if not os.path.exists(os.path.join(templates_dir, template_name)):
-        template_name = "dockerfile_generic.j2"
-
-    template = env.get_template(template_name)
-
-    # Determine the command to run the application
-    cmd = _get_run_command(framework, app_path)
-
-    # No need to convert cmd to JSON string, we'll handle it in the template
-    # The template will properly format the CMD instruction based on the type
-        
-    # Additional template parameters
-    template_params = {
+        "container_port": port,
         "base_image": base_image,
         "guidance": containerization_guidance,
     }
@@ -109,7 +73,6 @@ def _generate_containerization_guidance(
         "best_practices": [
             "Use multi-stage builds to reduce image size",
             "Install only production dependencies",
-            "Use npm install instead of npm ci for node and express applications"
             "Remove unnecessary files and build artifacts",
             "Use specific versions for base images instead of 'latest'",
             "Run as a non-root user for security",
@@ -161,10 +124,9 @@ def _generate_containerization_guidance(
         },
         "build_guidance": {
             "description": "How to build the Docker image for your application",
-            "recommended_tool": "finch",
             "tool_comparison": {
                 "finch": {
-                    "description": "Finch is a container runtime that's compatible with Docker and recommended for AWS workloads",
+                    "description": "Finch is a container runtime that's compatible with Docker",
                     "installation_steps": [
                         "Visit https://github.com/runfinch/finch/releases",
                         "Download the latest release for your platform",
@@ -173,11 +135,8 @@ def _generate_containerization_guidance(
                     "benefits": [
                         "Native support for both ARM64 and x86_64 architectures",
                         "No Docker Desktop license required for commercial use",
-                        "Optimized for AWS deployments",
-                        "Better performance for local development",
-                        "Simplified container management"
                     ],
-                    "build_command": f"finch build -t {app_name}:<image_version> ."
+                    "build_command": f"finch build -t {app_name}:latest ."
                 },
                 "docker": {
                     "description": "Docker is the standard container runtime",
@@ -187,7 +146,7 @@ def _generate_containerization_guidance(
                         "Follow the installation instructions"
                     ],
                     "note": "Docker Desktop requires a paid license for commercial use in larger organizations",
-                    "build_command": f"docker build -t {app_name}:<image_version> ."
+                    "build_command": f"docker build -t {app_name}:latest ."
                 }
             },
             "architecture_guidance": {
@@ -196,14 +155,14 @@ def _generate_containerization_guidance(
                 "architecture_options": {
                     "arm64": {
                         "description": "ARM64 (Apple Silicon, AWS Graviton)",
-                        "finch_command": f"finch build --platform linux/arm64 -t {app_name}:<image_version> .",
-                        "docker_command": f"docker build --platform linux/arm64 -t {app_name}:<image_version> .",
+                        "finch_command": f"finch build --platform linux/arm64 -t {app_name}:latest .",
+                        "docker_command": f"docker build --platform linux/arm64 -t {app_name}:latest .",
                         "benefits": ["Better performance on ARM-based systems", "Lower cost on AWS Graviton instances"]
                     },
                     "amd64": {
                         "description": "AMD64/x86_64 (Intel/AMD)",
-                        "finch_command": f"finch build --platform linux/amd64 -t {app_name}:<image_version> .",
-                        "docker_command": f"docker build --platform linux/amd64 -t {app_name}:<image_version> .",
+                        "finch_command": f"finch build --platform linux/amd64 -t {app_name}:latest .",
+                        "docker_command": f"docker build --platform linux/amd64 -t {app_name}:latest .",
                         "benefits": ["Wider compatibility with existing systems"]
                     }
                 }
@@ -211,10 +170,8 @@ def _generate_containerization_guidance(
         },
         "run_guidance": {
             "description": "How to run your containerized application locally",
-            "recommended_tool": "finch",
-            "recommended_command": "finch compose up",
             "docker_compose": {
-                "description": "Using docker-compose for local testing (recommended)",
+                "description": "Using docker-compose for local testing",
                 "commands": {
                     "finch": "finch compose up",
                     "docker": "docker-compose up"
@@ -228,8 +185,8 @@ def _generate_containerization_guidance(
             "direct_run": {
                 "description": "Running the container directly",
                 "commands": {
-                    "finch": f"finch run -p {port}:{port} {app_name}:<image_version>",
-                    "docker": f"docker run -p {port}:{port} {app_name}:<image_version>"
+                    "finch": f"finch run -p {port}:{port} {app_name}:latest",
+                    "docker": f"docker run -p {port}:{port} {app_name}:latest"
                 }
             },
             "accessing_app": {
@@ -260,80 +217,13 @@ def _generate_containerization_guidance(
             }
         },
         "next_steps": {
-            "description": "Follow these steps in order to containerize and deploy your application",
+            "description": "What to do after successfully building your container",
             "steps": [
-                "1. Create a Dockerfile using the dockerfile_guidance above",
-                "2. Create a docker-compose.yml file using the docker_compose_guidance above",
-                "3. (Optional) If hadolint is installed, validate your Dockerfile: hadolint Dockerfile",
-                "4. Build your container image using Finch if installed: finch build -t " + app_name + ":<version> ., or Docker if Finch is not available: docker build -t " + app_name + ":<version> .",
-                "5. Run your containerized application using Finch if installed: finch compose up, or Docker if Finch is not available: docker-compose up",
-                "6. Verify your application works correctly at http://localhost:" + str(port),
-                "7. Identify appropriate health check paths by examining your application's routes or file structure - look for endpoints like /health, /status, /ping, or the root path / that return HTTP 200 responses",
-                "8. Use the create_ecs_infrastructure tool to deploy your application to AWS ECS with forceDeploy=False if you want to review the architecture first, or forceDeploy=True if you are prototyping and have your AWS profile set up in the ECS MCP Server"
+                "Verify that your application works correctly in the container using finch or docker compose",
+                "Consider optimizing the Dockerfile for smaller image size",
+                "Use the create_ecs_infrastructure tool to deploy to AWS ECS",
             ]
         }
     }
     
-    return False
-
-
-def _detect_flask_app_module(app_path: str) -> str:
-    """Detect the Flask application module."""
-    # Common Flask app patterns
-    for file_name in ["app.py", "main.py", "wsgi.py", "application.py"]:
-        file_path = os.path.join(app_path, file_name)
-        if os.path.exists(file_path):
-            try:
-                with open(file_path, "r") as f:
-                    content = f.read()
-                    # Look for app = Flask(__name__) pattern
-                    if "Flask(__name__)" in content:
-                        module_name = file_name.replace(".py", "")
-                        # Check if there's a specific app variable name
-                        import re
-                        app_var_match = re.search(r"(\w+)\s*=\s*Flask\(__name__\)", content)
-                        if app_var_match:
-                            app_var = app_var_match.group(1)
-                            return f"{module_name}:{app_var}"
-                        return f"{module_name}:app"
-            except Exception as e:
-                logger.warning(f"Error analyzing Flask app file {file_name}: {e}")
-    
-    # Default to app:app if we can't detect
-    return "app:app"
-
-
-def _detect_django_project_name(app_path: str) -> str:
-    """Detect the Django project name."""
-    # Check manage.py for project name
-    manage_py_path = os.path.join(app_path, "manage.py")
-    if os.path.exists(manage_py_path):
-        try:
-            with open(manage_py_path, "r") as f:
-                content = f.read()
-                # Look for "os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'projectname.settings')"
-                import re
-                settings_match = re.search(r"DJANGO_SETTINGS_MODULE['\"],\s*['\"]([^.]+)\.settings", content)
-                if settings_match:
-                    return settings_match.group(1)
-        except Exception as e:
-            logger.warning(f"Error detecting Django project name: {e}")
-    
-    # Default to project if we can't detect
-    return "project"
-
-
-async def _generate_docker_compose(app_name: str, port: int, env_vars: Dict[str, str]) -> str:
-    """Generates a docker-compose.yml file for local testing."""
-    templates_dir = get_templates_dir()
-    env = Environment(
-        loader=FileSystemLoader(templates_dir),
-        autoescape=True
-    )
-
-    template = env.get_template("docker-compose.yml.j2")
-
-    # Render the template
-    docker_compose_content = template.render(app_name=app_name, port=port, env_vars=env_vars)
-
-    return docker_compose_content
+    return guidance

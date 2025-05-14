@@ -46,6 +46,10 @@
       "Type": "String",
       "Description": "Path for ALB health checks",
       "Default": "/"
+    },
+    "Timestamp": {
+      "Type": "String",
+      "Description": "Deployment timestamp for tracking purposes"
     }
   },
   "Resources": {
@@ -373,10 +377,6 @@
     "DeploymentTimestamp": {
       "Description": "Deployment Timestamp",
       "Value": {"Ref": "Timestamp"}
-    },
-    "VPCEndpoints": {
-      "Description": "VPC Endpoints Created",
-      "Value": {"Fn::Join": [", ", ["ECR API", "ECR DKR", "S3", "CloudWatch Logs"]]}
     }
   }
 }

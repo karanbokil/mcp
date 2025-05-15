@@ -124,9 +124,10 @@ def _generate_containerization_guidance(
         },
         "build_guidance": {
             "description": "How to build the Docker image for your application",
+            "recommended_tool": "finch",
             "tool_comparison": {
                 "finch": {
-                    "description": "Finch is a container runtime that's compatible with Docker",
+                    "description": "Finch is a container runtime that's compatible with Docker and recommended for AWS workloads",
                     "installation_steps": [
                         "Visit https://github.com/runfinch/finch/releases",
                         "Download the latest release for your platform",
@@ -135,8 +136,11 @@ def _generate_containerization_guidance(
                     "benefits": [
                         "Native support for both ARM64 and x86_64 architectures",
                         "No Docker Desktop license required for commercial use",
+                        "Optimized for AWS deployments",
+                        "Better performance for local development",
+                        "Simplified container management"
                     ],
-                    "build_command": f"finch build -t {app_name}:latest ."
+                    "build_command": f"finch build -t {app_name}:<image_version> ."
                 },
                 "docker": {
                     "description": "Docker is the standard container runtime",
@@ -146,7 +150,7 @@ def _generate_containerization_guidance(
                         "Follow the installation instructions"
                     ],
                     "note": "Docker Desktop requires a paid license for commercial use in larger organizations",
-                    "build_command": f"docker build -t {app_name}:latest ."
+                    "build_command": f"docker build -t {app_name}:<image_version> ."
                 }
             },
             "architecture_guidance": {
@@ -155,14 +159,14 @@ def _generate_containerization_guidance(
                 "architecture_options": {
                     "arm64": {
                         "description": "ARM64 (Apple Silicon, AWS Graviton)",
-                        "finch_command": f"finch build --platform linux/arm64 -t {app_name}:latest .",
-                        "docker_command": f"docker build --platform linux/arm64 -t {app_name}:latest .",
+                        "finch_command": f"finch build --platform linux/arm64 -t {app_name}:<image_version> .",
+                        "docker_command": f"docker build --platform linux/arm64 -t {app_name}:<image_version> .",
                         "benefits": ["Better performance on ARM-based systems", "Lower cost on AWS Graviton instances"]
                     },
                     "amd64": {
                         "description": "AMD64/x86_64 (Intel/AMD)",
-                        "finch_command": f"finch build --platform linux/amd64 -t {app_name}:latest .",
-                        "docker_command": f"docker build --platform linux/amd64 -t {app_name}:latest .",
+                        "finch_command": f"finch build --platform linux/amd64 -t {app_name}:<image_version> .",
+                        "docker_command": f"docker build --platform linux/amd64 -t {app_name}:<image_version> .",
                         "benefits": ["Wider compatibility with existing systems"]
                     }
                 }
@@ -170,8 +174,10 @@ def _generate_containerization_guidance(
         },
         "run_guidance": {
             "description": "How to run your containerized application locally",
+            "recommended_tool": "finch",
+            "recommended_command": "finch compose up",
             "docker_compose": {
-                "description": "Using docker-compose for local testing",
+                "description": "Using docker-compose for local testing (recommended)",
                 "commands": {
                     "finch": "finch compose up",
                     "docker": "docker-compose up"
@@ -185,8 +191,8 @@ def _generate_containerization_guidance(
             "direct_run": {
                 "description": "Running the container directly",
                 "commands": {
-                    "finch": f"finch run -p {port}:{port} {app_name}:latest",
-                    "docker": f"docker run -p {port}:{port} {app_name}:latest"
+                    "finch": f"finch run -p {port}:{port} {app_name}:<image_version>",
+                    "docker": f"docker run -p {port}:{port} {app_name}:<image_version>"
                 }
             },
             "accessing_app": {
@@ -217,11 +223,16 @@ def _generate_containerization_guidance(
             }
         },
         "next_steps": {
-            "description": "What to do after successfully building your container",
+            "description": "Follow these steps in order to containerize and deploy your application",
             "steps": [
-                "Verify that your application works correctly in the container using finch or docker compose",
-                "Consider optimizing the Dockerfile for smaller image size",
-                "Use the create_ecs_infrastructure tool to deploy to AWS ECS",
+                "1. Create a Dockerfile using the dockerfile_guidance above",
+                "2. Create a docker-compose.yml file using the docker_compose_guidance above",
+                "3. (Optional) If hadolint is installed, validate your Dockerfile: hadolint Dockerfile",
+                "4. Build your container image using Finch if installed: finch build -t " + app_name + ":<version> ., or Docker if Finch is not available: docker build -t " + app_name + ":<version> .",
+                "5. Run your containerized application using Finch if installed: finch compose up, or Docker if Finch is not available: docker-compose up",
+                "6. Verify your application works correctly at http://localhost:" + str(port),
+                "7. Identify appropriate health check paths by examining your application's routes or file structure - look for endpoints like /health, /status, /ping, or the root path / that return HTTP 200 responses",
+                "8. Use the create_ecs_infrastructure tool to deploy your application to AWS ECS with forceDeploy=False if you want to review the architecture first, or forceDeploy=True if you are prototyping and have your AWS profile set up in the ECS MCP Server"
             ]
         }
     }

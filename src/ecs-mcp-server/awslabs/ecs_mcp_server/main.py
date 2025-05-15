@@ -169,6 +169,10 @@ async def mcp_create_ecs_infrastructure(
         default=None,
         description="List of subnet IDs for deployment",
     ),
+    route_table_ids: Optional[List[str]] = Field(
+        default=None,
+        description="List of route table IDs for S3 Gateway endpoint association, will use main route table if not provided",
+    ),
     cpu: Optional[int] = Field(
         default=None,
         description="CPU units for the task (e.g., 256, 512, 1024)",
@@ -180,10 +184,6 @@ async def mcp_create_ecs_infrastructure(
     desired_count: Optional[int] = Field(
         default=None,
         description="Desired number of tasks",
-    ),
-    enable_auto_scaling: Optional[bool] = Field(
-        default=None,
-        description="Enable auto-scaling for the service",
     ),
     container_port: Optional[int] = Field(
         default=None,
@@ -227,10 +227,10 @@ async def mcp_create_ecs_infrastructure(
         app_path: Path to the web application directory
         vpc_id: VPC ID for deployment (optional, will create new if not provided)
         subnet_ids: List of subnet IDs for deployment
+        route_table_ids: List of route table IDs for S3 Gateway endpoint association
         cpu: CPU units for the task (e.g., 256, 512, 1024)
         memory: Memory (MB) for the task (e.g., 512, 1024, 2048)
         desired_count: Desired number of tasks
-        enable_auto_scaling: Enable auto-scaling for the service
         container_port: Port the container listens on
         environment_vars: Environment variables as a JSON object
         health_check_path: Path for ALB health checks
@@ -242,11 +242,11 @@ async def mcp_create_ecs_infrastructure(
         app_name=app_name,
         app_path=app_path,
         vpc_id=vpc_id, 
-        subnet_ids=subnet_ids, 
+        subnet_ids=subnet_ids,
+        route_table_ids=route_table_ids,
         cpu=cpu, 
         memory=memory, 
         desired_count=desired_count, 
-        enable_auto_scaling=enable_auto_scaling,
         container_port=container_port,
         environment_vars=environment_vars,
         health_check_path=health_check_path

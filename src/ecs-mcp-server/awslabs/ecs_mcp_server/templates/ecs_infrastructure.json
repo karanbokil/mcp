@@ -210,8 +210,8 @@
             "PortMappings": [
               {
                 "ContainerPort": {"Ref": "ContainerPort"},
-                "HostPort": {"Ref": "ContainerPort"},
-                "Protocol": "tcp"
+                "Protocol": "tcp",
+                "Name": {"Fn::Sub": "${AppName}-port"}
               }
             ],
             "LogConfiguration": {
@@ -377,6 +377,10 @@
     "DeploymentTimestamp": {
       "Description": "Deployment Timestamp",
       "Value": {"Ref": "Timestamp"}
+    },
+    "VPCEndpoints": {
+      "Description": "VPC Endpoints Created",
+      "Value": {"Fn::Join": [", ", ["ECR API", "ECR DKR", "S3", "CloudWatch Logs"]]}
     }
   }
 }

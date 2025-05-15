@@ -21,10 +21,10 @@ async def create_infrastructure(
     app_path: str,
     vpc_id: Optional[str] = None,
     subnet_ids: Optional[List[str]] = None,
+    route_table_ids: Optional[List[str]] = None,
     cpu: Optional[int] = None,
     memory: Optional[int] = None,
     desired_count: Optional[int] = None,
-    enable_auto_scaling: Optional[bool] = None,
     container_port: Optional[int] = None,
     environment_vars: Optional[Dict[str, str]] = None,
     health_check_path: Optional[str] = None,
@@ -88,10 +88,10 @@ async def create_infrastructure(
             image_uri=image_uri,
             vpc_id=vpc_id,
             subnet_ids=subnet_ids,
+            route_table_ids=route_table_ids,
             cpu=cpu,
             memory=memory,
             desired_count=desired_count,
-            enable_auto_scaling=enable_auto_scaling,
             container_port=container_port,
             health_check_path=health_check_path if health_check_path else "/"
         )
@@ -229,7 +229,6 @@ async def create_ecs_infrastructure(
     cpu: Optional[int] = None,
     memory: Optional[int] = None,
     desired_count: Optional[int] = None,
-    enable_auto_scaling: Optional[bool] = None,
     container_port: Optional[int] = None,
     health_check_path: Optional[str] = None,
 ) -> Dict[str, Any]:
@@ -260,7 +259,6 @@ async def create_ecs_infrastructure(
     cpu = cpu or 256
     memory = memory or 512
     desired_count = desired_count or 1
-    enable_auto_scaling = enable_auto_scaling or False
     container_port = container_port or 80
     health_check_path = health_check_path or "/"
 
@@ -309,24 +307,45 @@ async def create_ecs_infrastructure(
     if stack_exists:
         # Update existing stack
         try:
-            response = cloudformation.update_stack(
-                StackName=stack_name,
-                TemplateBody=template_content,
-                Capabilities=["CAPABILITY_NAMED_IAM"],
-                Parameters=[
-                    {"ParameterKey": "AppName", "ParameterValue": app_name},
-                    {"ParameterKey": "VpcId", "ParameterValue": vpc_id},
-                    {"ParameterKey": "SubnetIds", "ParameterValue": ",".join(subnet_ids)},
-                    {"ParameterKey": "RouteTableIds", "ParameterValue": ",".join(route_table_ids)},
-                    {"ParameterKey": "TaskCpu", "ParameterValue": str(cpu)},
-                    {"ParameterKey": "TaskMemory", "ParameterValue": str(memory)},
-                    {"ParameterKey": "DesiredCount", "ParameterValue": str(desired_count)},
-                    {"ParameterKey": "ImageUri", "ParameterValue": image_uri},
-                    {"ParameterKey": "ContainerPort", "ParameterValue": str(container_port)},
-                    {"ParameterKey": "HealthCheckPath", "ParameterValue": health_check_path}
-                ],
-            )
-            operation = "update"
+            cloudformation.describe_stacks(StackName=stack_name)
+            stack_exists = True
+        except cloudformation.exceptions.ClientError:
+            stack_exists = False
+
+        if stack_exists:
+            # Update existing stack
+            try:
+                response = cloudformation.update_stack(
+                    StackName=stack_name,
+                    TemplateBody=cf_template,
+                    Capabilities=["CAPABILITY_NAMED_IAM"],
+                    Parameters=[
+                        {"ParameterKey": "AppName", "ParameterValue": app_name},
+                        {"ParameterKey": "VpcId", "ParameterValue": vpc_id},
+                        {"ParameterKey": "SubnetIds", "ParameterValue": ",".join(subnet_ids)},
+                        {"ParameterKey": "RouteTableIds", "ParameterValue": ",".join(route_table_ids)},
+                        {"ParameterKey": "TaskCpu", "ParameterValue": str(cpu)},
+                        {"ParameterKey": "TaskMemory", "ParameterValue": str(memory)},
+                        {"ParameterKey": "DesiredCount", "ParameterValue": str(desired_count)},
+                        {"ParameterKey": "ImageUri", "ParameterValue": image_uri},
+                        {"ParameterKey": "ContainerPort", "ParameterValue": str(container_port)},
+                        {"ParameterKey": "HealthCheckPath", "ParameterValue": health_check_path},
+                        {"ParameterKey": "Timestamp", "ParameterValue": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")}
+                    ],
+                )
+                operation = "update"
+                logger.info(f"Updating existing ECS infrastructure stack {stack_name}...")
+            except cloudformation.exceptions.ClientError as e:
+                # Check if the error is "No updates are to be performed"
+                if "No updates are to be performed" in str(e):
+                    logger.info(f"No updates needed for ECS infrastructure stack {stack_name}")
+                    operation = "no_update_required"
+                    
+                    # Get the existing stack details
+                    response = cloudformation.describe_stacks(StackName=stack_name)
+                else:
+                    # Re-raise if it's a different error
+                    raise
         else:
             # Create new stack
             response = cloudformation.create_stack(
@@ -337,13 +356,10 @@ async def create_ecs_infrastructure(
                     {"ParameterKey": "AppName", "ParameterValue": app_name},
                     {"ParameterKey": "VpcId", "ParameterValue": vpc_id},
                     {"ParameterKey": "SubnetIds", "ParameterValue": ",".join(subnet_ids)},
+                    {"ParameterKey": "RouteTableIds", "ParameterValue": ",".join(route_table_ids)},
                     {"ParameterKey": "TaskCpu", "ParameterValue": str(cpu)},
                     {"ParameterKey": "TaskMemory", "ParameterValue": str(memory)},
                     {"ParameterKey": "DesiredCount", "ParameterValue": str(desired_count)},
-                    {
-                        "ParameterKey": "EnableAutoScaling",
-                        "ParameterValue": str(enable_auto_scaling).lower(),
-                    },
                     {"ParameterKey": "ImageUri", "ParameterValue": image_uri},
                     {"ParameterKey": "ContainerPort", "ParameterValue": str(container_port)},
                     {"ParameterKey": "HealthCheckPath", "ParameterValue": health_check_path}

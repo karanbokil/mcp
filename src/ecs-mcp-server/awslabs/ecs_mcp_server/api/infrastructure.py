@@ -24,10 +24,10 @@ async def create_infrastructure(
     force_deploy: bool = False,
     vpc_id: Optional[str] = None,
     subnet_ids: Optional[List[str]] = None,
+    route_table_ids: Optional[List[str]] = None,
     cpu: Optional[int] = None,
     memory: Optional[int] = None,
     desired_count: Optional[int] = None,
-    enable_auto_scaling: Optional[bool] = None,
     container_port: Optional[int] = None,
     health_check_path: Optional[str] = None,
 ) -> Dict[str, Any]:
@@ -142,10 +142,10 @@ async def create_infrastructure(
             image_uri=image_uri,
             vpc_id=vpc_id,
             subnet_ids=subnet_ids,
+            route_table_ids=route_table_ids,
             cpu=cpu,
             memory=memory,
             desired_count=desired_count,
-            enable_auto_scaling=enable_auto_scaling,
             container_port=container_port,
             health_check_path=health_check_path if health_check_path else "/",
             force_deploy=True
@@ -311,10 +311,10 @@ async def create_ecs_infrastructure(
     image_uri: Optional[str] = None,
     vpc_id: Optional[str] = None,
     subnet_ids: Optional[List[str]] = None,
+    route_table_ids: Optional[List[str]] = None,
     cpu: Optional[int] = None,
     memory: Optional[int] = None,
     desired_count: Optional[int] = None,
-    enable_auto_scaling: Optional[bool] = None,
     container_port: Optional[int] = None,
     health_check_path: Optional[str] = None,
     force_deploy: bool = False,
@@ -346,7 +346,6 @@ async def create_ecs_infrastructure(
     cpu = cpu or 256
     memory = memory or 512
     desired_count = desired_count or 1
-    enable_auto_scaling = enable_auto_scaling or False
     container_port = container_port or 80
     health_check_path = health_check_path or "/"
 
@@ -358,6 +357,11 @@ async def create_ecs_infrastructure(
         vpc_info = await get_default_vpc_and_subnets()
         vpc_id = vpc_id or vpc_info["vpc_id"]
         subnet_ids = subnet_ids or vpc_info["subnet_ids"]
+        
+    # Get route table IDs if not provided
+    if not route_table_ids:
+        from awslabs.ecs_mcp_server.utils.aws import get_route_tables_for_vpc
+        route_table_ids = await get_route_tables_for_vpc(vpc_id)
 
     # Read the CloudFormation template
     templates_dir = get_templates_dir()
@@ -403,13 +407,10 @@ async def create_ecs_infrastructure(
                         {"ParameterKey": "AppName", "ParameterValue": app_name},
                         {"ParameterKey": "VpcId", "ParameterValue": vpc_id},
                         {"ParameterKey": "SubnetIds", "ParameterValue": ",".join(subnet_ids)},
+                        {"ParameterKey": "RouteTableIds", "ParameterValue": ",".join(route_table_ids)},
                         {"ParameterKey": "TaskCpu", "ParameterValue": str(cpu)},
                         {"ParameterKey": "TaskMemory", "ParameterValue": str(memory)},
                         {"ParameterKey": "DesiredCount", "ParameterValue": str(desired_count)},
-                        {
-                            "ParameterKey": "EnableAutoScaling",
-                            "ParameterValue": str(enable_auto_scaling).lower(),
-                        },
                         {"ParameterKey": "ImageUri", "ParameterValue": image_uri},
                         {"ParameterKey": "ContainerPort", "ParameterValue": str(container_port)},
                         {"ParameterKey": "HealthCheckPath", "ParameterValue": health_check_path},
@@ -439,13 +440,10 @@ async def create_ecs_infrastructure(
                     {"ParameterKey": "AppName", "ParameterValue": app_name},
                     {"ParameterKey": "VpcId", "ParameterValue": vpc_id},
                     {"ParameterKey": "SubnetIds", "ParameterValue": ",".join(subnet_ids)},
+                    {"ParameterKey": "RouteTableIds", "ParameterValue": ",".join(route_table_ids)},
                     {"ParameterKey": "TaskCpu", "ParameterValue": str(cpu)},
                     {"ParameterKey": "TaskMemory", "ParameterValue": str(memory)},
                     {"ParameterKey": "DesiredCount", "ParameterValue": str(desired_count)},
-                    {
-                        "ParameterKey": "EnableAutoScaling",
-                        "ParameterValue": str(enable_auto_scaling).lower(),
-                    },
                     {"ParameterKey": "ImageUri", "ParameterValue": image_uri},
                     {"ParameterKey": "ContainerPort", "ParameterValue": str(container_port)},
                     {"ParameterKey": "HealthCheckPath", "ParameterValue": health_check_path},

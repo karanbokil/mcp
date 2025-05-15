@@ -11,7 +11,9 @@ A server for providing containerization guidance and deploying web applications 
 - **Load Balancer Integration**: Automatically configure Application Load Balancers (ALBs) for web traffic
 - **Infrastructure as Code**: Generate and apply CloudFormation templates for ECS infrastructure
 - **URL Management**: Return public ALB URLs for immediate access to deployed applications
-- **Scaling Configuration**: Set up auto-scaling policies based on application requirements
+- **Circuit Breaker**: Implement deployment circuit breaker with automatic rollback
+- **Container Insights**: Enable enhanced container insights for monitoring
+- **VPC Endpoints**: Configure VPC endpoints for secure access to AWS services without internet exposure
 - **Security Best Practices**: Implement AWS security best practices for container deployments
 
 ## Installation
@@ -130,6 +132,14 @@ Creates ECS infrastructure using CloudFormation.
     "description": "List of subnet IDs for deployment",
     "required": false
   },
+  "route_table_ids": {
+    "type": "array",
+    "items": {
+      "type": "string"
+    },
+    "description": "List of route table IDs for S3 Gateway endpoint association, will use main route table if not provided",
+    "required": false
+  },
   "cpu": {
     "type": "integer",
     "description": "CPU units for the task (e.g., 256, 512, 1024)",
@@ -145,9 +155,9 @@ Creates ECS infrastructure using CloudFormation.
     "description": "Desired number of tasks",
     "required": false
   },
-  "enable_auto_scaling": {
-    "type": "boolean",
-    "description": "Enable auto-scaling for the service",
+  "container_port": {
+    "type": "integer",
+    "description": "Port the container listens on",
     "required": false
   },
   "container_port": {
@@ -189,6 +199,9 @@ result = await create_ecs_infrastructure(
     app_name="my-app",
     app_path="/path/to/app",
     force_deploy=True,
+    memory=1024,
+    cpu=512,
+    route_table_ids=["rtb-012d33237d56fe9e7"],
     memory=1024,
     cpu=512,
     health_check_path="/health/"

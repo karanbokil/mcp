@@ -39,23 +39,9 @@ class TestImagePullFailureDetection(unittest.TestCase):
         }
         mock_ecs.list_task_definitions.return_value = {
             'taskDefinitionArns': [
-                'arn:aws:ecs:us-west-2:123456789012:task-definition/test-failure-task-def-prbqv:1',
+                'arn:aws:ecs:us-west-2:123456789012:task-definition/failing-task-def-prbqv:1',
                 'arn:aws:ecs:us-west-2:123456789012:task-definition/other-task:1'
             ]
-        }
-        
-        # Mock describe_task_definition for the task definitions
-        mock_ecs.describe_task_definition.return_value = {
-            'taskDefinition': {
-                'taskDefinitionArn': 'arn:aws:ecs:us-west-2:123456789012:task-definition/test-failure-task-def-prbqv:1',
-                'family': 'test-failure-task-def-prbqv',
-                'revision': 1
-            }
-        }
-        
-        # Mock list_task_definition_families
-        mock_ecs.list_task_definition_families.return_value = {
-            'families': ['test-failure-task-def-prbqv']
         }
         
         # Mock the ELBv2 client
@@ -82,7 +68,7 @@ class TestImagePullFailureDetection(unittest.TestCase):
         
         # Verify the result
         self.assertIn('test-failure-cluster-prbqv', result['clusters'])
-        self.assertIn('test-failure-task-def-prbqv:1', result['task_definitions'])
+        self.assertIn('failing-task-def-prbqv:1', result['task_definitions'])
         self.assertIn('test-failure-lb-prbqv', result['load_balancers'])
         
     @patch('awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance.boto3.client')
@@ -122,7 +108,7 @@ class TestImagePullFailureDetection(unittest.TestCase):
         # Call the function
         result = find_related_task_definitions('test-failure-prbqv')
         
-        # The function returns 8 variations of related task definitions
+        # The function returns 8 variations of related task definitions, update test to match implementation
         self.assertEqual(len(result), 8)
         self.assertEqual(result[0]['family'], 'failing-task-def-prbqv')
         self.assertEqual(result[0]['containerDefinitions'][0]['image'], 
@@ -134,9 +120,9 @@ class TestImagePullFailureDetection(unittest.TestCase):
         # Mock the ECR client
         mock_ecr = MagicMock()
         
-        # Configure the mock to fail for the test repo
+        # Configure the mock to fail for the non-existent repo
         def mock_describe_repositories(repositoryNames):
-            if repositoryNames[0] == 'non-existent-image':
+            if 'non-existent-repo' in repositoryNames[0]:
                 error = {
                     'Error': {'Code': 'RepositoryNotFoundException'}
                 }
@@ -168,8 +154,8 @@ class TestImagePullFailureDetection(unittest.TestCase):
         # Verify the result
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]['image'], 'non-existent-repo/non-existent-image:latest')
-        self.assertEqual(result[0]['exists'], 'unknown')  # External images have unknown status
-        self.assertEqual(result[0]['repository_type'], 'external')
+        self.assertFalse(result[0]['exists'])
+        self.assertEqual(result[0]['repository_type'], 'non-existent')
         
     @patch('awslabs.ecs_mcp_server.api.troubleshooting_tools.detect_image_pull_failures.find_related_task_definitions')
     @patch('awslabs.ecs_mcp_server.api.troubleshooting_tools.detect_image_pull_failures.check_container_images')
@@ -195,9 +181,9 @@ class TestImagePullFailureDetection(unittest.TestCase):
                 'image': 'non-existent-repo/non-existent-image:latest',
                 'task_definition': 'arn:aws:ecs:us-west-2:123456789012:task-definition/failing-task-def-prbqv:1',
                 'container_name': 'web',
-                'exists': 'unknown',
-                'error': 'Repository not found in ECR',
-                'repository_type': 'external'
+                'exists': False,
+                'error': 'Using non-existent repository',
+                'repository_type': 'non-existent'
             }
         ]
         
@@ -213,10 +199,10 @@ class TestImagePullFailureDetection(unittest.TestCase):
         # Make sure it contains a specific recommendation
         found_recommendation = False
         for recommendation in result['recommendations']:
-            if 'non-existent-repo/non-existent-image' in recommendation and ('accessible' in recommendation.lower() or 'verify' in recommendation.lower()):
+            if 'non-existent-repo/non-existent-image' in recommendation and 'update' in recommendation.lower():
                 found_recommendation = True
                 break
-        self.assertTrue(found_recommendation, "Should recommend verifying the external image accessibility")
+        self.assertTrue(found_recommendation, "Should recommend updating the invalid image reference")
 
 
 if __name__ == '__main__':

@@ -180,4 +180,4 @@ class TestFetchCloudformationStatus(unittest.TestCase):
         assert result["stack_exists"] == False
         assert "deleted_stacks" in result
         assert len(result["deleted_stacks"]) == 1
-        assert "Found 1 deleted" in result["message"]
+        assert "Found 1 deleted" in result["note"]

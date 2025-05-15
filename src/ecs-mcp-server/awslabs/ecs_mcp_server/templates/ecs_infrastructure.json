@@ -35,7 +35,11 @@
     },
     "ImageUri": {
       "Type": "String",
-      "Description": "URI of the container image"
+      "Description": "URI of the container image repository"
+    },
+    "ImageTag": {
+      "Type": "String",
+      "Description": "Tag of the container image to deploy"
     },
     "ContainerPort": {
       "Type": "Number",
@@ -205,7 +209,7 @@
         "ContainerDefinitions": [
           {
             "Name": {"Fn::Sub": "${AppName}-container"},
-            "Image": {"Ref": "ImageUri"},
+            "Image": {"Fn::Sub": "${ImageUri}:${ImageTag}"},
             "Essential": true,
             "PortMappings": [
               {

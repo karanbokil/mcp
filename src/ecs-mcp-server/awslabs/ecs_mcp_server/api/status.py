@@ -109,7 +109,7 @@ async def get_deployment_status(
                 
         # Determine overall deployment status
         overall_status = "IN_PROGRESS"
-        if stack_status.get("status") == "CREATE_COMPLETE" and deployment_status == "COMPLETED":
+        if (stack_status.get("status") in ["CREATE_COMPLETE", "UPDATE_COMPLETE"]) and deployment_status == "COMPLETED":
             if service.get("runningCount", 0) == service.get("desiredCount", 0) and service.get("desiredCount", 0) > 0:
                 overall_status = "COMPLETE"
         elif "FAIL" in stack_status.get("status", "") or "ROLLBACK" in stack_status.get("status", ""):

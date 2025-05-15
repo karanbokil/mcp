@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import subprocess
+import time
 from typing import Any, Dict
 
 from awslabs.ecs_mcp_server.utils.aws import get_aws_account_id, get_ecr_login_password
@@ -13,18 +14,22 @@ from awslabs.ecs_mcp_server.utils.aws import get_aws_account_id, get_ecr_login_p
 logger = logging.getLogger(__name__)
 
 
-async def build_and_push_image(app_path: str, repository_uri: str, tag: str = "latest") -> str:
+async def build_and_push_image(app_path: str, repository_uri: str, tag: str = None) -> str:
     """
     Builds and pushes a Docker image to ECR.
 
     Args:
         app_path: Path to the application directory containing the Dockerfile
         repository_uri: ECR repository URI
-        tag: Image tag
+        tag: Image tag (if None, uses epoch timestamp)
 
     Returns:
         Image tag
     """
+    # Generate a timestamp-based tag if none provided
+    if tag is None:
+        tag = str(int(time.time()))
+        
     logger.info(f"Building and pushing Docker image to {repository_uri}:{tag}")
 
     try:

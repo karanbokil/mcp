@@ -118,10 +118,10 @@ async def create_infrastructure(
         logger.info(f"Building and pushing Docker image for {app_name} from {app_path}")
         
         image_tag = await build_and_push_image(
-            app_path=app_path, repository_uri=ecr_repo_uri, tag="latest"
+            app_path=app_path, repository_uri=ecr_repo_uri
         )
         logger.info(f"Image successfully built and pushed with tag: {image_tag}")
-        image_uri = f"{ecr_repo_uri}:{image_tag}"
+        image_uri = ecr_repo_uri
     except Exception as e:
         logger.error(f"Error building and pushing Docker image: {e}")
         # Return partial result with just ECR info if image build fails
@@ -140,6 +140,7 @@ async def create_infrastructure(
         ecs_result = await create_ecs_infrastructure(
             app_name=app_name,
             image_uri=image_uri,
+            image_tag=image_tag,
             vpc_id=vpc_id,
             subnet_ids=subnet_ids,
             route_table_ids=route_table_ids,
@@ -309,6 +310,7 @@ async def create_ecr_infrastructure(
 async def create_ecs_infrastructure(
     app_name: str,
     image_uri: Optional[str] = None,
+    image_tag: Optional[str] = None,
     vpc_id: Optional[str] = None,
     subnet_ids: Optional[List[str]] = None,
     route_table_ids: Optional[List[str]] = None,
@@ -348,6 +350,11 @@ async def create_ecs_infrastructure(
     desired_count = desired_count or 1
     container_port = container_port or 80
     health_check_path = health_check_path or "/"
+    
+    # Parse image URI and tag if a full image URI with tag is provided
+    if image_uri and ":" in image_uri and not image_tag:
+        image_repo, image_tag = image_uri.split(":", 1)
+        image_uri = image_repo
 
     # Get AWS account ID
     account_id = await get_aws_account_id()
@@ -412,6 +419,7 @@ async def create_ecs_infrastructure(
                         {"ParameterKey": "TaskMemory", "ParameterValue": str(memory)},
                         {"ParameterKey": "DesiredCount", "ParameterValue": str(desired_count)},
                         {"ParameterKey": "ImageUri", "ParameterValue": image_uri},
+                        {"ParameterKey": "ImageTag", "ParameterValue": image_tag},
                         {"ParameterKey": "ContainerPort", "ParameterValue": str(container_port)},
                         {"ParameterKey": "HealthCheckPath", "ParameterValue": health_check_path},
                         {"ParameterKey": "Timestamp", "ParameterValue": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")}
@@ -445,6 +453,7 @@ async def create_ecs_infrastructure(
                     {"ParameterKey": "TaskMemory", "ParameterValue": str(memory)},
                     {"ParameterKey": "DesiredCount", "ParameterValue": str(desired_count)},
                     {"ParameterKey": "ImageUri", "ParameterValue": image_uri},
+                    {"ParameterKey": "ImageTag", "ParameterValue": image_tag},
                     {"ParameterKey": "ContainerPort", "ParameterValue": str(container_port)},
                     {"ParameterKey": "HealthCheckPath", "ParameterValue": health_check_path},
                     {"ParameterKey": "Timestamp", "ParameterValue": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")}

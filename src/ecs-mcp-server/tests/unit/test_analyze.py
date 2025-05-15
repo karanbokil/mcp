@@ -150,7 +150,7 @@ class TestAnalyze(unittest.TestCase):
         self.assertIn("working_dir", result)
         
         # Verify the base image is correct
-        self.assertEqual(result["base_image"], "python:3.9-slim")
+        self.assertEqual(result["base_image"], "python:3.10-slim")
         
         # Verify the exposed ports include the default port
         self.assertIn(5000, result["exposed_ports"])
@@ -158,8 +158,8 @@ class TestAnalyze(unittest.TestCase):
     def test_get_base_image(self):
         """Test _get_base_image function."""
         # Test base images for different frameworks
-        self.assertEqual(_get_base_image("flask"), "python:3.9-slim")
-        self.assertEqual(_get_base_image("django"), "python:3.9-slim")
+        self.assertEqual(_get_base_image("flask"), "python:3.10-slim")
+        self.assertEqual(_get_base_image("django"), "python:3.10-slim")
         self.assertEqual(_get_base_image("express"), "node:18-alpine")
         self.assertEqual(_get_base_image("react"), "node:18-alpine")
         self.assertEqual(_get_base_image("rails"), "ruby:3.2-alpine")

@@ -4,9 +4,7 @@ API for creating ECS infrastructure using CloudFormation/CDK.
 
 import logging
 import os
-import tempfile
-from typing import Any, Dict, List, Optional
-
+from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime
 
 from awslabs.ecs_mcp_server.utils.aws import (
@@ -17,6 +15,53 @@ from awslabs.ecs_mcp_server.utils.aws import (
 from awslabs.ecs_mcp_server.utils.templates import get_templates_dir
 
 logger = logging.getLogger(__name__)
+
+def prepare_template_files(app_name: str, app_path: str) -> Dict[str, str]:
+    """
+    Prepares CloudFormation template files for ECR and ECS infrastructure.
+    Creates the cloudformation-templates directory if it doesn't exist and
+    returns paths to the template files.
+
+    Args:
+        app_name: Name of the application
+        app_path: Path to the application directory
+
+    Returns:
+        Dict containing paths to the template files
+    """
+    # Create templates directory
+    templates_dir = os.path.join(app_path, "cloudformation-templates")
+    os.makedirs(templates_dir, exist_ok=True)
+    
+    # Define template file paths
+    ecr_template_path = os.path.join(templates_dir, f"{app_name}-ecr-infrastructure.json")
+    ecs_template_path = os.path.join(templates_dir, f"{app_name}-ecs-infrastructure.json")
+    
+    # Read and write ECR template
+    source_templates_dir = get_templates_dir()
+    ecr_source_path = os.path.join(source_templates_dir, "ecr_infrastructure.json")
+    
+    with open(ecr_source_path, "r") as f:
+        ecr_template_content = f.read()
+    
+    with open(ecr_template_path, "w") as f:
+        f.write(ecr_template_content)
+    
+    # Read and write ECS template
+    ecs_source_path = os.path.join(source_templates_dir, "ecs_infrastructure.json")
+    
+    with open(ecs_source_path, "r") as f:
+        ecs_template_content = f.read()
+    
+    with open(ecs_template_path, "w") as f:
+        f.write(ecs_template_content)
+    
+    return {
+        "ecr_template_path": ecr_template_path,
+        "ecs_template_path": ecs_template_path,
+        "ecr_template_content": ecr_template_content,
+        "ecs_template_content": ecs_template_content
+    }
 
 async def create_infrastructure(
     app_name: str,
@@ -55,30 +100,13 @@ async def create_infrastructure(
     """
     logger.info(f"Creating infrastructure for {app_name}")
     
-    # Generate template paths for storing CloudFormation templates
-    templates_dir = os.path.join(app_path, "cloudformation-templates")
-    os.makedirs(templates_dir, exist_ok=True)
-    
-    ecr_template_path = os.path.join(templates_dir, f"{app_name}-ecr-infrastructure.json")
-    ecs_template_path = os.path.join(templates_dir, f"{app_name}-ecs-infrastructure.json")
-    
-    # Step 1: Create ECR infrastructure template
-    ecr_result = await create_ecr_infrastructure(app_name=app_name, force_deploy=force_deploy)
+    # Step 1: Prepare template files
+    template_files = prepare_template_files(app_name, app_path)
+    ecr_template_path = template_files["ecr_template_path"]
+    ecs_template_path = template_files["ecs_template_path"]
     
     # If not force_deploy, return the template paths and guidance
     if not force_deploy:
-        # Copy the ECR template to the templates directory
-        with open(ecr_template_path, "w") as f:
-            f.write(ecr_result.get("template_content", ""))
-        
-        # Generate ECS infrastructure template
-        ecs_result = await create_ecs_infrastructure(app_name=app_name, force_deploy=force_deploy)
-        
-        # Write the ECS template to the templates directory
-        with open(ecs_template_path, "w") as f:
-            f.write(ecs_result.get("template_content", ""))
-        
-        # Return guidance and template paths
         return {
             "operation": "generate_templates",
             "template_paths": {
@@ -108,11 +136,16 @@ async def create_infrastructure(
             }
         }
     
-    # If force_deploy is True, proceed with deployment
+    # Step 2: Create ECR infrastructure
+    ecr_result = await create_ecr_infrastructure(
+        app_name=app_name, 
+        template_content=template_files["ecr_template_content"]
+    )
+    
     # Get the ECR repository URI
     ecr_repo_uri = ecr_result["resources"]["ecr_repository_uri"]
     
-    # Step 2: Build and push Docker image
+    # Step 3: Build and push Docker image
     try:
         from awslabs.ecs_mcp_server.utils.docker import build_and_push_image
         logger.info(f"Building and pushing Docker image for {app_name} from {app_path}")
@@ -128,6 +161,10 @@ async def create_infrastructure(
         return {
             "stack_name": f"{app_name}-ecr-infrastructure",
             "operation": "create",
+            "template_paths": {
+                "ecr_template": ecr_template_path,
+                "ecs_template": ecs_template_path
+            },
             "resources": {
                 "ecr_repository": f"{app_name}-repo",
                 "ecr_repository_uri": ecr_repo_uri,
@@ -135,7 +172,7 @@ async def create_infrastructure(
             "message": f"Created ECR repository, but Docker image build failed: {str(e)}"
         }
     
-    # Step 3: Create ECS infrastructure with the image URI
+    # Step 4: Create ECS infrastructure with the image URI
     try:
         ecs_result = await create_ecs_infrastructure(
             app_name=app_name,
@@ -149,7 +186,7 @@ async def create_infrastructure(
             desired_count=desired_count,
             container_port=container_port,
             health_check_path=health_check_path if health_check_path else "/",
-            force_deploy=True
+            template_content=template_files["ecs_template_content"]
         )
     except Exception as e:
         logger.error(f"Error creating ECS infrastructure: {e}")
@@ -157,6 +194,10 @@ async def create_infrastructure(
         return {
             "stack_name": f"{app_name}-ecr-infrastructure",
             "operation": "create",
+            "template_paths": {
+                "ecr_template": ecr_template_path,
+                "ecs_template": ecs_template_path
+            },
             "resources": {
                 "ecr_repository": f"{app_name}-repo",
                 "ecr_repository_uri": ecr_repo_uri,
@@ -169,7 +210,10 @@ async def create_infrastructure(
         "stack_name": ecs_result.get("stack_name", f"{app_name}-ecs-infrastructure"),
         "stack_id": ecs_result.get("stack_id"),
         "operation": ecs_result.get("operation", "create"),
-        "template_path": ecs_result.get("template_path", ""),
+        "template_paths": {
+            "ecr_template": ecr_template_path,
+            "ecs_template": ecs_template_path
+        },
         "vpc_id": ecs_result.get("vpc_id", vpc_id),
         "subnet_ids": ecs_result.get("subnet_ids", subnet_ids),
         "resources": {
@@ -184,131 +228,99 @@ async def create_infrastructure(
 
 async def create_ecr_infrastructure(
     app_name: str,
-    force_deploy: bool = False,
+    template_content: str,
 ) -> Dict[str, Any]:
     """
     Creates ECR repository infrastructure using CloudFormation.
-    If force_deploy is True, it will deploy the CloudFormation stack.
-    Otherwise, it will only generate the template.
 
     Args:
         app_name: Name of the application
-        force_deploy: Whether to deploy the infrastructure or just generate template
+        template_content: Content of the template file
 
     Returns:
-        Dict containing infrastructure creation results or template content
+        Dict containing infrastructure creation results
     """
     logger.info(f"Creating ECR infrastructure for {app_name}")
 
     # Get AWS account ID
     account_id = await get_aws_account_id()
-    
-    # Read the CloudFormation template
-    templates_dir = get_templates_dir()
-    template_path = os.path.join(templates_dir, "ecr_infrastructure.json")
-    
-    with open(template_path, "r") as f:
-        cf_template = f.read()
-    
-    # If not force_deploy, return the template content
-    if not force_deploy:
-        return {
-            "operation": "generate_template",
-            "template_content": cf_template,
-        }
 
-    # Create a temporary file for the CloudFormation template
-    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
-        tmp_path = tmp.name
-        tmp.write(cf_template.encode("utf-8"))
+    # Deploy the CloudFormation stack
+    cloudformation = await get_aws_client("cloudformation")
+    stack_name = f"{app_name}-ecr-infrastructure"
 
+    # Check if stack already exists
     try:
-        # Deploy the CloudFormation stack
-        cloudformation = await get_aws_client("cloudformation")
-        stack_name = f"{app_name}-ecr-infrastructure"
+        cloudformation.describe_stacks(StackName=stack_name)
+        stack_exists = True
+    except cloudformation.exceptions.ClientError:
+        stack_exists = False
 
-        # Check if stack already exists
+    if stack_exists:
+        # Update existing stack
         try:
-            cloudformation.describe_stacks(StackName=stack_name)
-            stack_exists = True
-        except cloudformation.exceptions.ClientError:
-            stack_exists = False
-
-        if stack_exists:
-            # Update existing stack
-            try:
-                response = cloudformation.update_stack(
-                    StackName=stack_name,
-                    TemplateBody=cf_template,
-                    Capabilities=["CAPABILITY_NAMED_IAM"],
-                    Parameters=[
-                        {"ParameterKey": "AppName", "ParameterValue": app_name},
-                    ],
-                )
-                operation = "update"
-                logger.info(f"Updating existing ECR repository stack {stack_name}...")
-            except cloudformation.exceptions.ClientError as e:
-                # Check if the error is "No updates are to be performed"
-                if "No updates are to be performed" in str(e):
-                    logger.info(f"No updates needed for ECR repository stack {stack_name}")
-                    operation = "no_update_required"
-                    
-                    # Get the existing stack details
-                    response = cloudformation.describe_stacks(StackName=stack_name)
-                else:
-                    # Re-raise if it's a different error
-                    raise
-        else:
-            # Create new stack
-            response = cloudformation.create_stack(
+            response = cloudformation.update_stack(
                 StackName=stack_name,
-                TemplateBody=cf_template,
+                TemplateBody=template_content,
                 Capabilities=["CAPABILITY_NAMED_IAM"],
                 Parameters=[
                     {"ParameterKey": "AppName", "ParameterValue": app_name},
                 ],
             )
-            operation = "create"
+            operation = "update"
+            logger.info(f"Updating existing ECR repository stack {stack_name}...")
+        except cloudformation.exceptions.ClientError as e:
+            # Check if the error is "No updates are to be performed"
+            if "No updates are to be performed" in str(e):
+                logger.info(f"No updates needed for ECR repository stack {stack_name}")
+                operation = "no_update_required"
+                
+                # Get the existing stack details
+                response = cloudformation.describe_stacks(StackName=stack_name)
+            else:
+                # Re-raise if it's a different error
+                raise
+    else:
+        # Create new stack
+        response = cloudformation.create_stack(
+            StackName=stack_name,
+            TemplateBody=template_content,
+            Capabilities=["CAPABILITY_NAMED_IAM"],
+            Parameters=[
+                {"ParameterKey": "AppName", "ParameterValue": app_name},
+            ],
+        )
+        operation = "create"
 
-        # Save CloudFormation template to a file in the current directory
-        cf_file_path = f"{app_name}-ecr-infrastructure.json"
-        with open(cf_file_path, "w") as f:
-            f.write(cf_template)
+    # Wait for stack creation to complete
+    logger.info(f"Waiting for ECR repository stack {stack_name} to be created...")
+    waiter = cloudformation.get_waiter('stack_create_complete')
+    waiter.wait(StackName=stack_name)
+    logger.info(f"ECR repository stack {stack_name} created successfully")
 
-        # Wait for stack creation to complete
-        logger.info(f"Waiting for ECR repository stack {stack_name} to be created...")
-        waiter = cloudformation.get_waiter('stack_create_complete')
-        waiter.wait(StackName=stack_name)
-        logger.info(f"ECR repository stack {stack_name} created successfully")
+    # Get the ECR repository URI
+    response = cloudformation.describe_stacks(StackName=stack_name)
+    outputs = response["Stacks"][0]["Outputs"]
+    ecr_repo_uri = None
+    for output in outputs:
+        if output["OutputKey"] == "ECRRepositoryURI":
+            ecr_repo_uri = output["OutputValue"]
+            break
 
-        # Get the ECR repository URI
-        response = cloudformation.describe_stacks(StackName=stack_name)
-        outputs = response["Stacks"][0]["Outputs"]
-        ecr_repo_uri = None
-        for output in outputs:
-            if output["OutputKey"] == "ECRRepositoryURI":
-                ecr_repo_uri = output["OutputValue"]
-                break
-
-        return {
-            "stack_name": stack_name,
-            "stack_id": response.get("StackId"),
-            "operation": operation,
-            "template_path": cf_file_path,
-            "resources": {
-                "ecr_repository": f"{app_name}-repo",
-                "ecr_repository_uri": ecr_repo_uri,
-            },
-        }
-
-    finally:
-        # Clean up temporary file
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+    return {
+        "stack_name": stack_name,
+        "stack_id": response.get("StackId"),
+        "operation": operation,
+        "resources": {
+            "ecr_repository": f"{app_name}-repo",
+            "ecr_repository_uri": ecr_repo_uri,
+        },
+    }
 
 
 async def create_ecs_infrastructure(
     app_name: str,
+    template_content: str,
     image_uri: Optional[str] = None,
     image_tag: Optional[str] = None,
     vpc_id: Optional[str] = None,
@@ -319,28 +331,26 @@ async def create_ecs_infrastructure(
     desired_count: Optional[int] = None,
     container_port: Optional[int] = None,
     health_check_path: Optional[str] = None,
-    force_deploy: bool = False,
 ) -> Dict[str, Any]:
     """
     Creates ECS infrastructure using CloudFormation.
-    If force_deploy is True, it will deploy the CloudFormation stack.
-    Otherwise, it will only generate the template.
 
     Args:
         app_name: Name of the application
+        template_content: Content of the template file
         image_uri: URI of the container image
+        image_tag: Tag of the container image
         vpc_id: VPC ID for deployment (optional, will create new if not provided)
         subnet_ids: List of subnet IDs for deployment (optional)
+        route_table_ids: List of route table IDs for S3 Gateway endpoint association
         cpu: CPU units for the task (optional, default: 256)
         memory: Memory (MB) for the task (optional, default: 512)
         desired_count: Desired number of tasks (optional, default: 1)
-        enable_auto_scaling: Enable auto-scaling for the service (optional, default: False)
         container_port: Port the container listens on (optional, default: 80)
         health_check_path: Path for ALB health checks (optional, default: "/")
-        force_deploy: Whether to deploy the infrastructure or just generate template
 
     Returns:
-        Dict containing infrastructure creation results or template content
+        Dict containing infrastructure creation results
     """
     logger.info(f"Creating ECS infrastructure for {app_name}")
 
@@ -370,79 +380,23 @@ async def create_ecs_infrastructure(
         from awslabs.ecs_mcp_server.utils.aws import get_route_tables_for_vpc
         route_table_ids = await get_route_tables_for_vpc(vpc_id)
 
-    # Read the CloudFormation template
-    templates_dir = get_templates_dir()
-    template_path = os.path.join(templates_dir, "ecs_infrastructure.json")
-    
-    with open(template_path, "r") as f:
-        cf_template = f.read()
-    
-    # If not force_deploy, return the template content
-    if not force_deploy:
-        return {
-            "operation": "generate_template",
-            "template_content": cf_template,
-            "vpc_id": vpc_id,
-            "subnet_ids": subnet_ids,
-        }
+    # Deploy the CloudFormation stack
+    cloudformation = await get_aws_client("cloudformation")
+    stack_name = f"{app_name}-ecs-infrastructure"
 
-    # Create a temporary file for the CloudFormation template
-    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
-        tmp_path = tmp.name
-        tmp.write(cf_template.encode("utf-8"))
-
+    # Check if stack already exists
     try:
-        # Deploy the CloudFormation stack
-        cloudformation = await get_aws_client("cloudformation")
-        stack_name = f"{app_name}-ecs-infrastructure"
+        cloudformation.describe_stacks(StackName=stack_name)
+        stack_exists = True
+    except cloudformation.exceptions.ClientError:
+        stack_exists = False
 
-        # Check if stack already exists
+    if stack_exists:
+        # Update existing stack
         try:
-            cloudformation.describe_stacks(StackName=stack_name)
-            stack_exists = True
-        except cloudformation.exceptions.ClientError:
-            stack_exists = False
-
-        if stack_exists:
-            # Update existing stack
-            try:
-                response = cloudformation.update_stack(
-                    StackName=stack_name,
-                    TemplateBody=cf_template,
-                    Capabilities=["CAPABILITY_NAMED_IAM"],
-                    Parameters=[
-                        {"ParameterKey": "AppName", "ParameterValue": app_name},
-                        {"ParameterKey": "VpcId", "ParameterValue": vpc_id},
-                        {"ParameterKey": "SubnetIds", "ParameterValue": ",".join(subnet_ids)},
-                        {"ParameterKey": "RouteTableIds", "ParameterValue": ",".join(route_table_ids)},
-                        {"ParameterKey": "TaskCpu", "ParameterValue": str(cpu)},
-                        {"ParameterKey": "TaskMemory", "ParameterValue": str(memory)},
-                        {"ParameterKey": "DesiredCount", "ParameterValue": str(desired_count)},
-                        {"ParameterKey": "ImageUri", "ParameterValue": image_uri},
-                        {"ParameterKey": "ImageTag", "ParameterValue": image_tag},
-                        {"ParameterKey": "ContainerPort", "ParameterValue": str(container_port)},
-                        {"ParameterKey": "HealthCheckPath", "ParameterValue": health_check_path},
-                        {"ParameterKey": "Timestamp", "ParameterValue": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")}
-                    ],
-                )
-                operation = "update"
-                logger.info(f"Updating existing ECS infrastructure stack {stack_name}...")
-            except cloudformation.exceptions.ClientError as e:
-                # Check if the error is "No updates are to be performed"
-                if "No updates are to be performed" in str(e):
-                    logger.info(f"No updates needed for ECS infrastructure stack {stack_name}")
-                    operation = "no_update_required"
-                    
-                    # Get the existing stack details
-                    response = cloudformation.describe_stacks(StackName=stack_name)
-                else:
-                    # Re-raise if it's a different error
-                    raise
-        else:
-            # Create new stack
-            response = cloudformation.create_stack(
+            response = cloudformation.update_stack(
                 StackName=stack_name,
-                TemplateBody=cf_template,
+                TemplateBody=template_content,
                 Capabilities=["CAPABILITY_NAMED_IAM"],
                 Parameters=[
                     {"ParameterKey": "AppName", "ParameterValue": app_name},
@@ -459,31 +413,52 @@ async def create_ecs_infrastructure(
                     {"ParameterKey": "Timestamp", "ParameterValue": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")}
                 ],
             )
-            operation = "create"
+            operation = "update"
+            logger.info(f"Updating existing ECS infrastructure stack {stack_name}...")
+        except cloudformation.exceptions.ClientError as e:
+            # Check if the error is "No updates are to be performed"
+            if "No updates are to be performed" in str(e):
+                logger.info(f"No updates needed for ECS infrastructure stack {stack_name}")
+                operation = "no_update_required"
+                
+                # Get the existing stack details
+                response = cloudformation.describe_stacks(StackName=stack_name)
+            else:
+                # Re-raise if it's a different error
+                raise
+    else:
+        # Create new stack
+        response = cloudformation.create_stack(
+            StackName=stack_name,
+            TemplateBody=template_content,
+            Capabilities=["CAPABILITY_NAMED_IAM"],
+            Parameters=[
+                {"ParameterKey": "AppName", "ParameterValue": app_name},
+                {"ParameterKey": "VpcId", "ParameterValue": vpc_id},
+                {"ParameterKey": "SubnetIds", "ParameterValue": ",".join(subnet_ids)},
+                {"ParameterKey": "RouteTableIds", "ParameterValue": ",".join(route_table_ids)},
+                {"ParameterKey": "TaskCpu", "ParameterValue": str(cpu)},
+                {"ParameterKey": "TaskMemory", "ParameterValue": str(memory)},
+                {"ParameterKey": "DesiredCount", "ParameterValue": str(desired_count)},
+                {"ParameterKey": "ImageUri", "ParameterValue": image_uri},
+                {"ParameterKey": "ImageTag", "ParameterValue": image_tag},
+                {"ParameterKey": "ContainerPort", "ParameterValue": str(container_port)},
+                {"ParameterKey": "HealthCheckPath", "ParameterValue": health_check_path},
+                {"ParameterKey": "Timestamp", "ParameterValue": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")}
+            ],
+        )
+        operation = "create"
 
-        # Save CloudFormation template to a file in the current directory
-        cf_file_path = f"{app_name}-ecs-infrastructure.json"
-        with open(cf_file_path, "w") as f:
-            f.write(cf_template)
-
-        return {
-            "stack_name": stack_name,
-            "stack_id": response.get("StackId"),
-            "operation": operation,
-            "template_path": cf_file_path,
-            "vpc_id": vpc_id,
-            "subnet_ids": subnet_ids,
-            "resources": {
-                "cluster": f"{app_name}-cluster",
-                "service": f"{app_name}-service",
-                "task_definition": f"{app_name}-task",
-                "load_balancer": f"{app_name}-alb",
-            },
-        }
-
-    finally:
-        # Clean up temporary file
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
-
-
+    return {
+        "stack_name": stack_name,
+        "stack_id": response.get("StackId"),
+        "operation": operation,
+        "vpc_id": vpc_id,
+        "subnet_ids": subnet_ids,
+        "resources": {
+            "cluster": f"{app_name}-cluster",
+            "service": f"{app_name}-service",
+            "task_definition": f"{app_name}-task",
+            "load_balancer": f"{app_name}-alb",
+        },
+    }

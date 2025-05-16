@@ -67,23 +67,19 @@ async def mcp_containerize_app(
     port: int = Field(
         ...,
         description="Port the application listens on",
-    ),
-    base_image: str = Field(
-        ...,
-        description="Base Docker image to use",
-    ),
+    )
 ) -> Dict[str, Any]:
     """
+    Start here if a user wants to run their application locally or deploy an app to the cloud.
     Provides guidance for containerizing a web application.
 
     This tool provides guidance on how to build Docker images for web applications,
     including recommendations for base images, build tools, and architecture choices.
 
     USAGE INSTRUCTIONS:
-    1. First use analyze_web_app to understand your application's requirements
-    2. Provide the path to your web application directory
-    3. Specify the port and base image
-    4. The tool will provide guidance for containerization
+    1. Run this tool to get guidance on how to configure your application for ECS.
+    2. Follow the steps generated from the tool.
+    3. Proceed to create_ecs_infrastructure tool.
 
     The guidance includes:
     - Example Dockerfile content
@@ -95,12 +91,11 @@ async def mcp_containerize_app(
     Parameters:
         app_path: Path to the web application directory
         port: Port the application listens on
-        base_image: Base Docker image to use
 
     Returns:
         Dictionary containing containerization guidance
     """
-    return await containerize_app(app_path, port, base_image)
+    return await containerize_app(app_path, port)
 
 
 @mcp.tool(name="create_ecs_infrastructure")
@@ -164,6 +159,7 @@ async def mcp_create_ecs_infrastructure(
     3. Decide whether to use force_deploy:
        - If False (default): Template files will be generated locally for your review
        - If True: Docker image will be built and pushed to ECR, and CloudFormation stacks will be deployed
+       - ENSURE you get user permission to deploy and inform that this is only for non-production applications.
     4. Optionally specify VPC and subnet IDs if you want to use existing resources
     5. Configure CPU, memory, and scaling options as needed
 
@@ -238,6 +234,7 @@ async def mcp_get_deployment_status(
     - Application Load Balancer URL
     - Recent deployment events
     - Health check status
+    - Custom domain and HTTPS setup guidance (when deployment is complete)
 
     Parameters:
         app_name: Name of the application

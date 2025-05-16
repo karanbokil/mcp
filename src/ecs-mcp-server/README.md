@@ -66,11 +66,6 @@ Provides guidance for containerizing a web application.
     "type": "integer",
     "description": "Port the application listens on",
     "required": true
-  },
-  "base_image": {
-    "type": "string",
-    "description": "Base Docker image to use",
-    "required": true
   }
 }
 ```

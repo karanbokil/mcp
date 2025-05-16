@@ -2,9 +2,11 @@
 Docker utility functions.
 """
 
+import json
 import logging
 import os
 import subprocess
+import time
 from typing import Any, Dict
 
 from awslabs.ecs_mcp_server.utils.aws import get_aws_account_id, get_ecr_login_password
@@ -12,102 +14,200 @@ from awslabs.ecs_mcp_server.utils.aws import get_aws_account_id, get_ecr_login_p
 logger = logging.getLogger(__name__)
 
 
-async def validate_dockerfile(dockerfile_path: str) -> Dict[str, Any]:
-    """
-    Validates a Dockerfile using hadolint if available.
-
-    Args:
-        dockerfile_path: Path to the Dockerfile
-
-    Returns:
-        Dict containing validation results
-    """
-    # Check if hadolint is installed
-    try:
-        subprocess.run(["hadolint", "--version"], capture_output=True, check=True)
-        has_hadolint = True
-    except (subprocess.SubprocessError, FileNotFoundError):
-        has_hadolint = False
-
-    if not has_hadolint:
-        return {
-            "valid": True,
-            "message": "Dockerfile validation skipped (hadolint not installed)",
-            "warnings": [],
-            "errors": [],
-        }
-
-    # Run hadolint
-    try:
-        result = subprocess.run(["hadolint", dockerfile_path], capture_output=True, text=True)
-
-        if result.returncode == 0:
-            return {
-                "valid": True,
-                "message": "Dockerfile validation passed",
-                "warnings": [],
-                "errors": [],
-            }
-        else:
-            # Parse hadolint output
-            issues = []
-            for line in result.stdout.splitlines() + result.stderr.splitlines():
-                if line.strip():
-                    issues.append(line)
-
-            return {
-                "valid": False,
-                "message": "Dockerfile validation failed",
-                "warnings": [i for i in issues if "warning" in i.lower()],
-                "errors": [i for i in issues if "error" in i.lower() or "warning" not in i.lower()],
-            }
-
-    except Exception as e:
-        logger.error(f"Error validating Dockerfile: {e}")
-        return {
-            "valid": True,
-            "message": f"Dockerfile validation error: {str(e)}",
-            "warnings": [],
-            "errors": [],
-        }
-
-
-async def build_and_push_image(app_path: str, repository_uri: str, tag: str = "latest") -> str:
+async def build_and_push_image(app_path: str, repository_uri: str, tag: str = None) -> str:
     """
     Builds and pushes a Docker image to ECR.
 
     Args:
         app_path: Path to the application directory containing the Dockerfile
         repository_uri: ECR repository URI
-        tag: Image tag
+        tag: Image tag (if None, uses epoch timestamp)
 
     Returns:
         Image tag
     """
+    # Generate a timestamp-based tag if none provided
+    if tag is None:
+        tag = str(int(time.time()))
+        
     logger.info(f"Building and pushing Docker image to {repository_uri}:{tag}")
 
-    # Get ECR login password
-    password = await get_ecr_login_password()
-    account_id = await get_aws_account_id()
-    region = os.environ.get("AWS_REGION", "us-east-1")
-
-    # Login to ECR
-    login_cmd = f"docker login --username AWS --password {password} {account_id}.dkr.ecr.{region}.amazonaws.com"
-    subprocess.run(login_cmd, shell=True, check=True, capture_output=True)
-
-    # Build the image with platform specification for AMD64 (x86_64)
-    # This ensures compatibility with ECS which runs on x86_64 architecture
-    build_cmd = f"docker buildx build --platform linux/amd64 -t {repository_uri}:{tag} {app_path} --load"
     try:
-        subprocess.run(build_cmd, shell=True, check=True)
-    except subprocess.CalledProcessError:
-        # Fallback to regular build if buildx is not available
-        logger.warning("Docker buildx not available, falling back to regular build")
-        build_cmd = f"docker build -t {repository_uri}:{tag} {app_path}"
-        subprocess.run(build_cmd, shell=True, check=True)
+        # Get ECR login password and account info
+        account_id = await get_aws_account_id()
+        region = os.environ.get("AWS_REGION", "us-east-1")
+        profile = os.environ.get("AWS_PROFILE", "default")
+        
+        logger.info(f"Using AWS profile: {profile} and region: {region}")
+        logger.info(f"Using AWS account ID: {account_id}")
+        logger.info(f"Application path: {app_path}")
+        
+        # Verify Dockerfile exists
+        dockerfile_path = os.path.join(app_path, "Dockerfile")
+        if not os.path.exists(dockerfile_path):
+            raise FileNotFoundError(f"Dockerfile not found at {dockerfile_path}")
+        
+        # Login to ECR using AWS CLI directly instead of shell piping
+        logger.info("Logging in to ECR...")
+        
+        # Get ECR password using AWS CLI
+        ecr_password_cmd = [
+            "aws", "ecr", "get-login-password",
+            "--region", region
+        ]
+        
+        # Add profile if specified
+        if profile and profile != "default":
+            ecr_password_cmd.extend(["--profile", profile])
+            
+        ecr_password_result = subprocess.run(
+            ecr_password_cmd,
+            capture_output=True,
+            text=True,
+            shell=False,
+            check=False
+        )
+        
+        if ecr_password_result.returncode != 0:
+            logger.error(f"Failed to get ECR login password: {ecr_password_result.stderr}")
+            raise RuntimeError(f"Failed to get ECR login password: {ecr_password_result.stderr}")
+            
+        ecr_password = ecr_password_result.stdout.strip()
+        
+        # Login to Docker using the password
+        registry_url = f"{account_id}.dkr.ecr.{region}.amazonaws.com"
+        docker_login_cmd = [
+            "docker", "login",
+            "--username", "AWS",
+            "--password-stdin",
+            registry_url
+        ]
+        
+        docker_login_result = subprocess.run(
+            docker_login_cmd,
+            input=ecr_password,
+            capture_output=True,
+            text=True,
+            shell=False,
+            check=False
+        )
+        
+        if docker_login_result.returncode != 0:
+            logger.error(f"Docker login failed: {docker_login_result.stderr}")
+            raise RuntimeError(f"Failed to login to ECR: {docker_login_result.stderr}")
+            
+        logger.info("Successfully logged in to ECR")
 
-    # Push the image
-    push_cmd = f"docker push {repository_uri}:{tag}"
-    subprocess.run(push_cmd, shell=True, check=True)
+        # Build the image with platform specification for AMD64 (x86_64)
+        # This ensures compatibility with ECS which runs on x86_64 architecture
+        logger.info(f"Building Docker image at {app_path} for linux/amd64 platform...")
+        
+        # Try buildx first which allows platform specification
+        try:
+            # Use list arguments instead of shell=True for security
+            buildx_cmd = [
+                "docker", "buildx", "build",
+                "--platform", "linux/amd64",
+                "-t", f"{repository_uri}:{tag}",
+                "--load",
+                app_path
+            ]
+            
+            logger.info(f"Attempting buildx command: {' '.join(buildx_cmd)}")
+            build_result = subprocess.run(
+                buildx_cmd,
+                capture_output=True,
+                text=True,
+                shell=False,
+                check=False
+            )
+            
+            if build_result.returncode != 0:
+                logger.warning(f"Docker buildx failed: {build_result.stderr}")
+                raise subprocess.CalledProcessError(build_result.returncode, buildx_cmd)
+                
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            # Fallback to regular build with platform args if buildx fails
+            logger.warning("Docker buildx failed, trying alternative approach")
+            
+            # Use list arguments instead of shell=True for security
+            build_cmd = [
+                "docker", "build",
+                "--platform", "linux/amd64",
+                "-t", f"{repository_uri}:{tag}",
+                app_path
+            ]
+            
+            logger.info(f"Attempting alternative build command: {' '.join(build_cmd)}")
+            build_result = subprocess.run(
+                build_cmd,
+                capture_output=True,
+                text=True,
+                shell=False,
+                check=False
+            )
+            
+            if build_result.returncode != 0:
+                logger.error(f"Docker build failed: {build_result.stderr}")
+                raise RuntimeError(f"Failed to build Docker image: {build_result.stderr}")
+        
+        logger.info("Docker image built successfully")
+        logger.info(f"Build output: {build_result.stdout}")
 
-    return tag
+        # Push the image
+        logger.info(f"Pushing Docker image to {repository_uri}:{tag}...")
+        
+        # Use list arguments instead of shell=True for security
+        push_cmd = ["docker", "push", f"{repository_uri}:{tag}"]
+        
+        push_result = subprocess.run(
+            push_cmd,
+            capture_output=True,
+            text=True,
+            shell=False,
+            check=False
+        )
+        
+        if push_result.returncode != 0:
+            logger.error(f"Docker push failed: {push_result.stderr}")
+            raise RuntimeError(f"Failed to push Docker image: {push_result.stderr}")
+        
+        logger.info("Docker image pushed successfully")
+        logger.info(f"Push output: {push_result.stdout}")
+        
+        # Verify the image was pushed by listing images in the repository
+        repo_name = repository_uri.split('/')[-1]
+        logger.info(f"Verifying image in repository: {repo_name}")
+        
+        # Use list arguments instead of shell=True for security
+        verify_cmd = [
+            "aws", "ecr", "list-images",
+            "--repository-name", repo_name,
+            "--region", region
+        ]
+        
+        # Add profile if specified
+        if profile and profile != "default":
+            verify_cmd.extend(["--profile", profile])
+            
+        verify_result = subprocess.run(
+            verify_cmd,
+            capture_output=True,
+            text=True,
+            shell=False,
+            check=False
+        )
+        
+        if verify_result.returncode != 0:
+            logger.warning(f"Could not verify image push: {verify_result.stderr}")
+        else:
+            logger.info(f"Image verification result: {verify_result.stdout}")
+            if "imageTag" not in verify_result.stdout:
+                logger.warning(f"Image tag {tag} not found in repository. Push may have failed silently.")
+                raise RuntimeError(f"Image tag {tag} not found in repository after push operation")
+
+        return tag
+        
+    except Exception as e:
+        logger.error(f"Error in build_and_push_image: {str(e)}", exc_info=True)
+        raise

@@ -12,11 +12,10 @@ from typing import Any, Dict, List, Optional
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
-from awslabs.ecs_mcp_server.api.analyze import analyze_app
 from awslabs.ecs_mcp_server.api.containerize import containerize_app
-from awslabs.ecs_mcp_server.api.deploy import deploy_to_ecs
 from awslabs.ecs_mcp_server.api.infrastructure import create_infrastructure
 from awslabs.ecs_mcp_server.api.status import get_deployment_status
+from awslabs.ecs_mcp_server.api.delete import delete_infrastructure
 from awslabs.ecs_mcp_server.utils.config import get_config
 
 # Configure logging
@@ -34,39 +33,20 @@ mcp = FastMCP(
     instructions="""Use this server to containerize and deploy web applications to AWS ECS.
 
 WORKFLOW:
-1. analyze_web_app:
-   - Analyze your web application to determine containerization requirements
-   - Detect the framework, dependencies, and runtime requirements
-   - Get recommendations for containerization
+1. containerize_app:
+   - Get guidance on how to containerize your web application
+   - Learn best practices for Dockerfile creation
+   - Get recommendations for container tools and architecture
 
-2. containerize_app:
-   - Generate a Dockerfile and container configurations for your web application
-   - Create a docker-compose.yml file for local testing
-   - Customize port mappings and environment variables
-
-3. create_ecs_infrastructure:
+2. create_ecs_infrastructure:
    - Create the necessary AWS infrastructure for ECS deployment
    - Set up VPC, subnets, security groups, and IAM roles
    - Configure ECS cluster, task definitions, and services
 
-4. deploy_to_ecs:
-   - Deploy your containerized application to AWS ECS
-   - Set up an Application Load Balancer for routing traffic
-   - Configure health checks and auto-scaling
-
-5. get_deployment_status:
+3. get_deployment_status:
    - Check the status of your ECS deployment
    - Get the ALB URL to access your application
    - Monitor the health of your ECS service
-
-SUPPORTED FRAMEWORKS:
-- Flask: Python web framework
-- Django: Python web framework
-- Express: Node.js web framework
-- React: JavaScript frontend framework
-- Node.js: JavaScript runtime
-- Rails: Ruby web framework
-- Generic: Any other web application
 
 IMPORTANT:
 - Make sure your application has a clear entry point
@@ -78,96 +58,49 @@ IMPORTANT:
 
 
 # Register tools with decorators
-@mcp.tool(name="analyze_web_app")
-async def mcp_analyze_web_app(
-    app_path: str = Field(
-        ...,
-        description="Path to the web application directory",
-    ),
-    framework: Optional[str] = Field(
-        default=None,
-        description="Web framework used (e.g., flask, express, django, rails, etc.)",
-    ),
-) -> Dict[str, Any]:
-    """
-    Analyzes a web application to determine containerization requirements.
-
-    This tool examines your web application directory to identify the framework,
-    dependencies, and runtime requirements needed for containerization. It provides
-    recommendations for creating a Docker container for your application.
-
-    USAGE INSTRUCTIONS:
-    1. Provide the path to your web application directory
-    2. Optionally specify the framework if you want to override auto-detection
-    3. The tool will analyze your application and return detailed information
-
-    The analysis includes:
-    - Framework detection (Flask, Django, Express, etc.)
-    - Dependency identification
-    - Default port determination
-    - Container requirements (base image, exposed ports)
-    - Environment variable detection
-    - Build steps for containerization
-    - Runtime requirements (memory, CPU)
-
-    Parameters:
-        app_path: Path to the web application directory
-        framework: Web framework used (optional, will be auto-detected if not provided)
-
-    Returns:
-        Dictionary containing analysis results
-    """
-    return await analyze_app(app_path, framework)
-
-
 @mcp.tool(name="containerize_app")
 async def mcp_containerize_app(
     app_path: str = Field(
         ...,
-        description="Path to the web application directory",
+        description="Absolute file path to the web application directory",
     ),
-    framework: Optional[str] = Field(
-        default=None,
-        description="Web framework used (e.g., flask, express, django, rails, etc.)",
-    ),
-    port: Optional[int] = Field(
-        default=None,
+    port: int = Field(
+        ...,
         description="Port the application listens on",
     ),
-    environment_vars: Optional[Dict[str, str]] = Field(
-        default=None,
-        description="Environment variables as a JSON object",
+    base_image: str = Field(
+        ...,
+        description="Base Docker image to use",
     ),
 ) -> Dict[str, Any]:
     """
-    Generates Dockerfile and container configurations for a web application.
+    Provides guidance for containerizing a web application.
 
-    This tool creates a Dockerfile and docker-compose.yml file for your web application
-    based on the framework and requirements. It uses best practices for containerizing
-    different types of web applications.
+    This tool provides guidance on how to build Docker images for web applications,
+    including recommendations for base images, build tools, and architecture choices.
 
     USAGE INSTRUCTIONS:
     1. First use analyze_web_app to understand your application's requirements
     2. Provide the path to your web application directory
-    3. Optionally specify the framework, port, and environment variables
-    4. The tool will generate the necessary files for containerization
+    3. Specify the port and base image
+    4. The tool will provide guidance for containerization
 
-    The generated files include:
-    - Dockerfile: Instructions for building a container image
-    - docker-compose.yml: Configuration for local testing
-
-    The tool also validates the generated Dockerfile to ensure it follows best practices.
+    The guidance includes:
+    - Example Dockerfile content
+    - Example docker-compose.yml content
+    - Build commands for different container tools
+    - Architecture recommendations
+    - Troubleshooting tips
 
     Parameters:
         app_path: Path to the web application directory
-        framework: Web framework used (optional, will be auto-detected if not provided)
-        port: Port the application listens on (optional)
-        environment_vars: Environment variables as a JSON object (optional)
+        port: Port the application listens on
+        base_image: Base Docker image to use
 
     Returns:
-        Dictionary containing containerization results
+        Dictionary containing containerization guidance
     """
-    return await containerize_app(app_path, framework, port, environment_vars)
+    return await containerize_app(app_path, port, base_image)
 
 
 @mcp.tool(name="create_ecs_infrastructure")
@@ -176,13 +109,25 @@ async def mcp_create_ecs_infrastructure(
         ...,
         description="Name of the application",
     ),
+    app_path: str = Field(
+        ...,
+        description="Absolute file path to the web application directory",
+    ),
+    force_deploy: bool = Field(
+        default=False,
+        description="Set to True ONLY if you have Docker installed and running, and you agree to let the server build and deploy your image to ECR, as well as deploy ECS infrastructure for you in CloudFormation. If False, template files will be generated locally for your review.",
+    ),
     vpc_id: Optional[str] = Field(
         default=None,
-        description="VPC ID for deployment (optional, will create new if not provided)",
+        description="VPC ID for deployment (optional, will use default if not provided)",
     ),
     subnet_ids: Optional[List[str]] = Field(
         default=None,
-        description="List of subnet IDs for deployment",
+        description="List of subnet IDs for deployment, will use from default VPC if not provided",
+    ),
+    route_table_ids: Optional[List[str]] = Field(
+        default=None,
+        description="List of route table IDs for S3 Gateway endpoint association, will use main route table if not provided",
     ),
     cpu: Optional[int] = Field(
         default=None,
@@ -196,26 +141,33 @@ async def mcp_create_ecs_infrastructure(
         default=None,
         description="Desired number of tasks",
     ),
-    enable_auto_scaling: Optional[bool] = Field(
+    container_port: Optional[int] = Field(
         default=None,
-        description="Enable auto-scaling for the service",
+        description="Port the container listens on",
+    ),
+    health_check_path: Optional[str] = Field(
+        default=None,
+        description="Path for ALB health checks",
     ),
 ) -> Dict[str, Any]:
     """
-    Creates ECS infrastructure using CloudFormation/CDK.
+    Creates ECS infrastructure using CloudFormation.
 
     This tool sets up the necessary AWS infrastructure for deploying applications to ECS.
     It creates or uses an existing VPC, sets up security groups, IAM roles, and configures
-    the ECS cluster, task definitions, and services.
+    the ECS cluster, task definitions, and services. Deployment is asynchronous, poll the
+    get_deployment_status tool every 30 seconds after successful invocation of this.
 
     USAGE INSTRUCTIONS:
     1. Provide a name for your application
-    2. Optionally specify VPC and subnet IDs if you want to use existing resources
-    3. Configure CPU, memory, and scaling options as needed
-    4. The tool will create the infrastructure and return the details
+    2. Provide the path to your web application directory
+    3. Decide whether to use force_deploy:
+       - If False (default): Template files will be generated locally for your review
+       - If True: Docker image will be built and pushed to ECR, and CloudFormation stacks will be deployed
+    4. Optionally specify VPC and subnet IDs if you want to use existing resources
+    5. Configure CPU, memory, and scaling options as needed
 
     The created infrastructure includes:
-    - VPC and subnets (if not provided)
     - Security groups
     - IAM roles and policies
     - ECS cluster
@@ -225,105 +177,32 @@ async def mcp_create_ecs_infrastructure(
 
     Parameters:
         app_name: Name of the application
-        vpc_id: VPC ID for deployment (optional, will create new if not provided)
+        app_path: Path to the web application directory
+        force_deploy: Whether to build and deploy the infrastructure or just generate templates
+        vpc_id: VPC ID for deployment
         subnet_ids: List of subnet IDs for deployment
+        route_table_ids: List of route table IDs for S3 Gateway endpoint association
         cpu: CPU units for the task (e.g., 256, 512, 1024)
         memory: Memory (MB) for the task (e.g., 512, 1024, 2048)
         desired_count: Desired number of tasks
-        enable_auto_scaling: Enable auto-scaling for the service
-
-    Returns:
-        Dictionary containing infrastructure details
-    """
-    return await create_infrastructure(
-        app_name, vpc_id, subnet_ids, cpu, memory, desired_count, enable_auto_scaling
-    )
-
-
-@mcp.tool(name="deploy_to_ecs")
-async def mcp_deploy_to_ecs(
-    app_path: str = Field(
-        ...,
-        description="Path to the web application directory",
-    ),
-    app_name: str = Field(
-        ...,
-        description="Name of the application",
-    ),
-    container_port: int = Field(
-        ...,
-        description="Port the container listens on",
-    ),
-    vpc_id: Optional[str] = Field(
-        default=None,
-        description="VPC ID for deployment (optional, will create new if not provided)",
-    ),
-    subnet_ids: Optional[List[str]] = Field(
-        default=None,
-        description="List of subnet IDs for deployment",
-    ),
-    cpu: Optional[int] = Field(
-        default=None,
-        description="CPU units for the task (e.g., 256, 512, 1024)",
-    ),
-    memory: Optional[int] = Field(
-        default=None,
-        description="Memory (MB) for the task (e.g., 512, 1024, 2048)",
-    ),
-    environment_vars: Optional[Dict[str, str]] = Field(
-        default=None,
-        description="Environment variables as a JSON object",
-    ),
-    health_check_path: Optional[str] = Field(
-        default=None,
-        description="Path for ALB health checks",
-    ),
-) -> Dict[str, Any]:
-    """
-    Deploys a containerized application to AWS ECS with Fargate and ALB.
-
-    This tool takes your containerized application and deploys it to AWS ECS using
-    Fargate and an Application Load Balancer. It builds the Docker image, pushes it
-    to ECR, and configures the ECS service.
-
-    USAGE INSTRUCTIONS:
-    1. First use containerize_app to prepare your application for deployment
-    2. Provide the path to your application directory and a name for the deployment
-    3. Specify the container port and any other configuration options
-    4. The tool will deploy your application and return the deployment details
-
-    The deployment process includes:
-    - Building the Docker image
-    - Creating an ECR repository
-    - Pushing the image to ECR
-    - Creating or updating the ECS task definition
-    - Deploying the ECS service with an Application Load Balancer
-    - Configuring health checks and auto-scaling
-
-    Parameters:
-        app_path: Path to the web application directory
-        app_name: Name of the application
         container_port: Port the container listens on
-        vpc_id: VPC ID for deployment (optional, will create new if not provided)
-        subnet_ids: List of subnet IDs for deployment
-        cpu: CPU units for the task (e.g., 256, 512, 1024)
-        memory: Memory (MB) for the task (e.g., 512, 1024, 2048)
-        environment_vars: Environment variables as a JSON object
         health_check_path: Path for ALB health checks
 
     Returns:
-        Dictionary containing deployment details
+        Dictionary containing infrastructure details or template paths
     """
-    return await deploy_to_ecs(
-        app_path,
-        app_name,
-        container_port,
-        vpc_id,
-        subnet_ids,
-        cpu,
-        memory,
-        environment_vars,
-        health_check_path,
+    return await create_infrastructure(
+        app_name=app_name,
+        app_path=app_path,
+        force_deploy=force_deploy,
+        vpc_id=vpc_id, 
+        subnet_ids=subnet_ids,
+        route_table_ids=route_table_ids,
+        cpu=cpu, 
+        memory=memory, 
+        desired_count=desired_count, 
+        container_port=container_port,
+        health_check_path=health_check_path
     )
 
 
@@ -348,7 +227,9 @@ async def mcp_get_deployment_status(
     USAGE INSTRUCTIONS:
     1. Provide the name of your application
     2. Optionally specify the cluster name if different from the application name
-    3. The tool will return the deployment status and access URL
+    3. The tool will return the deployment status and access URL once the deployment is complete.
+
+    Poll this tool every 30 seconds till the status is active.
 
     The status information includes:
     - Service status (active, draining, etc.)
@@ -368,176 +249,252 @@ async def mcp_get_deployment_status(
     return await get_deployment_status(app_name, cluster_name)
 
 
+@mcp.tool(name="delete_ecs_infrastructure")
+async def mcp_delete_ecs_infrastructure(
+    app_name: str = Field(
+        ...,
+        description="Name of the application",
+    ),
+    ecr_template_path: str = Field(
+        ...,
+        description="Path to the ECR CloudFormation template file",
+    ),
+    ecs_template_path: str = Field(
+        ...,
+        description="Path to the ECS CloudFormation template file",
+    ),
+) -> Dict[str, Any]:
+    """
+    Deletes ECS infrastructure created by the ECS MCP Server.
+    
+    WARNING: This tool is not intended for production usage and is best suited for
+    tearing down prototyped work done with the ECS MCP Server.
+    
+    This tool attempts to identify and delete CloudFormation stacks based on the
+    provided app name and template files. It will scan the user's CloudFormation stacks,
+    using the app name as a heuristic, and identify if the templates match the files
+    provided in the input. It will only attempt to delete stacks if they are found and
+    match the provided templates.
+    
+    USAGE INSTRUCTIONS:
+    1. Provide the name of your application
+    2. Provide paths to the ECR and ECS CloudFormation template files
+       - Templates will be compared to ensure they match the deployed stacks
+    3. The tool will attempt to delete the stacks in the correct order (ECS first, then ECR)
+    
+    IMPORTANT:
+    - This is a best-effort deletion
+    - If a stack is in a transitional state (e.g., CREATE_IN_PROGRESS), it will be skipped
+    - You may need to manually delete resources if the deletion fails
+    
+    Parameters:
+        app_name: Name of the application
+        ecr_template_path: Path to the ECR CloudFormation template file
+        ecs_template_path: Path to the ECS CloudFormation template file
+        
+    Returns:
+        Dictionary containing deletion results and guidance
+    """
+    return await delete_infrastructure(
+        app_name=app_name,
+        ecr_template_path=ecr_template_path,
+        ecs_template_path=ecs_template_path,
+    )
+
+
 # Register prompt patterns
 @mcp.prompt("dockerize")
 def dockerize_prompt():
     """User wants to containerize an application"""
-    return ["analyze_web_app", "containerize_app"]
+    return ["containerize_app"]
 
 
 @mcp.prompt("containerize")
 def containerize_prompt():
     """User wants to containerize an application"""
-    return ["analyze_web_app", "containerize_app"]
+    return ["containerize_app"]
 
 
 @mcp.prompt("docker container")
 def docker_container_prompt():
     """User wants to create a Docker container"""
-    return ["analyze_web_app", "containerize_app"]
+    return ["containerize_app"]
 
 
 @mcp.prompt("put in container")
 def put_in_container_prompt():
     """User wants to containerize an application"""
-    return ["analyze_web_app", "containerize_app"]
+    return ["containerize_app"]
 
 
 @mcp.prompt("deploy to aws")
 def deploy_to_aws_prompt():
     """User wants to deploy an application to AWS"""
-    return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure", "deploy_to_ecs"]
+    return ["containerize_app", "create_ecs_infrastructure"]
 
 
 @mcp.prompt("deploy to cloud")
 def deploy_to_cloud_prompt():
     """User wants to deploy an application to the cloud"""
-    return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure", "deploy_to_ecs"]
+    return ["containerize_app", "create_ecs_infrastructure"]
 
 
 @mcp.prompt("deploy to ecs")
 def deploy_to_ecs_prompt():
     """User wants to deploy an application to AWS ECS"""
-    return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure", "deploy_to_ecs"]
+    return ["containerize_app", "create_ecs_infrastructure"]
 
 
 @mcp.prompt("ship to cloud")
 def ship_to_cloud_prompt():
     """User wants to deploy an application to the cloud"""
-    return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure", "deploy_to_ecs"]
+    return ["containerize_app", "create_ecs_infrastructure"]
 
 
 @mcp.prompt("put on the web")
 def put_on_web_prompt():
     """User wants to make an application accessible online"""
-    return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure", "deploy_to_ecs"]
+    return ["containerize_app", "create_ecs_infrastructure"]
 
 
 @mcp.prompt("host online")
 def host_online_prompt():
     """User wants to host an application online"""
-    return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure", "deploy_to_ecs"]
+    return ["containerize_app", "create_ecs_infrastructure"]
 
 
 @mcp.prompt("make live")
 def make_live_prompt():
     """User wants to make an application live"""
-    return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure", "deploy_to_ecs"]
+    return ["containerize_app", "create_ecs_infrastructure"]
 
 
 @mcp.prompt("launch online")
 def launch_online_prompt():
     """User wants to launch an application online"""
-    return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure", "deploy_to_ecs"]
+    return ["containerize_app", "create_ecs_infrastructure"]
 
 
 @mcp.prompt("get running on the web")
 def get_running_on_web_prompt():
     """User wants to make an application accessible on the web"""
-    return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure", "deploy_to_ecs"]
+    return ["containerize_app", "create_ecs_infrastructure"]
 
 
 @mcp.prompt("make accessible online")
 def make_accessible_online_prompt():
     """User wants to make an application accessible online"""
-    return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure", "deploy_to_ecs"]
+    return ["containerize_app", "create_ecs_infrastructure"]
 
 
 # Framework-specific prompts
 @mcp.prompt("deploy flask")
 def deploy_flask_prompt():
     """User wants to deploy a Flask application"""
-    return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure", "deploy_to_ecs"]
+    return ["containerize_app", "create_ecs_infrastructure"]
 
 
 @mcp.prompt("deploy django")
 def deploy_django_prompt():
     """User wants to deploy a Django application"""
-    return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure", "deploy_to_ecs"]
+    return ["containerize_app", "create_ecs_infrastructure"]
 
 
 @mcp.prompt("deploy react")
 def deploy_react_prompt():
     """User wants to deploy a React application"""
-    return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure", "deploy_to_ecs"]
+    return ["containerize_app", "create_ecs_infrastructure"]
 
 
 @mcp.prompt("deploy express")
 def deploy_express_prompt():
     """User wants to deploy an Express.js application"""
-    return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure", "deploy_to_ecs"]
+    return ["containerize_app", "create_ecs_infrastructure"]
 
 
 @mcp.prompt("deploy node")
 def deploy_node_prompt():
     """User wants to deploy a Node.js application"""
-    return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure", "deploy_to_ecs"]
+    return ["containerize_app", "create_ecs_infrastructure"]
 
 
 # Combined prompts
 @mcp.prompt("containerize and deploy")
 def containerize_and_deploy_prompt():
     """User wants to containerize and deploy an application"""
-    return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure", "deploy_to_ecs"]
+    return ["containerize_app", "create_ecs_infrastructure"]
 
 
 @mcp.prompt("docker and deploy")
 def docker_and_deploy_prompt():
     """User wants to containerize and deploy an application"""
-    return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure", "deploy_to_ecs"]
+    return ["containerize_app", "create_ecs_infrastructure"]
 
 
 # Vibe coder prompts
 @mcp.prompt("ship it")
 def ship_it_prompt():
     """User wants to deploy an application"""
-    return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure", "deploy_to_ecs"]
+    return ["containerize_app", "create_ecs_infrastructure"]
 
 
 @mcp.prompt("push to prod")
 def push_to_prod_prompt():
     """User wants to deploy an application to production"""
-    return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure", "deploy_to_ecs"]
+    return ["containerize_app", "create_ecs_infrastructure"]
 
 
 @mcp.prompt("get this online")
 def get_this_online_prompt():
     """User wants to make an application accessible online"""
-    return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure", "deploy_to_ecs"]
+    return ["containerize_app", "create_ecs_infrastructure"]
 
 
 @mcp.prompt("make this public")
 def make_this_public_prompt():
     """User wants to make an application publicly accessible"""
-    return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure", "deploy_to_ecs"]
+    return ["containerize_app", "create_ecs_infrastructure"]
 
+
+@mcp.prompt("delete infrastructure")
+def delete_infrastructure_prompt():
+    """User wants to delete an application infrastructure"""
+    return ["delete_ecs_infrastructure"]
+
+
+@mcp.prompt("tear down")
+def tear_down_prompt():
+    """User wants to tear down infrastructure"""
+    return ["delete_ecs_infrastructure"]
+
+
+@mcp.prompt("remove deployment")
+def remove_deployment_prompt():
+    """User wants to remove a deployment"""
+    return ["delete_ecs_infrastructure"]
+
+
+@mcp.prompt("clean up resources")
+def clean_up_resources_prompt():
+    """User wants to clean up resources"""
+    return ["delete_ecs_infrastructure"]
 
 @mcp.prompt("put this on aws")
 def put_this_on_aws_prompt():
     """User wants to deploy an application to AWS"""
-    return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure", "deploy_to_ecs"]
+    return ["containerize_app", "create_ecs_infrastructure"]
 
 
 @mcp.prompt("can people access this")
 def can_people_access_this_prompt():
     """User wants to make an application accessible to others"""
-    return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure", "deploy_to_ecs"]
+    return ["containerize_app", "create_ecs_infrastructure"]
 
 
 @mcp.prompt("how do i share this app")
 def how_do_i_share_this_app_prompt():
     """User wants to make an application accessible to others"""
-    return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure", "deploy_to_ecs"]
+    return ["containerize_app", "create_ecs_infrastructure"]
 
 
 def main() -> None:

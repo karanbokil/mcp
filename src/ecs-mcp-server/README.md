@@ -2,16 +2,18 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/awslabs.ecs-mcp-server.svg)](https://pypi.org/project/awslabs.ecs-mcp-server/)
 
-A server for automating containerization and deployment of web applications to AWS ECS.
+A server for providing containerization guidance and deploying web applications to AWS ECS.
 
 ## Features
 
-- **Automated Containerization**: Generate Dockerfiles and container configurations for common web application frameworks
+- **Containerization Guidance**: Provides best practices and guidance for containerizing web applications
 - **ECS Deployment**: Deploy containerized applications to AWS ECS using Fargate
 - **Load Balancer Integration**: Automatically configure Application Load Balancers (ALBs) for web traffic
 - **Infrastructure as Code**: Generate and apply CloudFormation templates for ECS infrastructure
 - **URL Management**: Return public ALB URLs for immediate access to deployed applications
-- **Scaling Configuration**: Set up auto-scaling policies based on application requirements
+- **Circuit Breaker**: Implement deployment circuit breaker with automatic rollback
+- **Container Insights**: Enable enhanced container insights for monitoring
+- **VPC Endpoints**: Configure VPC endpoints for secure access to AWS services without internet exposure
 - **Security Best Practices**: Implement AWS security best practices for container deployments
 
 ## Installation
@@ -44,16 +46,264 @@ Add the ECS MCP Server to your MCP client configuration:
 }
 ```
 
+## MCP Tools
+
+The ECS MCP Server provides the following tools for containerization and deployment:
+
+### 1. containerize_app
+
+Provides guidance for containerizing a web application.
+
+**Parameters:**
+```json
+{
+  "app_path": {
+    "type": "string",
+    "description": "Path to the web application directory",
+    "required": true
+  },
+  "port": {
+    "type": "integer",
+    "description": "Port the application listens on",
+    "required": true
+  },
+  "base_image": {
+    "type": "string",
+    "description": "Base Docker image to use",
+    "required": true
+  }
+}
+```
+
+**Returns:**
+- Container port
+- Base image recommendation
+- Comprehensive containerization guidance including:
+  - Example Dockerfile content
+  - Example docker-compose.yml content
+  - Tool comparison (Docker vs Finch)
+  - Architecture recommendations (ARM64 vs AMD64)
+  - Validation guidance using Hadolint
+  - Troubleshooting tips
+  - Best practices
+
+**Example:**
+```python
+result = await containerize_app(
+    app_path="/path/to/app",
+    port=8000,
+    base_image="amazonlinux:2023"
+)
+```
+
+### 2. create_ecs_infrastructure
+
+Creates ECS infrastructure using CloudFormation.
+
+**Parameters:**
+```json
+{
+  "app_name": {
+    "type": "string",
+    "description": "Name of the application",
+    "required": true
+  },
+  "app_path": {
+    "type": "string",
+    "description": "Path to the web application directory",
+    "required": true
+  },
+  "force_deploy": {
+    "type": "boolean",
+    "description": "Set to True ONLY if you have Docker installed and running, and you agree to let the server build and deploy your image to ECR, as well as deploy ECS infrastructure for you in CloudFormation. If False, template files will be generated locally for your review.",
+    "required": false,
+    "default": false
+  },
+  "vpc_id": {
+    "type": "string",
+    "description": "VPC ID for deployment (optional, will create new if not provided)",
+    "required": false
+  },
+  "subnet_ids": {
+    "type": "array",
+    "items": {
+      "type": "string"
+    },
+    "description": "List of subnet IDs for deployment",
+    "required": false
+  },
+  "route_table_ids": {
+    "type": "array",
+    "items": {
+      "type": "string"
+    },
+    "description": "List of route table IDs for S3 Gateway endpoint association, will use main route table if not provided",
+    "required": false
+  },
+  "cpu": {
+    "type": "integer",
+    "description": "CPU units for the task (e.g., 256, 512, 1024)",
+    "required": false
+  },
+  "memory": {
+    "type": "integer",
+    "description": "Memory (MB) for the task (e.g., 512, 1024, 2048)",
+    "required": false
+  },
+  "desired_count": {
+    "type": "integer",
+    "description": "Desired number of tasks",
+    "required": false
+  },
+  "container_port": {
+    "type": "integer",
+    "description": "Port the container listens on",
+    "required": false
+  },
+  "container_port": {
+    "type": "integer",
+    "description": "Port the container listens on",
+    "required": false
+  },
+  "environment_vars": {
+    "type": "object",
+    "description": "Environment variables as a JSON object",
+    "required": false
+  },
+  "health_check_path": {
+    "type": "string",
+    "description": "Path for ALB health checks",
+    "required": false
+  }
+}
+```
+
+**Returns:**
+- If force_deploy is False: Template files and guidance for manual deployment
+- If force_deploy is True: Stack name and ID, VPC and subnet IDs, Resources (cluster, service, task definition, load balancer), ECR repository URI, Image URI
+
+**Example:**
+```python
+# Generate templates only
+result = await create_ecs_infrastructure(
+    app_name="my-app",
+    app_path="/path/to/app",
+    force_deploy=False,
+    memory=1024,
+    cpu=512,
+    health_check_path="/health/"
+)
+
+# Build, push, and deploy
+result = await create_ecs_infrastructure(
+    app_name="my-app",
+    app_path="/path/to/app",
+    force_deploy=True,
+    memory=1024,
+    cpu=512,
+    route_table_ids=["rtb-012d33237d56fe9e7"],
+    memory=1024,
+    cpu=512,
+    health_check_path="/health/"
+)
+```
+
+### 3. get_deployment_status
+
+Gets the status of an ECS deployment and returns the ALB URL.
+
+**Parameters:**
+```json
+{
+  "app_name": {
+    "type": "string",
+    "description": "Name of the application",
+    "required": true
+  },
+  "cluster_name": {
+    "type": "string",
+    "description": "Name of the ECS cluster (optional, defaults to app_name)",
+    "required": false
+  }
+}
+```
+
+**Returns:**
+- Service status (active, draining, etc.)
+- Running task count
+- Desired task count
+- Application Load Balancer URL
+- Recent deployment events
+- Health check status
+
+**Example:**
+```python
+status = await get_deployment_status(app_name="my-app")
+```
+
+### 4. delete_ecs_infrastructure
+
+Deletes ECS infrastructure created by the ECS MCP Server.
+
+**Parameters:**
+```json
+{
+  "app_name": {
+    "type": "string",
+    "description": "Name of the application",
+    "required": true
+  },
+  "ecr_template_path": {
+    "type": "string",
+    "description": "Path to the ECR CloudFormation template file",
+    "required": true
+  },
+  "ecs_template_path": {
+    "type": "string",
+    "description": "Path to the ECS CloudFormation template file",
+    "required": true
+  }
+}
+```
+
+**Returns:**
+- Operation status
+- ECR stack deletion status
+- ECS stack deletion status
+- Guidance for checking deletion status
+- AWS CLI commands for verification
+
+**Example:**
+```python
+result = await delete_ecs_infrastructure(
+    app_name="my-app",
+    ecr_template_path="/path/to/my-app-ecr-infrastructure.json",
+    ecs_template_path="/path/to/my-app-ecs-infrastructure.json"
+)
+```
+
+**Warning:** This tool is not intended for production usage and is best suited for tearing down prototyped work done with the ECS MCP Server.
+
 ## Usage
 
 The ECS MCP Server provides tools for AI assistants to:
 
-1. Analyze web applications to determine containerization requirements
-2. Generate appropriate Dockerfiles and container configurations
-3. Create ECS task definitions and service configurations
-4. Deploy applications to ECS Fargate with appropriate networking and security settings
-5. Configure Application Load Balancers for public access
-6. Return public URLs for accessing the deployed application
+1. Provide guidance on containerizing web applications with best practices
+2. Create ECS infrastructure including task definitions, service configurations, and load balancers
+3. Return public URLs for accessing the deployed application
+
+## Workflow
+
+The typical workflow when using the ECS MCP Server is:
+
+1. Use `containerize_app` to get guidance on how to containerize your application
+2. Follow the guidance to create your Dockerfile and build your container image
+3. Use `create_ecs_infrastructure` with `force_deploy=False` to generate CloudFormation templates
+4. Review the generated templates and make any necessary adjustments
+5. Either:
+   - Deploy the templates manually using AWS CLI, CloudFormation console, or other IaC tools
+   - Use `create_ecs_infrastructure` with `force_deploy=True` to automatically build, push, and deploy
+6. Use `get_deployment_status` to monitor the deployment and get the public URL
 
 ## Vibe Coder Prompts
 

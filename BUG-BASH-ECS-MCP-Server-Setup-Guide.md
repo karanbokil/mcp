@@ -85,7 +85,7 @@ Enter your AWS Access Key ID, Secret Access Key, default region (e.g., us-west-2
       "command": "{PATH_TO_DIRECTORY}/run_ecs_mcp_server.sh",
       "args": [],
       "env": {
-        "HOME": "/home/mtgoo",
+        "HOME": "{PATH TO HOME}",
         "AWS_PROFILE": "default",
         "AWS_REGION": "us-west-2",
         "FASTMCP_LOG_LEVEL": "DEBUG",

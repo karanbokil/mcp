@@ -115,23 +115,23 @@ async def mcp_containerize_app(
         default=None,
         description="Port the application listens on",
     ),
-    environment_vars: Optional[Dict[str, str]] = Field(
-        default=None,
-        description="Environment variables as a JSON object",
+    base_image: str = Field(
+        ...,
+        description="Base Docker image to use",
     ),
 ) -> Dict[str, Any]:
     """
-    Generates Dockerfile and container configurations for a web application.
+    Start here if a user wants to run their application locally or deploy an app to the cloud.
+    Provides guidance for containerizing a web application.
 
     This tool creates a Dockerfile and docker-compose.yml file for your web application
     based on the framework and requirements. It uses best practices for containerizing
     different types of web applications.
 
     USAGE INSTRUCTIONS:
-    1. First use analyze_web_app to understand your application's requirements
-    2. Provide the path to your web application directory
-    3. Optionally specify the framework, port, and environment variables
-    4. The tool will generate the necessary files for containerization
+    1. Run this tool to get guidance on how to configure your application for ECS.
+    2. Follow the steps generated from the tool.
+    3. Proceed to create_ecs_infrastructure tool.
 
     The generated files include:
     - Dockerfile: Instructions for building a container image
@@ -141,14 +141,13 @@ async def mcp_containerize_app(
 
     Parameters:
         app_path: Path to the web application directory
-        framework: Web framework used (optional, will be auto-detected if not provided)
-        port: Port the application listens on (optional)
-        environment_vars: Environment variables as a JSON object (optional)
+        port: Port the application listens on
+        base_image: Base Docker image to use
 
     Returns:
         Dictionary containing containerization results
     """
-    return await containerize_app(app_path, framework, port, environment_vars)
+    return await containerize_app(app_path, port)
 
 
 @mcp.tool(name="create_ecs_infrastructure")
@@ -209,9 +208,12 @@ async def mcp_create_ecs_infrastructure(
     USAGE INSTRUCTIONS:
     1. Provide a name for your application
     2. Provide the path to your web application directory
-    3. Optionally specify VPC and subnet IDs if you want to use existing resources
-    4. Configure CPU, memory, and scaling options as needed
-    5. The tool will create the infrastructure and return the details
+    3. Decide whether to use force_deploy:
+       - If False (default): Template files will be generated locally for your review
+       - If True: Docker image will be built and pushed to ECR, and CloudFormation stacks will be deployed
+       - ENSURE you get user permission to deploy and inform that this is only for non-production applications.
+    4. Optionally specify VPC and subnet IDs if you want to use existing resources
+    5. Configure CPU, memory, and scaling options as needed
 
     The created infrastructure includes:
     - VPC and subnets (if not provided)
@@ -285,6 +287,7 @@ async def mcp_get_deployment_status(
     - Application Load Balancer URL
     - Recent deployment events
     - Health check status
+    - Custom domain and HTTPS setup guidance (when deployment is complete)
 
     Parameters:
         app_name: Name of the application

@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 async def containerize_app(
     app_path: str,
     port: int,
-    base_image: str,
 ) -> Dict[str, Any]:
     """
     Provides guidance for containerizing a web application.
@@ -27,7 +26,6 @@ async def containerize_app(
     Args:
         app_path: Path to the web application directory
         port: Port the application listens on
-        base_image: Base Docker image to use
 
     Returns:
         Dict containing containerization guidance
@@ -35,8 +33,7 @@ async def containerize_app(
     logger.info(f"Generating containerization guidance for web application at {app_path}")
 
     # Use amazonlinux:2023 as default base image if not specified
-    if not base_image:
-        base_image = "amazonlinux:2023"
+    base_image = "amazonlinux:2023"
 
     # Create guidance for building and running the container
     containerization_guidance = _generate_containerization_guidance(

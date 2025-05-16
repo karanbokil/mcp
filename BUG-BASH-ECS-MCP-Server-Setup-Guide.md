@@ -89,7 +89,7 @@ Enter your AWS Access Key ID, Secret Access Key, default region (e.g., us-west-2
         "AWS_PROFILE": "default",
         "AWS_REGION": "us-west-2",
         "FASTMCP_LOG_LEVEL": "DEBUG",
-        "PYTHONPATH": "{PATH_TO_DIRECTORY}/mcp/src/ecs-mcp-server"
+        "PYTHONPATH": "{PATH_TO_DIRECTORY}/src/ecs-mcp-server"
       },
       "transportType": "stdio"
     }

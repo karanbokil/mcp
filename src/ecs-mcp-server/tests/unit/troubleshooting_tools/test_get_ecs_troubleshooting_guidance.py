@@ -246,6 +246,7 @@ class TestGetEcsTroubleshootingGuidance(unittest.TestCase):
         mock_ecs_client = mock.Mock()
         mock_ecs_client.list_clusters = mock.Mock(return_value={"clusterArns": []})
         mock_ecs_client.list_task_definitions = mock.Mock(return_value={"taskDefinitionArns": []})
+        mock_ecs_client.list_task_definition_families = mock.Mock(return_value={"families": []})
         
         # Create a proper ELBv2 mock
         mock_elbv2 = mock.Mock()
@@ -266,3 +267,60 @@ class TestGetEcsTroubleshootingGuidance(unittest.TestCase):
         self.assertEqual("error", result["status"])
         self.assertIn("error", result)
         # Don't rely on specific error message containing "Access" as it depends on the exception formatting
+
+    @mock.patch("boto3.client")
+    def test_task_definition_collection(self, mock_boto_client):
+        """Test that all task definitions are collected regardless of naming."""
+        # Mock ECS client with various task definitions
+        mock_ecs_client = mock.Mock()
+        mock_ecs_client.list_task_definitions.return_value = {
+            "taskDefinitionArns": [
+                "arn:aws:ecs:us-west-2:123456789012:task-definition/test-app:1",
+                "arn:aws:ecs:us-west-2:123456789012:task-definition/test-app-service:1",
+                "arn:aws:ecs:us-west-2:123456789012:task-definition/service-test-app:1",
+                "arn:aws:ecs:us-west-2:123456789012:task-definition/unrelated-app:1"
+            ]
+        }
+        
+        # Add empty list_task_definition_families
+        mock_ecs_client.list_task_definition_families = mock.Mock(return_value={"families": []})
+        
+        # Add list_clusters method
+        mock_ecs_client.list_clusters = mock.Mock(return_value={"clusterArns": []})
+        
+        # Create a proper ELBv2 mock
+        mock_elbv2 = mock.Mock()
+        mock_elbv2.describe_load_balancers = mock.Mock(return_value={"LoadBalancers": []})
+        
+        # Mock CloudFormation client to raise "not exist" error
+        mock_cf_client = mock.Mock()
+        mock_cf_client.describe_stacks.side_effect = ClientError(
+            {"Error": {"Code": "ValidationError", "Message": "Stack with id test-app does not exist"}},
+            "DescribeStacks"
+        )
+        
+        # Mock ECR client
+        mock_ecr = mock.Mock()
+        
+        # Configure boto3.client mock to return our mock clients
+        mock_boto_client.side_effect = lambda service_name, **kwargs: {
+            "cloudformation": mock_cf_client,
+            "ecs": mock_ecs_client,
+            "elbv2": mock_elbv2,
+            "ecr": mock_ecr
+        }.get(service_name, mock.Mock())
+        
+        # Import the function directly for testing
+        from awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance import find_related_resources
+        
+        # Call function and verify all task definitions are collected
+        result = find_related_resources("test-app")
+        
+        # Should include all task definitions (not filtering by name anymore)
+        self.assertIn("test-app:1", result["task_definitions"])
+        self.assertIn("test-app-service:1", result["task_definitions"])
+        self.assertIn("service-test-app:1", result["task_definitions"])
+        self.assertIn("unrelated-app:1", result["task_definitions"])
+        
+        # Total count should be 4 task definitions
+        self.assertEqual(4, len(result["task_definitions"]))

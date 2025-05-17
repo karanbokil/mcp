@@ -39,58 +39,19 @@ def find_related_resources(app_name: str) -> Dict[str, Any]:
                 cluster_name = parsed_arn.resource_name
                 if app_name.lower() in cluster_name.lower():
                     result['clusters'].append(cluster_name)
-                    
-                    # Look for services in this cluster
-                    try:
-                        services = ecs.list_services(cluster=cluster_name)
-                        # Ensure we have a valid response with serviceArns
-                        if isinstance(services, dict) and 'serviceArns' in services:
-                            for service_arn in services['serviceArns']:
-                                parsed_service_arn = parse_arn(service_arn)
-                                if parsed_service_arn:
-                                    service_name = parsed_service_arn.resource_name
-                                    if app_name.lower() in service_name.lower():
-                                        result['services'].append(service_name)
-                    except (ClientError, TypeError, KeyError):
-                        pass
     except ClientError:
         pass
-        
-    # Also check the default cluster for services
-    try:
-        default_services = ecs.list_services(cluster='default')
-        # Ensure we have a valid response with serviceArns
-        if isinstance(default_services, dict) and 'serviceArns' in default_services:
-            for service_arn in default_services['serviceArns']:
-                parsed_service_arn = parse_arn(service_arn)
-                if parsed_service_arn:
-                    service_name = parsed_service_arn.resource_name
-                    if app_name.lower() in service_name.lower():
-                        result['services'].append(service_name)
-    except (ClientError, TypeError, KeyError):
-        pass
     
-    # Get task definitions using the comprehensive function
-    task_definitions = find_related_task_definitions(app_name)
-    for task_def in task_definitions:
-        if 'taskDefinitionArn' in task_def:
-            parsed_arn = parse_arn(task_def['taskDefinitionArn'])
+    # Look for task definitions
+    try:
+        task_defs = ecs.list_task_definitions()
+        for task_def_arn in task_defs['taskDefinitionArns']:
+            parsed_arn = parse_arn(task_def_arn)
             if parsed_arn:
-                result['task_definitions'].append(parsed_arn.resource_id)
-    
-    # Also check for directly matching task definition names from list_task_definitions (for test cases)
-    try:
-        list_result = ecs.list_task_definitions()
-        # Handle both real API responses and mock objects in tests
-        task_def_arns = []
-        if isinstance(list_result, dict) and 'taskDefinitionArns' in list_result:
-            task_def_arns = list_result['taskDefinitionArns']
-            
-        for arn in task_def_arns:
-            parsed_arn = parse_arn(arn)
-            if parsed_arn and app_name.lower() in parsed_arn.resource_name.lower():
-                result['task_definitions'].append(parsed_arn.resource_id)
-    except (ClientError, TypeError):
+                task_def_name = parsed_arn.resource_id
+                logger.debug(f"Including task def: {task_def_arn}")
+                result['task_definitions'].append(task_def_name)
+    except ClientError:
         pass
     
     # Look for load balancers with similar names

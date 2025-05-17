@@ -39,7 +39,7 @@ class TestImagePullFailureDetection(unittest.TestCase):
         }
         mock_ecs.list_task_definitions.return_value = {
             'taskDefinitionArns': [
-                'arn:aws:ecs:us-west-2:123456789012:task-definition/failing-task-def-prbqv:1',
+                'arn:aws:ecs:us-west-2:123456789012:task-definition/test-failure-task-def-prbqv:1',
                 'arn:aws:ecs:us-west-2:123456789012:task-definition/other-task:1'
             ]
         }
@@ -68,7 +68,7 @@ class TestImagePullFailureDetection(unittest.TestCase):
         
         # Verify the result
         self.assertIn('test-failure-cluster-prbqv', result['clusters'])
-        self.assertIn('failing-task-def-prbqv:1', result['task_definitions'])
+        self.assertIn('test-failure-task-def-prbqv:1', result['task_definitions'])
         self.assertIn('test-failure-lb-prbqv', result['load_balancers'])
         
     @patch('awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance.boto3.client')

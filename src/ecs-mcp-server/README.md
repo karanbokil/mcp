@@ -1,4 +1,4 @@
-# AWS ECS MCP Server
+AWS ECS MCP Server
 
 [![PyPI version](https://img.shields.io/pypi/v/awslabs.ecs-mcp-server.svg)](https://pypi.org/project/awslabs.ecs-mcp-server/)
 
@@ -15,6 +15,9 @@ A server for providing containerization guidance and deploying web applications 
 - **Container Insights**: Enable enhanced container insights for monitoring
 - **VPC Endpoints**: Configure VPC endpoints for secure access to AWS services without internet exposure
 - **Security Best Practices**: Implement AWS security best practices for container deployments
+- **Resource Management**: List and explore ECS resources such as task definitions, services, clusters, and tasks
+- **ECR Integration**: View repositories and container images in Amazon ECR
+
 
 ## Installation
 
@@ -279,6 +282,65 @@ result = await delete_ecs_infrastructure(
 
 **Warning:** This tool is not intended for production usage and is best suited for tearing down prototyped work done with the ECS MCP Server.
 
+### 5. ecs_resource_management
+
+Read-only tool for managing ECS resources.
+
+**Parameters:**
+```json
+{
+  "action": {
+    "type": "string",
+    "description": "Action to perform (list, describe)",
+    "required": true
+  },
+  "resource_type": {
+    "type": "string",
+    "description": "Type of resource (cluster, service, task, task_definition, container_instance, capacity_provider)",
+    "required": true
+  },
+  "identifier": {
+    "type": "string",
+    "description": "Resource identifier (name or ARN) for describe actions",
+    "required": false
+  },
+  "filters": {
+    "type": "object",
+    "description": "Filters for list operations (e.g., {\"cluster\": \"my-cluster\", \"status\": \"RUNNING\"})",
+    "required": false
+  }
+}
+```
+
+**Returns:**
+- Requested ECS resources based on the action and resource type
+- For list actions: collection of resources with counts and statistics
+- For describe actions: detailed information about a specific resource
+
+**Example:**
+```python
+# List all clusters
+clusters = await ecs_resource_management(
+    action="list",
+    resource_type="cluster"
+)
+
+# Describe a specific service in a cluster
+service = await ecs_resource_management(
+    action="describe",
+    resource_type="service",
+    identifier="my-service",
+    filters={"cluster": "my-cluster"}
+)
+
+# List all tasks with a specific status
+tasks = await ecs_resource_management(
+    action="list",
+    resource_type="task",
+    filters={"cluster": "my-cluster", "status": "RUNNING"}
+)
+```
+
 ## Usage
 
 The ECS MCP Server provides tools for AI assistants to:
@@ -286,6 +348,8 @@ The ECS MCP Server provides tools for AI assistants to:
 1. Provide guidance on containerizing web applications with best practices
 2. Create ECS infrastructure including task definitions, service configurations, and load balancers
 3. Return public URLs for accessing the deployed application
+4. List and inspect ECS resources across your AWS environment
+5. Explore ECR repositories and container images
 
 ## Workflow
 
@@ -299,6 +363,7 @@ The typical workflow when using the ECS MCP Server is:
    - Deploy the templates manually using AWS CLI, CloudFormation console, or other IaC tools
    - Use `create_ecs_infrastructure` with `force_deploy=True` to automatically build, push, and deploy
 6. Use `get_deployment_status` to monitor the deployment and get the public URL
+7. Use `ecs_resource_management` to explore and manage your ECS resources
 
 ## Vibe Coder Prompts
 
@@ -337,12 +402,22 @@ The ECS MCP Server is designed to recognize casual, conversational deployment re
 - "Make this run in the cloud"
 - "Get this app containerized and online"
 
+### Resource Management Prompts
+- "Show me my ECS resources"
+- "List all ECS clusters"
+- "Describe the ECS service for my-app"
+- "How many tasks are running?"
+- "Check task definitions"
+- "Show running containers in ECS"
+
 ## Example Prompts
 
 - "Deploy this Flask application to AWS ECS"
 - "Containerize this Node.js app and deploy it to AWS"
 - "Create an ECS deployment for this web application with auto-scaling"
 - "Set up a containerized environment for this Django app on AWS ECS"
+- "List all my ECS clusters"
+- "Show me details for my-cluster"
 
 ## Development
 

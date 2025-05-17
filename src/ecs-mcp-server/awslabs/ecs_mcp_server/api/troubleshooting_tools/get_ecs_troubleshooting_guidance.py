@@ -301,24 +301,44 @@ def get_ecs_troubleshooting_guidance(
             else:
                 raise
 
-        # Determine if ECS cluster exists
-        cluster_name = f"{app_name}-cluster"
+        # Determine if ECS clusters exist
         ecs = boto3.client('ecs')
-        try:
-            clusters = ecs.describe_clusters(clusters=[cluster_name])
-            cluster_exists = len(clusters['clusters']) > 0
-            if cluster_exists:
-                cluster_status = clusters['clusters'][0]['status']
-                response['raw_data']['cluster_status'] = cluster_status
-        except ClientError:
-            cluster_exists = False
-            cluster_status = "NOT_FOUND"
-            
-            # Check if there are any clusters with similar name patterns
-            if related_resources['clusters']:
-                response['detected_symptoms']['infrastructure'].append(
-                    f"Found similar clusters that may be related: {', '.join(related_resources['clusters'])}"
-                )
+        cluster_exists = False
+        cluster_name = None
+        
+        # Store comprehensive information about all related clusters
+        response['raw_data']['clusters'] = []
+        
+        if related_resources['clusters']:
+            try:
+                clusters = ecs.describe_clusters(clusters=related_resources['clusters'])
+                if clusters['clusters']:
+                    # Store detailed info for each cluster
+                    for cluster in clusters['clusters']:
+                        # Store each cluster's data in a comprehensive structure
+                        cluster_info = {
+                            'name': cluster['clusterName'],
+                            'status': cluster['status'],
+                            'exists': True,
+                            'runningTasksCount': cluster.get('runningTasksCount', 0),
+                            'pendingTasksCount': cluster.get('pendingTasksCount', 0),
+                            'activeServicesCount': cluster.get('activeServicesCount', 0),
+                            'registeredContainerInstancesCount': cluster.get('registeredContainerInstancesCount', 0)
+                        }
+                        response['raw_data']['clusters'].append(cluster_info)
+                    
+                    # For diagnostic purposes, use the first cluster found
+                    first_cluster = clusters['clusters'][0]
+                    cluster_exists = True
+                    cluster_name = first_cluster['clusterName']
+            except ClientError:
+                pass
+        
+        # Check if there are any clusters with similar name patterns
+        if not cluster_exists and related_resources['clusters']:
+            response['detected_symptoms']['infrastructure'].append(
+                f"Found similar clusters that may be related: {', '.join(related_resources['clusters'])}"
+            )
 
         # Analyze provided symptoms if any
         if symptoms_description:

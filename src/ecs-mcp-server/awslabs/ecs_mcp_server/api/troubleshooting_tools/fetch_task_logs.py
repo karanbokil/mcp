@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 def fetch_task_logs(
     app_name: str,
-    cluster_name: Optional[str] = None,
+    cluster_name: str,
     task_id: Optional[str] = None,
     time_window: int = 3600,
     filter_pattern: Optional[str] = None,
@@ -30,8 +30,8 @@ def fetch_task_logs(
     ----------
     app_name : str
         The name of the application to analyze
-    cluster_name : str, optional
-        The name of the ECS cluster (default: {app_name}-cluster)
+    cluster_name : str
+        The name of the ECS cluster
     task_id : str, optional
         Specific task ID to retrieve logs for
     time_window : int, optional
@@ -48,10 +48,7 @@ def fetch_task_logs(
     Dict[str, Any]
         Log entries with severity markers, highlighted errors, context
     """
-    try:
-        if not cluster_name:
-            cluster_name = f"{app_name}-cluster"
-            
+    try:            
         # Determine the time range based on provided parameters
         now = datetime.datetime.now(datetime.timezone.utc)
         

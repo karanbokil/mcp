@@ -117,9 +117,9 @@ def register_module(mcp: FastMCP) -> None:
             ...,
             description="The name of the application/service to analyze",
         ),
-        cluster_name: Optional[str] = Field(
-            default=None,
-            description="The name of the ECS cluster (default: {app_name}-cluster)",
+        cluster_name: str = Field(
+            ...,
+            description="The name of the ECS cluster",
         ),
         time_window: int = Field(
             default=3600,
@@ -143,7 +143,7 @@ def register_module(mcp: FastMCP) -> None:
 
         USAGE INSTRUCTIONS:
         1. Provide the name of your application
-        2. Optionally specify the cluster name if different from {app_name}-cluster
+        2. Specify the cluster name
         3. Optionally specify the time window to analyze (default is last hour)
         4. The tool will analyze service events and configuration
 
@@ -171,9 +171,9 @@ def register_module(mcp: FastMCP) -> None:
             ...,
             description="The name of the application to analyze",
         ),
-        cluster_name: Optional[str] = Field(
-            default=None,
-            description="The name of the ECS cluster (default: {app_name}-cluster)",
+        cluster_name: str = Field(
+            ...,
+            description="The name of the ECS cluster",
         ),
         time_window: int = Field(
             default=3600,
@@ -197,7 +197,7 @@ def register_module(mcp: FastMCP) -> None:
 
         USAGE INSTRUCTIONS:
         1. Provide the name of your application
-        2. Optionally specify the cluster name if different from {app_name}-cluster
+        2. Specify the cluster name
         3. Optionally specify the time window to analyze (default is last hour)
         4. The tool will analyze failed tasks and identify patterns
 
@@ -225,9 +225,9 @@ def register_module(mcp: FastMCP) -> None:
             ...,
             description="The name of the application to analyze",
         ),
-        cluster_name: Optional[str] = Field(
-            default=None,
-            description="The name of the ECS cluster (default: {app_name}-cluster)",
+        cluster_name: str = Field(
+            ...,
+            description="The name of the ECS cluster",
         ),
         task_id: Optional[str] = Field(
             default=None,
@@ -259,7 +259,7 @@ def register_module(mcp: FastMCP) -> None:
 
         USAGE INSTRUCTIONS:
         1. Provide the name of your application
-        2. Optionally specify the cluster name if different from {app_name}-cluster
+        2. Specify the cluster name
         3. Optionally provide a specific task ID to focus on a single task
         4. Optionally specify the time window and filter pattern
         5. The tool will retrieve and analyze logs

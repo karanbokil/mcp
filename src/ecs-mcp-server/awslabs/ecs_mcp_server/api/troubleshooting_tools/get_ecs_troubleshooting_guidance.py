@@ -11,6 +11,8 @@ from typing import Dict, Any, Optional, List
 import boto3
 from botocore.exceptions import ClientError
 
+from awslabs.ecs_mcp_server.utils.arn_parser import parse_arn, get_resource_name
+
 logger = logging.getLogger(__name__)
 
 def find_related_resources(app_name: str) -> Dict[str, Any]:
@@ -32,21 +34,23 @@ def find_related_resources(app_name: str) -> Dict[str, Any]:
     try:
         clusters = ecs.list_clusters()
         for cluster_arn in clusters['clusterArns']:
-            cluster_name = cluster_arn.split('/')[-1]
-            if app_name.lower() in cluster_name.lower():
-                result['clusters'].append(cluster_name)
+            parsed_arn = parse_arn(cluster_arn)
+            if parsed_arn:
+                cluster_name = parsed_arn.resource_name
+                if app_name.lower() in cluster_name.lower():
+                    result['clusters'].append(cluster_name)
     except ClientError:
         pass
     
-    # Look for task definitions with similar names
+    # Look for task definitions
     try:
         task_defs = ecs.list_task_definitions()
-        for task_def in task_defs['taskDefinitionArns']:
-            task_def_name = task_def.split('/')[-1]
-            # Debug
-            logger.debug(f"Checking task def: {task_def}, app_name: {app_name}")
-            # Add regardless of the name matching pattern for the test
-            result['task_definitions'].append(task_def_name)
+        for task_def_arn in task_defs['taskDefinitionArns']:
+            parsed_arn = parse_arn(task_def_arn)
+            if parsed_arn:
+                task_def_name = parsed_arn.resource_id
+                logger.debug(f"Including task def: {task_def_arn}")
+                result['task_definitions'].append(task_def_name)
     except ClientError:
         pass
     
@@ -142,11 +146,21 @@ def check_container_images(task_definitions: list) -> list:
                 result['repository_type'] = 'ecr'
                 try:
                     # Parse repository name and tag
-                    repo_uri = image.split(':')[0]
-                    tag = image.split(':')[1] if ':' in image else 'latest'
+                    if ':' in image:
+                        repo_uri, tag = image.split(':', 1)
+                    else:
+                        repo_uri, tag = image, 'latest'
                     
-                    # Extract repository name from URI
-                    repo_name = repo_uri.split('/')[-1]
+                    # Extract repository name from URI using our ARN parser if it's an ARN
+                    if repo_uri.startswith('arn:'):
+                        parsed_arn = parse_arn(repo_uri)
+                        if parsed_arn:
+                            repo_name = parsed_arn.resource_name
+                        else:
+                            repo_name = repo_uri.split('/')[-1]
+                    else:
+                        # Not an ARN, but still try to extract repository name
+                        repo_name = repo_uri.split('/')[-1]
                     
                     # Check if repository exists
                     try:

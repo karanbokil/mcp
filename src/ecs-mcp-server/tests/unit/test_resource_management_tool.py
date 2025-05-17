@@ -18,9 +18,9 @@ class MockFastMCP:
         self.tools = []
         self.prompt_patterns = []
     
-    def tool(self, name=None):
+    def tool(self, name=None, annotations=None):
         def decorator(func):
-            self.tools.append({"name": name or func.__name__, "function": func})
+            self.tools.append({"name": name or func.__name__, "function": func, "annotations": annotations})
             return func
         return decorator
     

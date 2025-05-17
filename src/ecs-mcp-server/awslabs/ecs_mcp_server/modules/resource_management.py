@@ -13,7 +13,12 @@ from awslabs.ecs_mcp_server.api.resource_management import ecs_resource_manageme
 def register_module(mcp: FastMCP) -> None:
     """Register resource management module tools and prompts with the MCP server."""
     
-    @mcp.tool(name="ecs_resource_management")
+    @mcp.tool(
+        name="ecs_resource_management",
+        annotations={
+            "readOnlyHint": True,
+        }
+    )
     async def mcp_ecs_resource_management(
         action: str = Field(
             ...,

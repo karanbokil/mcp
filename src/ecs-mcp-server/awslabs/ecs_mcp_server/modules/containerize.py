@@ -32,9 +32,9 @@ def register_module(mcp: FastMCP) -> None:
         including recommendations for base images, build tools, and architecture choices.
 
         USAGE INSTRUCTIONS:
-        1. Run this tool to get guidance on how to configure your application for ECS.
-        2. Follow the steps generated from the tool.
-        3. Proceed to create_ecs_infrastructure tool.
+        1. Provide the path to your web application directory
+        2. Optionally specify the framework, port, and environment variables
+        3. The tool will generate the necessary files for containerization
 
         The guidance includes:
         - Example Dockerfile content

@@ -40,10 +40,9 @@ def register_module(mcp: FastMCP) -> None:
         different types of web applications.
 
         USAGE INSTRUCTIONS:
-        1. First use analyze_web_app to understand your application's requirements
-        2. Provide the path to your web application directory
-        3. Optionally specify the framework, port, and environment variables
-        4. The tool will generate the necessary files for containerization
+        1. Provide the path to your web application directory
+        2. Optionally specify the framework, port, and environment variables
+        3. The tool will generate the necessary files for containerization
 
         The generated files include:
         - Dockerfile: Instructions for building a container image
@@ -66,30 +65,30 @@ def register_module(mcp: FastMCP) -> None:
     @mcp.prompt("dockerize")
     def dockerize_prompt():
         """User wants to containerize an application"""
-        return ["analyze_web_app", "containerize_app"]
+        return ["containerize_app"]
 
     @mcp.prompt("containerize")
     def containerize_prompt():
         """User wants to containerize an application"""
-        return ["analyze_web_app", "containerize_app"]
+        return ["containerize_app"]
 
     @mcp.prompt("docker container")
     def docker_container_prompt():
         """User wants to create a Docker container"""
-        return ["analyze_web_app", "containerize_app"]
+        return ["containerize_app"]
 
     @mcp.prompt("put in container")
     def put_in_container_prompt():
         """User wants to containerize an application"""
-        return ["analyze_web_app", "containerize_app"]
+        return ["containerize_app"]
         
     # Combined prompts
     @mcp.prompt("containerize and deploy")
     def containerize_and_deploy_prompt():
         """User wants to containerize and deploy an application"""
-        return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure"]
+        return ["containerize_app", "create_ecs_infrastructure"]
 
     @mcp.prompt("docker and deploy")
     def docker_and_deploy_prompt():
         """User wants to containerize and deploy an application"""
-        return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure"]
+        return ["containerize_app", "create_ecs_infrastructure"]

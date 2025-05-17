@@ -10,7 +10,6 @@ import sys
 from mcp.server.fastmcp import FastMCP
 
 from awslabs.ecs_mcp_server.modules import (
-    analyze,
     containerize,
     infrastructure,
     deployment_status,
@@ -60,7 +59,6 @@ IMPORTANT:
 
 
 # Register all modules
-analyze.register_module(mcp)
 containerize.register_module(mcp)
 infrastructure.register_module(mcp)
 deployment_status.register_module(mcp)

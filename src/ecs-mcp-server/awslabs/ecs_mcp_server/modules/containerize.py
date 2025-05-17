@@ -82,3 +82,14 @@ def register_module(mcp: FastMCP) -> None:
     def put_in_container_prompt():
         """User wants to containerize an application"""
         return ["analyze_web_app", "containerize_app"]
+        
+    # Combined prompts
+    @mcp.prompt("containerize and deploy")
+    def containerize_and_deploy_prompt():
+        """User wants to containerize and deploy an application"""
+        return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure"]
+
+    @mcp.prompt("docker and deploy")
+    def docker_and_deploy_prompt():
+        """User wants to containerize and deploy an application"""
+        return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure"]

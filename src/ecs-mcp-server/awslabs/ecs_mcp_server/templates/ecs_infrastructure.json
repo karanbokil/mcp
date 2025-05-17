@@ -1,6 +1,6 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "ECS Infrastructure for {{ app_name }}",
+  "Description": "ECS Infrastructure for Application",
   "Parameters": {
     "AppName": {
       "Type": "String",
@@ -13,6 +13,10 @@
     "SubnetIds": {
       "Type": "CommaDelimitedList",
       "Description": "List of subnet IDs for deployment"
+    },
+    "RouteTableIds": {
+      "Type": "CommaDelimitedList",
+      "Description": "List of route table IDs for S3 Gateway endpoint association"
     },
     "TaskCpu": {
       "Type": "Number",
@@ -29,15 +33,13 @@
       "Description": "Desired number of tasks",
       "Default": 1
     },
-    "EnableAutoScaling": {
-      "Type": "String",
-      "Description": "Enable auto-scaling for the service",
-      "Default": "false",
-      "AllowedValues": ["true", "false"]
-    },
     "ImageUri": {
       "Type": "String",
-      "Description": "URI of the container image"
+      "Description": "URI of the container image repository"
+    },
+    "ImageTag": {
+      "Type": "String",
+      "Description": "Tag of the container image to deploy"
     },
     "ContainerPort": {
       "Type": "Number",
@@ -48,13 +50,23 @@
       "Type": "String",
       "Description": "Path for ALB health checks",
       "Default": "/"
+    },
+    "Timestamp": {
+      "Type": "String",
+      "Description": "Deployment timestamp for tracking purposes"
     }
   },
   "Resources": {
     "ECSCluster": {
       "Type": "AWS::ECS::Cluster",
       "Properties": {
-        "ClusterName": {"Fn::Sub": "${AppName}-cluster"}
+        "ClusterName": {"Fn::Sub": "${AppName}-cluster"},
+        "ClusterSettings": [
+          {
+            "Name": "containerInsights",
+            "Value": "enabled"
+          }
+        ]
       }
     },
     "ECSTaskExecutionRole": {
@@ -119,9 +131,16 @@
         "SecurityGroupIngress": [
           {
             "IpProtocol": "tcp",
-            "FromPort": 0,
-            "ToPort": 65535,
+            "FromPort": {"Ref": "ContainerPort"},
+            "ToPort": {"Ref": "ContainerPort"},
             "SourceSecurityGroupId": {"Ref": "ALBSecurityGroup"}
+          }
+        ],
+        "SecurityGroupEgress": [
+          {
+            "IpProtocol": "-1",
+            "CidrIp": "0.0.0.0/0",
+            "Description": "Allow all outbound traffic"
           }
         ]
       }
@@ -168,7 +187,13 @@
         "Protocol": "HTTP",
         "TargetType": "ip",
         "UnhealthyThresholdCount": 5,
-        "VpcId": {"Ref": "VpcId"}
+        "VpcId": {"Ref": "VpcId"},
+        "TargetGroupAttributes": [
+          {
+            "Key": "deregistration_delay.timeout_seconds",
+            "Value": "150"
+          }
+        ]
       }
     },
     "ECSTaskDefinition": {
@@ -184,13 +209,13 @@
         "ContainerDefinitions": [
           {
             "Name": {"Fn::Sub": "${AppName}-container"},
-            "Image": {"Ref": "ImageUri"},
+            "Image": {"Fn::Sub": "${ImageUri}:${ImageTag}"},
             "Essential": true,
             "PortMappings": [
               {
                 "ContainerPort": {"Ref": "ContainerPort"},
-                "HostPort": {"Ref": "ContainerPort"},
-                "Protocol": "tcp"
+                "Protocol": "tcp",
+                "Name": {"Fn::Sub": "${AppName}-port"}
               }
             ],
             "LogConfiguration": {
@@ -198,9 +223,15 @@
               "Options": {
                 "awslogs-group": {"Fn::Sub": "/ecs/${AppName}"},
                 "awslogs-region": {"Ref": "AWS::Region"},
-                "awslogs-stream-prefix": "ecs"
+                "awslogs-stream-prefix": {"Fn::Sub": "${AppName}-container"}
               }
             }
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "ecs-mcp-server",
+            "Value": {"Ref": "Timestamp"}
           }
         ]
       }
@@ -212,6 +243,77 @@
         "RetentionInDays": 14
       }
     },
+    "VPCEndpointSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": {"Fn::Sub": "Security group for ${AppName} VPC Endpoints"},
+        "VpcId": {"Ref": "VpcId"},
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 443,
+            "ToPort": 443,
+            "SourceSecurityGroupId": {"Ref": "ECSSecurityGroup"}
+          }
+        ]
+      }
+    },
+    "ECRAPIEndpoint": {
+      "Type": "AWS::EC2::VPCEndpoint",
+      "Properties": {
+        "ServiceName": {"Fn::Sub": "com.amazonaws.${AWS::Region}.ecr.api"},
+        "VpcId": {"Ref": "VpcId"},
+        "PrivateDnsEnabled": true,
+        "SecurityGroupIds": [{"Ref": "VPCEndpointSecurityGroup"}],
+        "SubnetIds": {"Ref": "SubnetIds"},
+        "VpcEndpointType": "Interface"
+      }
+    },
+    "ECRDKREndpoint": {
+      "Type": "AWS::EC2::VPCEndpoint",
+      "Properties": {
+        "ServiceName": {"Fn::Sub": "com.amazonaws.${AWS::Region}.ecr.dkr"},
+        "VpcId": {"Ref": "VpcId"},
+        "PrivateDnsEnabled": true,
+        "SecurityGroupIds": [{"Ref": "VPCEndpointSecurityGroup"}],
+        "SubnetIds": {"Ref": "SubnetIds"},
+        "VpcEndpointType": "Interface"
+      }
+    },
+    "S3Endpoint": {
+      "Type": "AWS::EC2::VPCEndpoint",
+      "Properties": {
+        "ServiceName": {"Fn::Sub": "com.amazonaws.${AWS::Region}.s3"},
+        "VpcId": {"Ref": "VpcId"},
+        "VpcEndpointType": "Gateway",
+        "RouteTableIds": {"Ref": "RouteTableIds"},
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": "*",
+              "Action": [
+                "s3:GetObject",
+                "s3:ListBucket"
+              ],
+              "Resource": "*"
+            }
+          ]
+        }
+      }
+    },
+    "LogsEndpoint": {
+      "Type": "AWS::EC2::VPCEndpoint",
+      "Properties": {
+        "ServiceName": {"Fn::Sub": "com.amazonaws.${AWS::Region}.logs"},
+        "VpcId": {"Ref": "VpcId"},
+        "PrivateDnsEnabled": true,
+        "SecurityGroupIds": [{"Ref": "VPCEndpointSecurityGroup"}],
+        "SubnetIds": {"Ref": "SubnetIds"},
+        "VpcEndpointType": "Interface"
+      }
+    },
     "ECSService": {
       "Type": "AWS::ECS::Service",
       "DependsOn": ["ALBListener"],
@@ -220,10 +322,25 @@
         "Cluster": {"Ref": "ECSCluster"},
         "TaskDefinition": {"Ref": "ECSTaskDefinition"},
         "DesiredCount": {"Ref": "DesiredCount"},
-        "LaunchType": "FARGATE",
+        "EnableECSManagedTags": true,
+        "CapacityProviderStrategy": [
+          {
+            "CapacityProvider": "FARGATE",
+            "Weight": 1
+          }
+        ],
+        "DeploymentConfiguration": {
+          "DeploymentCircuitBreaker": {
+            "Enable": true,
+            "Rollback": true
+          },
+          "MaximumPercent": 200,
+          "MinimumHealthyPercent": 100
+        },
+        "EnableExecuteCommand": true,
         "NetworkConfiguration": {
           "AwsvpcConfiguration": {
-            "AssignPublicIp": "ENABLED",
+            "AssignPublicIp": "DISABLED",
             "SecurityGroups": [{"Ref": "ECSSecurityGroup"}],
             "Subnets": {"Ref": "SubnetIds"}
           }
@@ -233,6 +350,12 @@
             "ContainerName": {"Fn::Sub": "${AppName}-container"},
             "ContainerPort": {"Ref": "ContainerPort"},
             "TargetGroupArn": {"Ref": "ALBTargetGroup"}
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "ecs-mcp-server",
+            "Value": {"Ref": "Timestamp"}
           }
         ]
       }
@@ -254,6 +377,14 @@
     "LoadBalancerDNS": {
       "Description": "Load Balancer DNS Name",
       "Value": {"Fn::GetAtt": ["ApplicationLoadBalancer", "DNSName"]}
+    },
+    "DeploymentTimestamp": {
+      "Description": "Deployment Timestamp",
+      "Value": {"Ref": "Timestamp"}
+    },
+    "VPCEndpoints": {
+      "Description": "VPC Endpoints Created",
+      "Value": {"Fn::Join": [", ", ["ECR API", "ECR DKR", "S3", "CloudWatch Logs"]]}
     }
   }
 }

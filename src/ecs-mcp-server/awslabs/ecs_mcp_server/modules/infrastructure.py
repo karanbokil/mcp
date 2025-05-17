@@ -178,3 +178,53 @@ def register_module(mcp: FastMCP) -> None:
     def deploy_django_prompt():
         """User wants to deploy a Django application"""
         return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure"]
+        
+    @mcp.prompt("deploy react")
+    def deploy_react_prompt():
+        """User wants to deploy a React application"""
+        return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure"]
+
+    @mcp.prompt("deploy express")
+    def deploy_express_prompt():
+        """User wants to deploy an Express.js application"""
+        return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure"]
+
+    @mcp.prompt("deploy node")
+    def deploy_node_prompt():
+        """User wants to deploy a Node.js application"""
+        return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure"]
+        
+    @mcp.prompt("push to prod")
+    def push_to_prod_prompt():
+        """User wants to deploy an application to production"""
+        return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure"]
+
+    @mcp.prompt("get this online")
+    def get_this_online_prompt():
+        """User wants to make an application accessible online"""
+        return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure"]
+
+    @mcp.prompt("make this public")
+    def make_this_public_prompt():
+        """User wants to make an application publicly accessible"""
+        return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure"]
+        
+    @mcp.prompt("put this on aws")
+    def put_this_on_aws_prompt():
+        """User wants to deploy an application to AWS"""
+        return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure"]
+
+    @mcp.prompt("can people access this")
+    def can_people_access_this_prompt():
+        """User wants to make an application accessible to others"""
+        return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure"]
+
+    @mcp.prompt("how do i share this app")
+    def how_do_i_share_this_app_prompt():
+        """User wants to make an application accessible to others"""
+        return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure"]
+        
+    @mcp.prompt("make accessible online")
+    def make_accessible_online_prompt():
+        """User wants to make an application accessible online"""
+        return ["analyze_web_app", "containerize_app", "create_ecs_infrastructure"]

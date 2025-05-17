@@ -1,6 +1,6 @@
 {
   "AWSTemplateFormatVersion": "2010-09-09",
-  "Description": "ECR Repository for {{ app_name }}",
+  "Description": "ECR Repository for Application",
   "Parameters": {
     "AppName": {
       "Type": "String",

@@ -14,6 +14,7 @@ from awslabs.ecs_mcp_server.modules import (
     containerize,
     infrastructure,
     deployment_status,
+    delete,
     resource_management,
     troubleshooting
 )
@@ -34,34 +35,20 @@ mcp = FastMCP(
     instructions="""Use this server to containerize and deploy web applications to AWS ECS.
 
 WORKFLOW:
-1. analyze_web_app:
-   - Analyze your web application to determine containerization requirements
-   - Detect the framework, dependencies, and runtime requirements
-   - Get recommendations for containerization
+1. containerize_app:
+   - Get guidance on how to containerize your web application
+   - Learn best practices for Dockerfile creation
+   - Get recommendations for container tools and architecture
 
-2. containerize_app:
-   - Generate a Dockerfile and container configurations for your web application
-   - Create a docker-compose.yml file for local testing
-   - Customize port mappings and environment variables
-
-3. create_ecs_infrastructure:
+2. create_ecs_infrastructure:
    - Create the necessary AWS infrastructure for ECS deployment
    - Set up VPC, subnets, security groups, and IAM roles
    - Configure ECS cluster, task definitions, and services
 
-4. get_deployment_status:
+3. get_deployment_status:
    - Check the status of your ECS deployment
    - Get the ALB URL to access your application
    - Monitor the health of your ECS service
-
-SUPPORTED FRAMEWORKS:
-- Flask: Python web framework
-- Django: Python web framework
-- Express: Node.js web framework
-- React: JavaScript frontend framework
-- Node.js: JavaScript runtime
-- Rails: Ruby web framework
-- Generic: Any other web application
 
 IMPORTANT:
 - Make sure your application has a clear entry point
@@ -79,6 +66,10 @@ infrastructure.register_module(mcp)
 deployment_status.register_module(mcp)
 resource_management.register_module(mcp)
 troubleshooting.register_module(mcp)
+delete.register_module(mcp)
+
+
+# Note: All prompt patterns are now handled in their respective module files
 
 def main() -> None:
     """Main entry point for the ECS MCP Server."""

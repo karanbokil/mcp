@@ -52,7 +52,29 @@ async def get_default_vpc_and_subnets() -> Dict[str, Any]:
 
     subnet_ids = [subnet["SubnetId"] for subnet in subnets["Subnets"]]
 
-    return {"vpc_id": vpc_id, "subnet_ids": subnet_ids}
+    # Get route tables for the VPC
+    route_tables = ec2.describe_route_tables(
+        Filters=[{"Name": "vpc-id", "Values": [vpc_id]}]
+    )
+    
+    # Find the main route table
+    main_route_tables = [
+        rt["RouteTableId"] 
+        for rt in route_tables["RouteTables"] 
+        if any(assoc.get("Main", False) for assoc in rt.get("Associations", []))
+    ]
+    
+    # If no main route table is found, use all route tables
+    if not main_route_tables:
+        route_table_ids = [rt["RouteTableId"] for rt in route_tables["RouteTables"]]
+    else:
+        route_table_ids = main_route_tables
+
+    return {
+        "vpc_id": vpc_id, 
+        "subnet_ids": subnet_ids,
+        "route_table_ids": route_table_ids
+    }
 
 
 async def create_ecr_repository(repository_name: str) -> Dict[str, Any]:
@@ -91,3 +113,26 @@ async def get_ecr_login_password() -> str:
     username, password = decoded.split(":")
 
     return password
+async def get_route_tables_for_vpc(vpc_id: str) -> List[str]:
+    """Gets route tables for a specific VPC."""
+    ec2 = await get_aws_client("ec2")
+    
+    # Get route tables for the VPC
+    route_tables = ec2.describe_route_tables(
+        Filters=[{"Name": "vpc-id", "Values": [vpc_id]}]
+    )
+    
+    # Find the main route table
+    main_route_tables = [
+        rt["RouteTableId"] 
+        for rt in route_tables["RouteTables"] 
+        if any(assoc.get("Main", False) for assoc in rt.get("Associations", []))
+    ]
+    
+    # If no main route table is found, use all route tables
+    if not main_route_tables:
+        route_table_ids = [rt["RouteTableId"] for rt in route_tables["RouteTables"]]
+    else:
+        route_table_ids = main_route_tables
+        
+    return route_table_ids

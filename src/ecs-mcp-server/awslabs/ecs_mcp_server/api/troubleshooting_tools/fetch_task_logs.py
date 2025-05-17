@@ -80,8 +80,7 @@ def fetch_task_logs(
             "error_count": 0,
             "warning_count": 0,
             "info_count": 0,
-            "pattern_summary": [],
-            "raw_data": {}
+            "pattern_summary": []
         }
         
         # Initialize CloudWatch Logs client
@@ -93,10 +92,10 @@ def fetch_task_logs(
         
         # List matching log groups
         log_groups = logs.describe_log_groups(logGroupNamePrefix=log_group_pattern)
-        response["raw_data"]["log_groups"] = log_groups["logGroups"]
         
         if not log_groups["logGroups"]:
-            response["note"] = f"No log groups found matching pattern '{log_group_pattern}'"
+            response["status"] = "not_found"
+            response["message"] = f"No log groups found matching pattern '{log_group_pattern}'"
             return response
         
         # For each log group, get the log streams

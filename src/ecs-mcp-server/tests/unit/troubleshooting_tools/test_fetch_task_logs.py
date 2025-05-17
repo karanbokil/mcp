@@ -107,9 +107,9 @@ class TestFetchTaskLogs(unittest.TestCase):
         result = fetch_task_logs("test-app", "test-cluster", None, 3600)
         
         # Verify the result
-        assert result["status"] == "success"
+        assert result["status"] == "not_found"
         assert len(result["log_groups"]) == 0
-        assert "No log groups found" in result["note"]
+        assert "No log groups found" in result["message"]
     
     @mock.patch("boto3.client")
     def test_with_filter_pattern(self, mock_boto_client):

@@ -121,10 +121,6 @@ def register_module(mcp: FastMCP) -> None:
             ...,
             description="The name of the ECS cluster",
         ),
-        service_name: str = Field(
-            ...,
-            description="The name of the ECS service to analyze",
-        ),
         time_window: int = Field(
             default=3600,
             description="Time window in seconds to look back for events (default: 3600)",
@@ -148,9 +144,8 @@ def register_module(mcp: FastMCP) -> None:
         USAGE INSTRUCTIONS:
         1. Provide the name of your application
         2. Specify the cluster name
-        3. Specify the service name
-        4. Optionally specify the time window to analyze (default is last hour)
-        5. The tool will analyze service events and configuration
+        3. Optionally specify the time window to analyze (default is last hour)
+        4. The tool will analyze service events and configuration
 
         The analysis includes:
         - Service status summary

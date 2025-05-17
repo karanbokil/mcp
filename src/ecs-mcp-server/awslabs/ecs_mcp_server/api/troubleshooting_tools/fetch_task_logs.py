@@ -48,10 +48,7 @@ def fetch_task_logs(
     Dict[str, Any]
         Log entries with severity markers, highlighted errors, context
     """
-    try:
-        if not cluster_name:
-            cluster_name = f"{app_name}-cluster"
-            
+    try:            
         # Determine the time range based on provided parameters
         now = datetime.datetime.now(datetime.timezone.utc)
         

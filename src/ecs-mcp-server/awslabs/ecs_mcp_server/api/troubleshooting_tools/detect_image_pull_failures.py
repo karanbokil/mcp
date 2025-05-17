@@ -52,7 +52,7 @@ def detect_image_pull_failures(app_name: str) -> Dict[str, Any]:
         image_results = check_container_images(task_definitions)
         
         # Analyze results
-        failed_images = [result for result in image_results if not result['exists']]
+        failed_images = [result for result in image_results if result['exists'] != 'true']
         
         if failed_images:
             response["assessment"] = f"Found {len(failed_images)} container image(s) that may be causing pull failures"
@@ -68,15 +68,16 @@ def detect_image_pull_failures(app_name: str) -> Dict[str, Any]:
                         f"ECR image '{failed['image']}' not found in task definition '{task_def_name}', container '{container_name}'. "
                         f"Check if the repository exists and the image has been pushed."
                     )
-                elif failed['repository_type'] == 'non-existent':
+                elif failed['exists'] == 'unknown':
                     response["recommendations"].append(
-                        f"Image '{failed['image']}' in task definition '{task_def_name}', container '{container_name}' "
-                        f"references a non-existent repository. Update the task definition to use a valid image."
+                        f"External image '{failed['image']}' in task definition '{task_def_name}', container '{container_name}' "
+                        f"cannot be verified without pulling. Verify that the image exists, is spelled correctly, "
+                        f"and is publicly accessible or has proper credentials configured in your task execution role."
                     )
                 else:
                     response["recommendations"].append(
-                        f"External image '{failed['image']}' in task definition '{task_def_name}', container '{container_name}' "
-                        f"may not be accessible. Verify the image exists and is publicly accessible or credentials are configured."
+                        f"Image '{failed['image']}' in task definition '{task_def_name}', container '{container_name}' "
+                        f"has issues. Check the image reference and ensure it points to a valid repository."
                     )
         else:
             response["assessment"] = "All container images appear to be valid and accessible."

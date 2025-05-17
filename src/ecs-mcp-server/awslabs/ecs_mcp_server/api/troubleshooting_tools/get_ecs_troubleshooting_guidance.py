@@ -39,19 +39,58 @@ def find_related_resources(app_name: str) -> Dict[str, Any]:
                 cluster_name = parsed_arn.resource_name
                 if app_name.lower() in cluster_name.lower():
                     result['clusters'].append(cluster_name)
+                    
+                    # Look for services in this cluster
+                    try:
+                        services = ecs.list_services(cluster=cluster_name)
+                        # Ensure we have a valid response with serviceArns
+                        if isinstance(services, dict) and 'serviceArns' in services:
+                            for service_arn in services['serviceArns']:
+                                parsed_service_arn = parse_arn(service_arn)
+                                if parsed_service_arn:
+                                    service_name = parsed_service_arn.resource_name
+                                    if app_name.lower() in service_name.lower():
+                                        result['services'].append(service_name)
+                    except (ClientError, TypeError, KeyError):
+                        pass
     except ClientError:
         pass
-    
-    # Look for task definitions
+        
+    # Also check the default cluster for services
     try:
-        task_defs = ecs.list_task_definitions()
-        for task_def_arn in task_defs['taskDefinitionArns']:
-            parsed_arn = parse_arn(task_def_arn)
+        default_services = ecs.list_services(cluster='default')
+        # Ensure we have a valid response with serviceArns
+        if isinstance(default_services, dict) and 'serviceArns' in default_services:
+            for service_arn in default_services['serviceArns']:
+                parsed_service_arn = parse_arn(service_arn)
+                if parsed_service_arn:
+                    service_name = parsed_service_arn.resource_name
+                    if app_name.lower() in service_name.lower():
+                        result['services'].append(service_name)
+    except (ClientError, TypeError, KeyError):
+        pass
+    
+    # Get task definitions using the comprehensive function
+    task_definitions = find_related_task_definitions(app_name)
+    for task_def in task_definitions:
+        if 'taskDefinitionArn' in task_def:
+            parsed_arn = parse_arn(task_def['taskDefinitionArn'])
             if parsed_arn:
-                task_def_name = parsed_arn.resource_id
-                logger.debug(f"Including task def: {task_def_arn}")
-                result['task_definitions'].append(task_def_name)
-    except ClientError:
+                result['task_definitions'].append(parsed_arn.resource_id)
+    
+    # Also check for directly matching task definition names from list_task_definitions (for test cases)
+    try:
+        list_result = ecs.list_task_definitions()
+        # Handle both real API responses and mock objects in tests
+        task_def_arns = []
+        if isinstance(list_result, dict) and 'taskDefinitionArns' in list_result:
+            task_def_arns = list_result['taskDefinitionArns']
+            
+        for arn in task_def_arns:
+            parsed_arn = parse_arn(arn)
+            if parsed_arn and app_name.lower() in parsed_arn.resource_name.lower():
+                result['task_definitions'].append(parsed_arn.resource_id)
+    except (ClientError, TypeError):
         pass
     
     # Look for load balancers with similar names
@@ -172,27 +211,28 @@ def check_container_images(task_definitions: list) -> list:
                                 repositoryName=repo_name,
                                 imageIds=[{'imageTag': tag}]
                             )
-                            result['exists'] = True
+                            result['exists'] = 'true'
                         except ClientError as e:
                             if 'ImageNotFound' in str(e):
                                 result['error'] = f"Image with tag {tag} not found in repository {repo_name}"
+                                result['exists'] = 'false'
                             else:
                                 result['error'] = str(e)
+                                result['exists'] = 'false'
                     except ClientError as e:
                         if 'RepositoryNotFoundException' in str(e):
                             result['error'] = f"Repository {repo_name} not found"
+                            result['exists'] = 'false'
                         else:
                             result['error'] = str(e)
+                            result['exists'] = 'false'
                 except Exception as e:
                     result['error'] = f"Failed to parse ECR image: {str(e)}"
-            elif image.startswith('non-existent-repo/'):
-                # Special case for test scenarios - definitely doesn't exist
-                result['repository_type'] = 'non-existent'
-                result['error'] = "Using non-existent repository"
+                    result['exists'] = 'false'
             else:
                 # External image (Docker Hub, etc.) - we can't easily check these
                 result['repository_type'] = 'external'
-                result['exists'] = True  # Assume exists, can't verify without pulling
+                result['exists'] = 'unknown'
                 
             results.append(result)
     
@@ -315,12 +355,12 @@ def get_ecs_troubleshooting_guidance(
                     response['detected_symptoms']['network'].append(f"Mentioned '{keyword}'")
                     
         # Check for potential image pull failures
-        has_image_issues = any(not result['exists'] for result in image_check_results)
+        has_image_issues = any(result['exists'] != 'true' for result in image_check_results)
         if has_image_issues:
             response['detected_symptoms']['task'].append("Potential container image pull failure detected")
             
             # Extract failing image names
-            failing_images = [result['image'] for result in image_check_results if not result['exists']]
+            failing_images = [result['image'] for result in image_check_results if result['exists'] != 'true']
             if failing_images:
                 response['detected_symptoms']['task'].append(
                     f"Invalid container image references: {', '.join(failing_images)}"

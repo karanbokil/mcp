@@ -242,3 +242,124 @@ class TestFetchServiceEvents(unittest.TestCase):
         assert result["status"] == "success"
         assert result["service_exists"] == False
         assert "failures" in result
+        
+    @mock.patch("boto3.client")
+    def test_with_explicit_start_time(self, mock_boto_client):
+        """Test with explicit start_time parameter."""
+        # Mock ECS client
+        mock_ecs_client = mock.Mock()
+        
+        # Event timestamp
+        timestamp = datetime.datetime(2025, 5, 13, 12, 0, 0)
+        
+        # Mock describe_services response
+        mock_ecs_client.describe_services.return_value = {
+            "services": [
+                {
+                    "serviceName": "test-app",
+                    "status": "ACTIVE",
+                    "events": [
+                        {
+                            "id": "1234567890-1234567",
+                            "createdAt": timestamp,
+                            "message": "service test-app has reached a steady state."
+                        }
+                    ]
+                }
+            ]
+        }
+        
+        # Configure boto3.client mock to return our mock client
+        mock_boto_client.return_value = mock_ecs_client
+        
+        # Call the function with explicit start_time
+        start_time = datetime.datetime(2025, 5, 13, 0, 0, 0, tzinfo=datetime.timezone.utc)
+        result = fetch_service_events("test-app", "test-cluster", 3600, start_time=start_time)
+        
+        # Verify the result
+        assert result["status"] == "success"
+        assert result["service_exists"] == True
+        assert len(result["events"]) == 1
+        
+    @mock.patch("boto3.client")
+    def test_with_explicit_end_time(self, mock_boto_client):
+        """Test with explicit end_time parameter."""
+        # Mock ECS client
+        mock_ecs_client = mock.Mock()
+        
+        # Event timestamp
+        timestamp = datetime.datetime(2025, 5, 13, 12, 0, 0)
+        
+        # Mock describe_services response
+        mock_ecs_client.describe_services.return_value = {
+            "services": [
+                {
+                    "serviceName": "test-app",
+                    "status": "ACTIVE",
+                    "events": [
+                        {
+                            "id": "1234567890-1234567",
+                            "createdAt": timestamp,
+                            "message": "service test-app has reached a steady state."
+                        }
+                    ]
+                }
+            ]
+        }
+        
+        # Configure boto3.client mock to return our mock client
+        mock_boto_client.return_value = mock_ecs_client
+        
+        # Call the function with explicit end_time
+        end_time = datetime.datetime(2025, 5, 13, 23, 59, 59, tzinfo=datetime.timezone.utc)
+        result = fetch_service_events("test-app", "test-cluster", 3600, end_time=end_time)
+        
+        # Verify the result
+        assert result["status"] == "success"
+        assert result["service_exists"] == True
+        assert len(result["events"]) == 1
+        
+    @mock.patch("boto3.client")
+    def test_with_start_and_end_time(self, mock_boto_client):
+        """Test with both start_time and end_time parameters."""
+        # Mock ECS client
+        mock_ecs_client = mock.Mock()
+        
+        # Event timestamp
+        timestamp = datetime.datetime(2025, 5, 13, 12, 0, 0)
+        
+        # Mock describe_services response
+        mock_ecs_client.describe_services.return_value = {
+            "services": [
+                {
+                    "serviceName": "test-app",
+                    "status": "ACTIVE",
+                    "events": [
+                        {
+                            "id": "1234567890-1234567",
+                            "createdAt": timestamp,
+                            "message": "service test-app has reached a steady state."
+                        }
+                    ]
+                }
+            ]
+        }
+        
+        # Configure boto3.client mock to return our mock client
+        mock_boto_client.return_value = mock_ecs_client
+        
+        # Call the function with both start_time and end_time
+        start_time = datetime.datetime(2025, 5, 13, 0, 0, 0, tzinfo=datetime.timezone.utc)
+        end_time = datetime.datetime(2025, 5, 13, 23, 59, 59, tzinfo=datetime.timezone.utc)
+        result = fetch_service_events(
+            "test-app", 
+            "test-cluster", 
+            3600, 
+            start_time=start_time, 
+            end_time=end_time
+        )
+        
+        # Verify the result
+        assert result["status"] == "success"
+        assert result["service_exists"] == True
+        assert len(result["events"]) == 1

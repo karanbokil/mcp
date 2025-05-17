@@ -183,3 +183,125 @@ class TestFetchTaskFailures(unittest.TestCase):
         # Verify the result
         assert result["status"] == "success"
         assert result["cluster_exists"] == False
+        
+    @mock.patch("boto3.client")
+    def test_with_explicit_start_time(self, mock_boto_client):
+        """Test with explicit start_time parameter."""
+        # Mock ECS client
+        mock_ecs_client = mock.Mock()
+        
+        # Timestamps
+        now = datetime.datetime.now(datetime.timezone.utc)
+        started_at = now - datetime.timedelta(minutes=10)
+        stopped_at = now - datetime.timedelta(minutes=5)
+        
+        # Mock describe_clusters response
+        mock_ecs_client.describe_clusters.return_value = {
+            "clusters": [
+                {
+                    "clusterName": "test-cluster",
+                    "status": "ACTIVE"
+                }
+            ],
+            "failures": []
+        }
+        
+        # Mock list_tasks and describe_tasks
+        mock_paginator = mock.Mock()
+        mock_paginator.paginate.return_value = []  # No tasks found
+        mock_ecs_client.get_paginator.return_value = mock_paginator
+        
+        # Configure boto3.client mock
+        mock_boto_client.return_value = mock_ecs_client
+        
+        # Call the function with explicit start_time
+        start_time = now - datetime.timedelta(hours=2)
+        result = fetch_task_failures("test-app", "test-cluster", 3600, start_time=start_time)
+        
+        # Verify the result
+        assert result["status"] == "success"
+        assert result["cluster_exists"] == True
+        assert len(result["failed_tasks"]) == 0  # No tasks found
+        
+    @mock.patch("boto3.client")
+    def test_with_explicit_end_time(self, mock_boto_client):
+        """Test with explicit end_time parameter."""
+        # Mock ECS client
+        mock_ecs_client = mock.Mock()
+        
+        # Timestamps
+        now = datetime.datetime.now(datetime.timezone.utc)
+        started_at = now - datetime.timedelta(minutes=10)
+        stopped_at = now - datetime.timedelta(minutes=5)
+        
+        # Mock describe_clusters response
+        mock_ecs_client.describe_clusters.return_value = {
+            "clusters": [
+                {
+                    "clusterName": "test-cluster",
+                    "status": "ACTIVE"
+                }
+            ],
+            "failures": []
+        }
+        
+        # Mock list_tasks and describe_tasks
+        mock_paginator = mock.Mock()
+        mock_paginator.paginate.return_value = []  # No tasks found
+        mock_ecs_client.get_paginator.return_value = mock_paginator
+        
+        # Configure boto3.client mock
+        mock_boto_client.return_value = mock_ecs_client
+        
+        # Call the function with explicit end_time
+        end_time = now - datetime.timedelta(minutes=1)
+        result = fetch_task_failures("test-app", "test-cluster", 3600, end_time=end_time)
+        
+        # Verify the result
+        assert result["status"] == "success"
+        assert result["cluster_exists"] == True
+        assert len(result["failed_tasks"]) == 0  # No tasks found
+        
+    @mock.patch("boto3.client")
+    def test_with_start_and_end_time(self, mock_boto_client):
+        """Test with both start_time and end_time parameters."""
+        # Mock ECS client
+        mock_ecs_client = mock.Mock()
+        
+        # Timestamps
+        now = datetime.datetime.now(datetime.timezone.utc)
+        
+        # Mock describe_clusters response
+        mock_ecs_client.describe_clusters.return_value = {
+            "clusters": [
+                {
+                    "clusterName": "test-cluster",
+                    "status": "ACTIVE"
+                }
+            ],
+            "failures": []
+        }
+        
+        # Mock list_tasks and describe_tasks
+        mock_paginator = mock.Mock()
+        mock_paginator.paginate.return_value = []  # No tasks found
+        mock_ecs_client.get_paginator.return_value = mock_paginator
+        
+        # Configure boto3.client mock
+        mock_boto_client.return_value = mock_ecs_client
+        
+        # Call the function with both start_time and end_time
+        start_time = now - datetime.timedelta(hours=2)
+        end_time = now - datetime.timedelta(minutes=1)
+        result = fetch_task_failures(
+            "test-app", 
+            "test-cluster", 
+            3600, 
+            start_time=start_time, 
+            end_time=end_time
+        )
+        
+        # Verify the result
+        assert result["status"] == "success"
+        assert result["cluster_exists"] == True
+        assert len(result["failed_tasks"]) == 0  # No tasks found

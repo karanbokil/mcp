@@ -2,6 +2,7 @@
 Troubleshooting module for ECS MCP Server.
 This module provides tools and prompts for troubleshooting ECS deployments.
 """
+import datetime
 from typing import Any, Dict, Optional
 
 from mcp.server.fastmcp import FastMCP
@@ -124,6 +125,14 @@ def register_module(mcp: FastMCP) -> None:
             default=3600,
             description="Time window in seconds to look back for events (default: 3600)",
         ),
+        start_time: Optional[datetime.datetime] = Field(
+            default=None,
+            description="Explicit start time for the analysis window (UTC, takes precedence over time_window if provided)",
+        ),
+        end_time: Optional[datetime.datetime] = Field(
+            default=None,
+            description="Explicit end time for the analysis window (UTC, defaults to current time if not provided)",
+        ),
     ) -> Dict[str, Any]:
         """
         Service-level diagnostics for ECS services.
@@ -153,7 +162,7 @@ def register_module(mcp: FastMCP) -> None:
         Returns:
             Service status, events, deployment status, and configuration issues
         """
-        return fetch_service_events(app_name, cluster_name, time_window)
+        return fetch_service_events(app_name, cluster_name, time_window, start_time, end_time)
 
 
     @mcp.tool(name="fetch_task_failures")
@@ -169,6 +178,14 @@ def register_module(mcp: FastMCP) -> None:
         time_window: int = Field(
             default=3600,
             description="Time window in seconds to look back for failures (default: 3600)",
+        ),
+        start_time: Optional[datetime.datetime] = Field(
+            default=None,
+            description="Explicit start time for the analysis window (UTC, takes precedence over time_window if provided)",
+        ),
+        end_time: Optional[datetime.datetime] = Field(
+            default=None,
+            description="Explicit end time for the analysis window (UTC, defaults to current time if not provided)",
         ),
     ) -> Dict[str, Any]:
         """
@@ -199,7 +216,7 @@ def register_module(mcp: FastMCP) -> None:
         Returns:
             Failed tasks with timestamps, exit codes, status, and resource utilization
         """
-        return fetch_task_failures(app_name, cluster_name, time_window)
+        return fetch_task_failures(app_name, cluster_name, time_window, start_time, end_time)
 
 
     @mcp.tool(name="fetch_task_logs")
@@ -223,6 +240,14 @@ def register_module(mcp: FastMCP) -> None:
         filter_pattern: Optional[str] = Field(
             default=None,
             description="CloudWatch logs filter pattern",
+        ),
+        start_time: Optional[datetime.datetime] = Field(
+            default=None,
+            description="Explicit start time for the analysis window (UTC, takes precedence over time_window if provided)",
+        ),
+        end_time: Optional[datetime.datetime] = Field(
+            default=None,
+            description="Explicit end time for the analysis window (UTC, defaults to current time if not provided)",
         ),
     ) -> Dict[str, Any]:
         """
@@ -256,7 +281,7 @@ def register_module(mcp: FastMCP) -> None:
         Returns:
             Log entries with severity markers, highlighted errors, context
         """
-        return fetch_task_logs(app_name, cluster_name, task_id, time_window, filter_pattern)
+        return fetch_task_logs(app_name, cluster_name, task_id, time_window, filter_pattern, start_time, end_time)
         
     @mcp.tool(name="detect_image_pull_failures")
     async def mcp_detect_image_pull_failures(

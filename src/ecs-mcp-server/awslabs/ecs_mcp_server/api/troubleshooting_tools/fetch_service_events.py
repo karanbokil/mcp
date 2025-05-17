@@ -16,8 +16,7 @@ logger = logging.getLogger(__name__)
 
 def fetch_service_events(
     app_name: str,
-    cluster_name: str,
-    service_name: str,
+    cluster_name: Optional[str] = None,
     time_window: int = 3600,
     start_time: Optional[datetime.datetime] = None,
     end_time: Optional[datetime.datetime] = None
@@ -45,7 +44,10 @@ def fetch_service_events(
     Dict[str, Any]
         Service status, events, deployment status, and configuration issues
     """
-    try:            
+    try:
+        if not cluster_name:
+            cluster_name = f"{app_name}-cluster"
+            
         # Determine the time range based on provided parameters
         now = datetime.datetime.now(datetime.timezone.utc)
         

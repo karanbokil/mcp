@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 def fetch_service_events(
     app_name: str,
     cluster_name: str,
+    service_name: str,
     time_window: int = 3600,
     start_time: Optional[datetime.datetime] = None,
     end_time: Optional[datetime.datetime] = None
@@ -27,9 +28,11 @@ def fetch_service_events(
     Parameters
     ----------
     app_name : str
-        The name of the application/service to analyze
+        The name of the application to analyze
     cluster_name : str
         The name of the ECS cluster
+    service_name : str
+        The name of the ECS service to analyze
     time_window : int, optional
         Time window in seconds to look back for events (default: 3600)
     start_time : datetime, optional

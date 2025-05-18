@@ -100,7 +100,7 @@ class TestFetchServiceEvents(unittest.TestCase):
         }[service_name]
         
         # Call the function
-        result = fetch_service_events("test-app", "test-cluster", 3600)
+        result = fetch_service_events("test-app", "test-cluster", "test-app", 3600)
         
         # Verify the result
         assert result["status"] == "success"
@@ -194,7 +194,7 @@ class TestFetchServiceEvents(unittest.TestCase):
         }[service_name]
         
         # Call the function
-        result = fetch_service_events("test-app", "test-cluster", 3600)
+        result = fetch_service_events("test-app", "test-cluster", "test-app", 3600)
         
         # Verify the result
         assert result["status"] == "success"
@@ -236,7 +236,7 @@ class TestFetchServiceEvents(unittest.TestCase):
         mock_boto_client.return_value = mock_ecs_client
         
         # Call the function
-        result = fetch_service_events("test-app", "test-cluster", 3600)
+        result = fetch_service_events("test-app", "test-cluster", "test-app", 3600)
         
         # Verify the result
         assert result["status"] == "success"
@@ -274,7 +274,7 @@ class TestFetchServiceEvents(unittest.TestCase):
         
         # Call the function with explicit start_time
         start_time = datetime.datetime(2025, 5, 13, 0, 0, 0, tzinfo=datetime.timezone.utc)
-        result = fetch_service_events("test-app", "test-cluster", 3600, start_time=start_time)
+        result = fetch_service_events("test-app", "test-cluster", "test-app", 3600, start_time=start_time)
         
         # Verify the result
         assert result["status"] == "success"
@@ -312,7 +312,7 @@ class TestFetchServiceEvents(unittest.TestCase):
         
         # Call the function with explicit end_time
         end_time = datetime.datetime(2025, 5, 13, 23, 59, 59, tzinfo=datetime.timezone.utc)
-        result = fetch_service_events("test-app", "test-cluster", 3600, end_time=end_time)
+        result = fetch_service_events("test-app", "test-cluster", "test-app", 3600, end_time=end_time)
         
         # Verify the result
         assert result["status"] == "success"
@@ -354,6 +354,7 @@ class TestFetchServiceEvents(unittest.TestCase):
         result = fetch_service_events(
             "test-app", 
             "test-cluster", 
+            "test-app",
             3600, 
             start_time=start_time, 
             end_time=end_time

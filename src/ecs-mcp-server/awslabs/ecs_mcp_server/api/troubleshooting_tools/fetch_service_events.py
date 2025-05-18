@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 def fetch_service_events(
     app_name: str,
     cluster_name: str,
+    service_name: str,
     time_window: int = 3600,
     start_time: Optional[datetime.datetime] = None,
     end_time: Optional[datetime.datetime] = None
@@ -27,9 +28,11 @@ def fetch_service_events(
     Parameters
     ----------
     app_name : str
-        The name of the application/service to analyze
+        The name of the application to analyze
     cluster_name : str
         The name of the ECS cluster
+    service_name : str
+        The name of the ECS service to analyze
     time_window : int, optional
         Time window in seconds to look back for events (default: 3600)
     start_time : datetime, optional
@@ -79,7 +82,6 @@ def fetch_service_events(
         
         # Check if service exists
         try:
-            service_name = app_name  # Typically service name matches app name
             services = ecs.describe_services(cluster=cluster_name, services=[service_name])
             
             if not services['services'] or services['services'][0]['status'] == 'INACTIVE':
@@ -104,8 +106,6 @@ def fetch_service_events(
             
             # Extract service events
             if "events" in service:
-                # For unit tests, we'll include all events regardless of time window
-                # In real environments with datetime objects, the filtering would work correctly
                 filtered_events = []
                 for event in service["events"]:
                     filtered_events.append({
@@ -170,9 +170,9 @@ def fetch_service_events(
         except ClientError as e:
             response["service_error"] = str(e)
             if "ClusterNotFoundException" in str(e):
-                response["note"] = f"Cluster '{cluster_name}' does not exist"
+                response["message"] = f"Cluster '{cluster_name}' does not exist"
             elif "ServiceNotFoundException" in str(e):
-                response["note"] = f"Service '{service_name}' does not exist in cluster '{cluster_name}'"
+                response["message"] = f"Service '{service_name}' does not exist in cluster '{cluster_name}'"
         
         return response
         

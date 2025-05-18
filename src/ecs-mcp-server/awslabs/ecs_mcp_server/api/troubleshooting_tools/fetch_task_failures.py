@@ -79,7 +79,7 @@ def fetch_task_failures(
         try:
             clusters = ecs.describe_clusters(clusters=[cluster_name])
             if not clusters['clusters']:
-                response["note"] = f"Cluster '{cluster_name}' does not exist"
+                response["message"] = f"Cluster '{cluster_name}' does not exist"
                 return response
                 
             response["cluster_exists"] = True

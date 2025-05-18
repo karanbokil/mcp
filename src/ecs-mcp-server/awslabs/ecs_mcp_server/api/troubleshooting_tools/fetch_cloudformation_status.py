@@ -14,14 +14,14 @@ from botocore.exceptions import ClientError
 logger = logging.getLogger(__name__)
 
 
-def fetch_cloudformation_status(app_name: str) -> Dict[str, Any]:
+def fetch_cloudformation_status(stack_id: str) -> Dict[str, Any]:
     """
     Infrastructure-level diagnostics for CloudFormation stacks.
 
     Parameters
     ----------
-    app_name : str
-        The name of the application/stack to analyze
+    stack_id : str
+        The CloudFormation stack identifier to analyze
 
     Returns
     -------
@@ -43,14 +43,14 @@ def fetch_cloudformation_status(app_name: str) -> Dict[str, Any]:
         
         # Check if stack exists
         try:
-            stack_response = cloudformation.describe_stacks(StackName=app_name)
+            stack_response = cloudformation.describe_stacks(StackName=stack_id)
             stack = stack_response["Stacks"][0]
             response["stack_exists"] = True
             response["stack_status"] = stack["StackStatus"]
             
             # Get stack resources
             try:
-                resources_response = cloudformation.list_stack_resources(StackName=app_name)
+                resources_response = cloudformation.list_stack_resources(StackName=stack_id)
                 response["resources"] = resources_response["StackResourceSummaries"]
                 
                 # Extract failed resources
@@ -69,7 +69,7 @@ def fetch_cloudformation_status(app_name: str) -> Dict[str, Any]:
             
             # Get stack events for deeper analysis
             try:
-                events_response = cloudformation.describe_stack_events(StackName=app_name)
+                events_response = cloudformation.describe_stack_events(StackName=stack_id)
                 response["raw_events"] = events_response["StackEvents"]
                 
                 # Extract additional failure reasons from events
@@ -97,12 +97,12 @@ def fetch_cloudformation_status(app_name: str) -> Dict[str, Any]:
                     paginator = cloudformation.get_paginator('list_stacks')
                     for page in paginator.paginate(StackStatusFilter=['DELETE_COMPLETE']):
                         for stack_summary in page['StackSummaries']:
-                            if stack_summary['StackName'] == app_name:
+                            if stack_summary['StackName'] == stack_id:
                                 deleted_stacks.append(stack_summary)
                     
                     if deleted_stacks:
                         response["deleted_stacks"] = deleted_stacks
-                        response["note"] = f"Found {len(deleted_stacks)} deleted stacks with name '{app_name}'"
+                        response["message"] = f"Found {len(deleted_stacks)} deleted stacks with name '{stack_id}'"
                 except ClientError as list_error:
                     response["list_error"] = str(list_error)
             else:

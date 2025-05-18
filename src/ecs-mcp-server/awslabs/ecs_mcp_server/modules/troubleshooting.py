@@ -73,9 +73,9 @@ def register_module(mcp: FastMCP) -> None:
 
     @mcp.tool(name="fetch_cloudformation_status")
     async def mcp_fetch_cloudformation_status(
-        app_name: str = Field(
+        stack_id: str = Field(
             ...,
-            description="The name of the application/stack to analyze",
+            description="The CloudFormation stack identifier to analyze",
         ),
     ) -> Dict[str, Any]:
         """
@@ -103,23 +103,27 @@ def register_module(mcp: FastMCP) -> None:
         - Historical stack events for deeper analysis
 
         Parameters:
-            app_name: The name of the application/stack to analyze
+            stack_id: The CloudFormation stack identifier to analyze
 
         Returns:
             Stack status, resources, failure reasons, and raw events
         """
-        return fetch_cloudformation_status(app_name)
+        return fetch_cloudformation_status(stack_id)
 
 
     @mcp.tool(name="fetch_service_events")
     async def mcp_fetch_service_events(
         app_name: str = Field(
             ...,
-            description="The name of the application/service to analyze",
+            description="The name of the application to analyze",
         ),
         cluster_name: str = Field(
             ...,
             description="The name of the ECS cluster",
+        ),
+        service_name: str = Field(
+            ...,
+            description="The name of the ECS service to analyze",
         ),
         time_window: int = Field(
             default=3600,
@@ -144,8 +148,9 @@ def register_module(mcp: FastMCP) -> None:
         USAGE INSTRUCTIONS:
         1. Provide the name of your application
         2. Specify the cluster name
-        3. Optionally specify the time window to analyze (default is last hour)
-        4. The tool will analyze service events and configuration
+        3. Specify the service name
+        4. Optionally specify the time window to analyze (default is last hour)
+        5. The tool will analyze service events and configuration
 
         The analysis includes:
         - Service status summary
@@ -162,7 +167,7 @@ def register_module(mcp: FastMCP) -> None:
         Returns:
             Service status, events, deployment status, and configuration issues
         """
-        return fetch_service_events(app_name, cluster_name, time_window, start_time, end_time)
+        return fetch_service_events(app_name, cluster_name, service_name, time_window, start_time, end_time)
 
 
     @mcp.tool(name="fetch_task_failures")

@@ -406,7 +406,7 @@ def get_ecs_troubleshooting_guidance(
             # Existing recommendation
             response['diagnostic_path'].append({
                 "tool": "fetch_cloudformation_status",
-                "args": {"app_name": app_name},
+                "args": {"stack_id": app_name},
                 "reason": "Check if any stack with this name exists in other states"
             })
             
@@ -426,7 +426,7 @@ def get_ecs_troubleshooting_guidance(
             response['assessment'] = f"CloudFormation stack '{app_name}' exists but is in a failed state: {stack_status}."
             response['diagnostic_path'].append({
                 "tool": "fetch_cloudformation_status",
-                "args": {"app_name": app_name},
+                "args": {"stack_id": app_name},
                 "reason": "Analyze stack failure events to determine root cause"
             })
             
@@ -442,7 +442,7 @@ def get_ecs_troubleshooting_guidance(
             response['assessment'] = f"CloudFormation stack '{app_name}' is currently being created/updated: {stack_status}."
             response['diagnostic_path'].append({
                 "tool": "fetch_cloudformation_status",
-                "args": {"app_name": app_name},
+                "args": {"stack_id": app_name},
                 "reason": "Monitor stack creation/update progress"
             })
             if cluster_exists:
@@ -455,7 +455,7 @@ def get_ecs_troubleshooting_guidance(
             response['assessment'] = f"CloudFormation stack '{app_name}' exists and is complete, but ECS cluster '{cluster_name}' was not found."
             response['diagnostic_path'].append({
                 "tool": "fetch_cloudformation_status",
-                "args": {"app_name": app_name},
+                "args": {"stack_id": app_name},
                 "reason": "Verify stack resources were properly created"
             })
         elif stack_status == 'CREATE_COMPLETE' and cluster_exists:
@@ -480,7 +480,7 @@ def get_ecs_troubleshooting_guidance(
             # Then check service events
             response['diagnostic_path'].append({
                 "tool": "fetch_service_events",
-                "args": {"app_name": app_name, "cluster_name": cluster_name, "time_window": 3600},
+                "args": {"app_name": app_name, "cluster_name": cluster_name, "service_name": app_name, "time_window": 3600},
                 "reason": "Analyze service events for issues"
             })
             

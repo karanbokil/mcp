@@ -1,4 +1,4 @@
-AWS ECS MCP Server
+# AWS ECS MCP Server
 
 [![PyPI version](https://img.shields.io/pypi/v/awslabs.ecs-mcp-server.svg)](https://pypi.org/project/awslabs.ecs-mcp-server/)
 

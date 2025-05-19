@@ -32,8 +32,8 @@ async def containerize_app(
     """
     logger.info(f"Generating containerization guidance for web application at {app_path}")
 
-    # Use amazonlinux:2023 as default base image if not specified
-    base_image = "amazonlinux:2023"
+    # Use amazonlinux:2023-minimal as default base image if not specified
+    base_image = "Slim Docker Library Images from public.ecr.aws (eg public.ecr.aws/docker/library/node:20.19.2-slim)"
 
     # Create guidance for building and running the container
     containerization_guidance = _generate_containerization_guidance(
@@ -70,6 +70,7 @@ def _generate_containerization_guidance(
         "best_practices": [
             "Use multi-stage builds to reduce image size",
             "Install only production dependencies",
+            "Use npm install instead of npm ci for node and express applications"
             "Remove unnecessary files and build artifacts",
             "Use specific versions for base images instead of 'latest'",
             "Run as a non-root user for security",

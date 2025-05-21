@@ -34,7 +34,9 @@ def register_module(mcp: FastMCP) -> None:
         USAGE INSTRUCTIONS:
         1. Provide the name of your application
         2. Optionally specify the cluster name if different from the application name
-        3. The tool will return the deployment status and access URL
+        3. The tool will return the deployment status and access URL once the deployment is complete.
+
+        Poll this tool every 30 seconds till the status is active.
 
         The status information includes:
         - Service status (active, draining, etc.)
@@ -43,6 +45,7 @@ def register_module(mcp: FastMCP) -> None:
         - Application Load Balancer URL
         - Recent deployment events
         - Health check status
+        - Custom domain and HTTPS setup guidance (when deployment is complete)
 
         Parameters:
             app_name: Name of the application

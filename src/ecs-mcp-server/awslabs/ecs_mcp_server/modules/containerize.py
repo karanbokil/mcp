@@ -17,49 +17,40 @@ def register_module(mcp: FastMCP) -> None:
     async def mcp_containerize_app(
         app_path: str = Field(
             ...,
-            description="Path to the web application directory",
+            description="Absolute file path to the web application directory",
         ),
-        framework: Optional[str] = Field(
-            default=None,
-            description="Web framework used (e.g., flask, express, django, rails, etc.)",
-        ),
-        port: Optional[int] = Field(
-            default=None,
+        port: int = Field(
+            ...,
             description="Port the application listens on",
-        ),
-        environment_vars: Optional[Dict[str, str]] = Field(
-            default=None,
-            description="Environment variables as a JSON object",
-        ),
+        )
     ) -> Dict[str, Any]:
         """
-        Generates Dockerfile and container configurations for a web application.
+        Start here if a user wants to run their application locally or deploy an app to the cloud.
+        Provides guidance for containerizing a web application.
 
-        This tool creates a Dockerfile and docker-compose.yml file for your web application
-        based on the framework and requirements. It uses best practices for containerizing
-        different types of web applications.
+        This tool provides guidance on how to build Docker images for web applications,
+        including recommendations for base images, build tools, and architecture choices.
 
         USAGE INSTRUCTIONS:
-        1. Provide the path to your web application directory
-        2. Optionally specify the framework, port, and environment variables
-        3. The tool will generate the necessary files for containerization
+        1. Run this tool to get guidance on how to configure your application for ECS.
+        2. Follow the steps generated from the tool.
+        3. Proceed to create_ecs_infrastructure tool.
 
-        The generated files include:
-        - Dockerfile: Instructions for building a container image
-        - docker-compose.yml: Configuration for local testing
-
-        The tool also validates the generated Dockerfile to ensure it follows best practices.
+        The guidance includes:
+        - Example Dockerfile content
+        - Example docker-compose.yml content
+        - Build commands for different container tools
+        - Architecture recommendations
+        - Troubleshooting tips
 
         Parameters:
             app_path: Path to the web application directory
-            framework: Web framework used (optional, will be auto-detected if not provided)
-            port: Port the application listens on (optional)
-            environment_vars: Environment variables as a JSON object (optional)
+            port: Port the application listens on
 
         Returns:
-            Dictionary containing containerization results
+            Dictionary containing containerization guidance
         """
-        return await containerize_app(app_path, framework, port, environment_vars)
+        return await containerize_app(app_path, port)
 
     # Prompt patterns for containerization
     @mcp.prompt("dockerize")

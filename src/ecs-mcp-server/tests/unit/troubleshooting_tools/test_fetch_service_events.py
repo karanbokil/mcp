@@ -9,6 +9,152 @@ from unittest import mock
 from botocore.exceptions import ClientError
 
 from awslabs.ecs_mcp_server.api.troubleshooting_tools import fetch_service_events
+from awslabs.ecs_mcp_server.api.troubleshooting_tools.fetch_service_events import (
+    _extract_filtered_events,
+    _check_target_group_health,
+    _check_port_mismatch,
+    _analyze_load_balancer_issues,
+)
+
+
+class TestHelperFunctions(unittest.TestCase):
+    """Unit tests for the helper functions in fetch_service_events."""
+    
+    def test_extract_filtered_events(self):
+        """Test extracting and filtering events by time window."""
+        # Create a test service with events
+        test_time = datetime.datetime(2025, 5, 13, 12, 0, 0, tzinfo=datetime.timezone.utc)
+        service = {
+            "events": [
+                {
+                    "id": "1",
+                    "createdAt": test_time,
+                    "message": "event within window"
+                },
+                {
+                    "id": "2",
+                    "createdAt": test_time - datetime.timedelta(hours=2),
+                    "message": "event outside window"
+                }
+            ]
+        }
+        
+        # Define time window
+        start_time = test_time - datetime.timedelta(hours=1)
+        end_time = test_time + datetime.timedelta(hours=1)
+        
+        # Call helper function
+        events = _extract_filtered_events(service, start_time, end_time)
+        
+        # Verify results
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["id"], "1")
+        self.assertEqual(events[0]["message"], "event within window")
+    
+    def test_extract_filtered_events_empty(self):
+        """Test extracting events when service has no events."""
+        service = {}  # No events key
+        start_time = datetime.datetime(2025, 5, 13, 12, 0, 0, tzinfo=datetime.timezone.utc)
+        end_time = start_time + datetime.timedelta(hours=1)
+        
+        events = _extract_filtered_events(service, start_time, end_time)
+        
+        self.assertEqual(len(events), 0)
+    
+    @mock.patch("boto3.client")
+    def test_check_target_group_health_unhealthy(self, mock_boto_client):
+        """Test checking target group health with unhealthy targets."""
+        mock_elb_client = mock.Mock()
+        mock_elb_client.describe_target_health.return_value = {
+            "TargetHealthDescriptions": [
+                {
+                    "TargetHealth": {
+                        "State": "unhealthy"
+                    }
+                }
+            ]
+        }
+        
+        result = _check_target_group_health(mock_elb_client, "test-arn")
+        
+        self.assertEqual(result["type"], "unhealthy_targets")
+        self.assertEqual(result["count"], 1)
+    
+    @mock.patch("boto3.client")
+    def test_check_target_group_health_healthy(self, mock_boto_client):
+        """Test checking target group health with all healthy targets."""
+        mock_elb_client = mock.Mock()
+        mock_elb_client.describe_target_health.return_value = {
+            "TargetHealthDescriptions": [
+                {
+                    "TargetHealth": {
+                        "State": "healthy"
+                    }
+                }
+            ]
+        }
+        
+        result = _check_target_group_health(mock_elb_client, "test-arn")
+        
+        self.assertIsNone(result)
+    
+    @mock.patch("boto3.client")
+    def test_check_port_mismatch_with_mismatch(self, mock_boto_client):
+        """Test checking port mismatch when ports don't match."""
+        mock_elb_client = mock.Mock()
+        mock_elb_client.describe_target_groups.return_value = {
+            "TargetGroups": [
+                {
+                    "Port": 80
+                }
+            ]
+        }
+        
+        result = _check_port_mismatch(mock_elb_client, "test-arn", 8080)
+        
+        self.assertEqual(result["type"], "port_mismatch")
+        self.assertEqual(result["container_port"], 8080)
+        self.assertEqual(result["target_group_port"], 80)
+    
+    @mock.patch("boto3.client")
+    def test_check_port_mismatch_no_mismatch(self, mock_boto_client):
+        """Test checking port mismatch when ports match."""
+        mock_elb_client = mock.Mock()
+        mock_elb_client.describe_target_groups.return_value = {
+            "TargetGroups": [
+                {
+                    "Port": 8080
+                }
+            ]
+        }
+        
+        result = _check_port_mismatch(mock_elb_client, "test-arn", 8080)
+        
+        self.assertIsNone(result)
+    
+    @mock.patch("boto3.client")
+    @mock.patch("awslabs.ecs_mcp_server.api.troubleshooting_tools.fetch_service_events._check_target_group_health")
+    @mock.patch("awslabs.ecs_mcp_server.api.troubleshooting_tools.fetch_service_events._check_port_mismatch")
+    def test_analyze_load_balancer_issues(self, mock_check_port, mock_check_health, mock_boto_client):
+        """Test analyzing load balancer issues."""
+        mock_check_health.return_value = {"type": "unhealthy_targets", "count": 1}
+        mock_check_port.return_value = {"type": "port_mismatch", "container_port": 8080, "target_group_port": 80}
+        
+        service = {
+            "loadBalancers": [
+                {
+                    "targetGroupArn": "test-arn",
+                    "containerPort": 8080
+                }
+            ]
+        }
+        
+        issues = _analyze_load_balancer_issues(service)
+        
+        self.assertEqual(len(issues), 1)
+        self.assertEqual(len(issues[0]["issues"]), 2)
+        self.assertEqual(issues[0]["issues"][0]["type"], "unhealthy_targets")
+        self.assertEqual(issues[0]["issues"][1]["type"], "port_mismatch")
 
 
 class TestFetchServiceEvents(unittest.TestCase):
@@ -20,8 +166,8 @@ class TestFetchServiceEvents(unittest.TestCase):
         # Mock ECS client
         mock_ecs_client = mock.Mock()
         
-        # Event timestamp
-        timestamp = datetime.datetime(2025, 5, 13, 12, 0, 0)
+        # Event timestamp - use datetime with timezone for proper filtering
+        timestamp = datetime.datetime(2025, 5, 13, 12, 0, 0, tzinfo=datetime.timezone.utc)
         
         # Mock describe_services response
         mock_ecs_client.describe_services.return_value = {
@@ -99,8 +245,10 @@ class TestFetchServiceEvents(unittest.TestCase):
             "elbv2": mock_elb_client
         }[service_name]
         
-        # Call the function
-        result = fetch_service_events("test-app", "test-cluster", "test-app", 3600)
+        # Call the function with time window that includes the mock events
+        start_time = datetime.datetime(2025, 5, 13, 0, 0, 0, tzinfo=datetime.timezone.utc)
+        end_time = datetime.datetime(2025, 5, 13, 23, 59, 59, tzinfo=datetime.timezone.utc)
+        result = fetch_service_events("test-app", "test-cluster", "test-app", 3600, start_time=start_time, end_time=end_time)
         
         # Verify the result
         assert result["status"] == "success"
@@ -117,8 +265,8 @@ class TestFetchServiceEvents(unittest.TestCase):
         # Mock ECS client
         mock_ecs_client = mock.Mock()
         
-        # Event timestamp
-        timestamp = datetime.datetime(2025, 5, 13, 12, 0, 0)
+        # Event timestamp - use datetime with timezone for proper filtering
+        timestamp = datetime.datetime(2025, 5, 13, 12, 0, 0, tzinfo=datetime.timezone.utc)
         
         # Mock describe_services response
         mock_ecs_client.describe_services.return_value = {
@@ -193,8 +341,10 @@ class TestFetchServiceEvents(unittest.TestCase):
             "elbv2": mock_elb_client
         }[service_name]
         
-        # Call the function
-        result = fetch_service_events("test-app", "test-cluster", "test-app", 3600)
+        # Call the function with time window that includes the mock events
+        start_time = datetime.datetime(2025, 5, 13, 0, 0, 0, tzinfo=datetime.timezone.utc)
+        end_time = datetime.datetime(2025, 5, 13, 23, 59, 59, tzinfo=datetime.timezone.utc)
+        result = fetch_service_events("test-app", "test-cluster", "test-app", 3600, start_time=start_time, end_time=end_time)
         
         # Verify the result
         assert result["status"] == "success"
@@ -249,8 +399,8 @@ class TestFetchServiceEvents(unittest.TestCase):
         # Mock ECS client
         mock_ecs_client = mock.Mock()
         
-        # Event timestamp
-        timestamp = datetime.datetime(2025, 5, 13, 12, 0, 0)
+        # Event timestamp - use datetime with timezone for proper filtering
+        timestamp = datetime.datetime(2025, 5, 13, 12, 0, 0, tzinfo=datetime.timezone.utc)
         
         # Mock describe_services response
         mock_ecs_client.describe_services.return_value = {
@@ -272,9 +422,10 @@ class TestFetchServiceEvents(unittest.TestCase):
         # Configure boto3.client mock to return our mock client
         mock_boto_client.return_value = mock_ecs_client
         
-        # Call the function with explicit start_time
+        # Call the function with explicit start_time that includes mock event date
         start_time = datetime.datetime(2025, 5, 13, 0, 0, 0, tzinfo=datetime.timezone.utc)
-        result = fetch_service_events("test-app", "test-cluster", "test-app", 3600, start_time=start_time)
+        end_time = datetime.datetime(2025, 5, 13, 23, 59, 59, tzinfo=datetime.timezone.utc)
+        result = fetch_service_events("test-app", "test-cluster", "test-app", 3600, start_time=start_time, end_time=end_time)
         
         # Verify the result
         assert result["status"] == "success"
@@ -287,8 +438,8 @@ class TestFetchServiceEvents(unittest.TestCase):
         # Mock ECS client
         mock_ecs_client = mock.Mock()
         
-        # Event timestamp
-        timestamp = datetime.datetime(2025, 5, 13, 12, 0, 0)
+        # Event timestamp - use datetime with timezone for proper filtering
+        timestamp = datetime.datetime(2025, 5, 13, 12, 0, 0, tzinfo=datetime.timezone.utc)
         
         # Mock describe_services response
         mock_ecs_client.describe_services.return_value = {
@@ -310,9 +461,10 @@ class TestFetchServiceEvents(unittest.TestCase):
         # Configure boto3.client mock to return our mock client
         mock_boto_client.return_value = mock_ecs_client
         
-        # Call the function with explicit end_time
+        # Call the function with explicit end_time that includes mock event date
+        start_time = datetime.datetime(2025, 5, 13, 0, 0, 0, tzinfo=datetime.timezone.utc)
         end_time = datetime.datetime(2025, 5, 13, 23, 59, 59, tzinfo=datetime.timezone.utc)
-        result = fetch_service_events("test-app", "test-cluster", "test-app", 3600, end_time=end_time)
+        result = fetch_service_events("test-app", "test-cluster", "test-app", 3600, start_time=start_time, end_time=end_time)
         
         # Verify the result
         assert result["status"] == "success"
@@ -325,8 +477,8 @@ class TestFetchServiceEvents(unittest.TestCase):
         # Mock ECS client
         mock_ecs_client = mock.Mock()
         
-        # Event timestamp
-        timestamp = datetime.datetime(2025, 5, 13, 12, 0, 0)
+        # Event timestamp - use datetime with timezone for proper filtering
+        timestamp = datetime.datetime(2025, 5, 13, 12, 0, 0, tzinfo=datetime.timezone.utc)
         
         # Mock describe_services response
         mock_ecs_client.describe_services.return_value = {
@@ -364,3 +516,60 @@ class TestFetchServiceEvents(unittest.TestCase):
         assert result["status"] == "success"
         assert result["service_exists"] == True
         assert len(result["events"]) == 1
+        
+    @mock.patch("boto3.client")
+    @mock.patch("awslabs.ecs_mcp_server.api.troubleshooting_tools.fetch_service_events.calculate_time_window")
+    def test_with_only_time_window(self, mock_calculate_time_window, mock_boto_client):
+        """Test with only time_window parameter."""
+        # Define time window boundaries
+        mock_now = datetime.datetime(2025, 5, 13, 12, 0, 0, tzinfo=datetime.timezone.utc)
+        window_start = mock_now - datetime.timedelta(hours=2)  # 2 hours time window
+        mock_calculate_time_window.return_value = (window_start, mock_now)
+        time_window = 7200
+        
+        # Mock ECS client
+        mock_ecs_client = mock.Mock()
+        
+        # Create events within and outside the 2-hour time window
+        in_window_timestamp = mock_now - datetime.timedelta(minutes=30)  # 11:30, within the 2-hour window
+        outside_window_timestamp = window_start - datetime.timedelta(minutes=30)  # 30 minutes before window start
+        
+        # Mock describe_services response
+        mock_ecs_client.describe_services.return_value = {
+            "services": [
+                {
+                    "serviceName": "test-app",
+                    "status": "ACTIVE",
+                    "events": [
+                        {
+                            "id": "1234567890-1234567",
+                            "createdAt": in_window_timestamp,
+                            "message": "service test-app has reached a steady state."
+                        },
+                        {
+                            "id": "1234567890-1234566",
+                            "createdAt": outside_window_timestamp,
+                            "message": "service test-app has started 2 tasks."
+                        }
+                    ]
+                }
+            ]
+        }
+        
+        # Configure boto3.client mock to return our mock client
+        mock_boto_client.return_value = mock_ecs_client
+        
+        # Call the function with ONLY time_window parameter
+        # This properly tests the time_window functionality
+        result = fetch_service_events(
+            "test-app", 
+            "test-cluster", 
+            "test-app", 
+            time_window=time_window
+        )
+        
+        # Verify the result
+        assert result["status"] == "success"
+        assert result["service_exists"] == True
+        assert len(result["events"]) == 1  # Only the event within time window should be returned
+        assert "steady state" in result["events"][0]["message"]

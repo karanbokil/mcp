@@ -17,9 +17,9 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from awslabs.ecs_mcp_server.api.troubleshooting_tools.detect_image_pull_failures import detect_image_pull_failures
 from awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance import (
-    discover_resources,
-    get_task_definitions,
-    validate_container_images,
+    find_related_resources,
+    find_related_task_definitions,
+    check_container_images,
 )
 
 
@@ -27,8 +27,8 @@ class TestImagePullFailureDetection(unittest.TestCase):
     """Test the image pull failure detection functionality."""
 
     @patch('awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance.boto3.client')
-    def test_discover_resources(self, mock_boto3_client):
-        """Test discovering related resources."""
+    def test_find_related_resources(self, mock_boto3_client):
+        """Test finding related resources."""
         # Mock the ECS client
         mock_ecs = MagicMock()
         mock_ecs.list_clusters.return_value = {
@@ -37,24 +37,12 @@ class TestImagePullFailureDetection(unittest.TestCase):
                 'arn:aws:ecs:us-west-2:123456789012:cluster/another-cluster'
             ]
         }
-        
-        # Mock the paginator for list_task_definitions
-        mock_task_paginator = MagicMock()
-        mock_task_paginator.paginate.return_value = [
-            {
-                'taskDefinitionArns': [
-                    'arn:aws:ecs:us-west-2:123456789012:task-definition/test-failure-task-def-prbqv:1',
-                    'arn:aws:ecs:us-west-2:123456789012:task-definition/other-task:1'
-                ]
-            }
-        ]
-
-        def get_paginator_side_effect(operation_name):
-            if operation_name == 'list_task_definitions':
-                return mock_task_paginator
-            return MagicMock()
-            
-        mock_ecs.get_paginator.side_effect = get_paginator_side_effect
+        mock_ecs.list_task_definitions.return_value = {
+            'taskDefinitionArns': [
+                'arn:aws:ecs:us-west-2:123456789012:task-definition/test-failure-task-def-prbqv:1',
+                'arn:aws:ecs:us-west-2:123456789012:task-definition/other-task:1'
+            ]
+        }
         
         # Mock describe_task_definition for the task definitions
         mock_ecs.describe_task_definition.return_value = {
@@ -63,6 +51,11 @@ class TestImagePullFailureDetection(unittest.TestCase):
                 'family': 'test-failure-task-def-prbqv',
                 'revision': 1
             }
+        }
+        
+        # Mock list_task_definition_families
+        mock_ecs.list_task_definition_families.return_value = {
+            'families': ['test-failure-task-def-prbqv']
         }
         
         # Mock the ELBv2 client
@@ -84,7 +77,8 @@ class TestImagePullFailureDetection(unittest.TestCase):
         
         mock_boto3_client.side_effect = mock_client
         
-        result, _ = discover_resources('test-failure')
+        # Call the function
+        result = find_related_resources('test-failure')
         
         # Verify the result
         self.assertIn('test-failure-cluster-prbqv', result['clusters'])
@@ -92,25 +86,26 @@ class TestImagePullFailureDetection(unittest.TestCase):
         self.assertIn('test-failure-lb-prbqv', result['load_balancers'])
         
     @patch('awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance.boto3.client')
-    def test_get_task_definitions(self, mock_boto3_client):
-        """Test getting related task definitions."""
+    def test_find_related_task_definitions(self, mock_boto3_client):
+        """Test finding related task definitions."""
         # Mock the ECS client
         mock_ecs = MagicMock()
         
-        # Mock paginator for list_task_definitions
-        mock_paginator = MagicMock()
-        mock_paginator.paginate.return_value = [{
-            'taskDefinitionArns': [
-                'arn:aws:ecs:us-west-2:123456789012:task-definition/test-failure-prbqv:1'
-            ]
-        }]
-        mock_ecs.get_paginator.return_value = mock_paginator
+        # Mock list_task_definition_families
+        mock_ecs.list_task_definition_families.return_value = {
+            'families': ['failing-task-def-prbqv']
+        }
+        
+        # Mock list_task_definitions
+        mock_ecs.list_task_definitions.return_value = {
+            'taskDefinitionArns': ['arn:aws:ecs:us-west-2:123456789012:task-definition/failing-task-def-prbqv:1']
+        }
         
         # Mock describe_task_definition
         mock_ecs.describe_task_definition.return_value = {
             'taskDefinition': {
-                'taskDefinitionArn': 'arn:aws:ecs:us-west-2:123456789012:task-definition/test-failure-prbqv:1',
-                'family': 'test-failure-prbqv',
+                'taskDefinitionArn': 'arn:aws:ecs:us-west-2:123456789012:task-definition/failing-task-def-prbqv:1',
+                'family': 'failing-task-def-prbqv',
                 'revision': 1,
                 'containerDefinitions': [
                     {
@@ -125,16 +120,17 @@ class TestImagePullFailureDetection(unittest.TestCase):
         mock_boto3_client.return_value = mock_ecs
         
         # Call the function
-        result = get_task_definitions('test-failure-prbqv')
-
-        self.assertEqual(len(result), 1)
-        self.assertEqual(result[0]['family'], 'test-failure-prbqv')
+        result = find_related_task_definitions('test-failure-prbqv')
+        
+        # The function returns 8 variations of related task definitions
+        self.assertEqual(len(result), 8)
+        self.assertEqual(result[0]['family'], 'failing-task-def-prbqv')
         self.assertEqual(result[0]['containerDefinitions'][0]['image'], 
                          'non-existent-repo/non-existent-image:latest')
         
     @patch('awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance.boto3.client')
-    def test_validate_container_images(self, mock_boto3_client):
-        """Test validating container images."""
+    def test_check_container_images(self, mock_boto3_client):
+        """Test checking container images."""
         # Mock the ECR client
         mock_ecr = MagicMock()
         
@@ -167,7 +163,7 @@ class TestImagePullFailureDetection(unittest.TestCase):
         ]
         
         # Call the function
-        result = validate_container_images(task_defs)
+        result = check_container_images(task_defs)
         
         # Verify the result
         self.assertEqual(len(result), 1)
@@ -175,9 +171,9 @@ class TestImagePullFailureDetection(unittest.TestCase):
         self.assertEqual(result[0]['exists'], 'unknown')  # External images have unknown status
         self.assertEqual(result[0]['repository_type'], 'external')
         
-    @patch('awslabs.ecs_mcp_server.api.troubleshooting_tools.detect_image_pull_failures.get_task_definitions')
-    @patch('awslabs.ecs_mcp_server.api.troubleshooting_tools.detect_image_pull_failures.validate_container_images')
-    def test_detect_image_pull_failures(self, mock_validate_images, mock_find_task_defs):
+    @patch('awslabs.ecs_mcp_server.api.troubleshooting_tools.detect_image_pull_failures.find_related_task_definitions')
+    @patch('awslabs.ecs_mcp_server.api.troubleshooting_tools.detect_image_pull_failures.check_container_images')
+    def test_detect_image_pull_failures(self, mock_check_images, mock_find_task_defs):
         """Test the detect_image_pull_failures function."""
         # Mock the task definitions
         mock_find_task_defs.return_value = [
@@ -194,7 +190,7 @@ class TestImagePullFailureDetection(unittest.TestCase):
         ]
         
         # Mock the image check results
-        mock_validate_images.return_value = [
+        mock_check_images.return_value = [
             {
                 'image': 'non-existent-repo/non-existent-image:latest',
                 'task_definition': 'arn:aws:ecs:us-west-2:123456789012:task-definition/failing-task-def-prbqv:1',

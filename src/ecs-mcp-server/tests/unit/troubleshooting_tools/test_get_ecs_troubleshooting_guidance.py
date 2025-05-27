@@ -58,6 +58,8 @@ class TestGetEcsTroubleshootingGuidance(unittest.TestCase):
         # Verify the result
         self.assertEqual("success", result["status"])
         self.assertIn("CloudFormation stack 'test-app' does not exist", result["assessment"])
+        self.assertTrue(len(result["diagnostic_path"]) > 0)
+        self.assertEqual("fetch_cloudformation_status", result["diagnostic_path"][0]["tool"])
     
     @mock.patch("boto3.client")
     def test_stack_rollback_complete(self, mock_boto_client):
@@ -108,6 +110,9 @@ class TestGetEcsTroubleshootingGuidance(unittest.TestCase):
         # Verify the result
         self.assertEqual("success", result["status"])
         self.assertIn("ROLLBACK_COMPLETE", result["assessment"])
+        self.assertTrue(len(result["diagnostic_path"]) > 0)
+        self.assertEqual("fetch_cloudformation_status", result["diagnostic_path"][0]["tool"])
+        self.assertIn("root cause", result["diagnostic_path"][0]["reason"].lower())
     
     @mock.patch("boto3.client")
     def test_stack_and_cluster_exist(self, mock_boto_client):
@@ -167,6 +172,11 @@ class TestGetEcsTroubleshootingGuidance(unittest.TestCase):
         # Verify the result
         self.assertEqual("success", result["status"])
         self.assertIn("both exist", result["assessment"])
+        self.assertTrue(len(result["diagnostic_path"]) >= 3)
+        tools = [step["tool"] for step in result["diagnostic_path"]]
+        self.assertIn("fetch_task_failures", tools)
+        self.assertIn("fetch_service_events", tools)
+        self.assertIn("fetch_task_logs", tools)
     
     @mock.patch("boto3.client")
     def test_with_symptoms_description(self, mock_boto_client):
@@ -227,6 +237,8 @@ class TestGetEcsTroubleshootingGuidance(unittest.TestCase):
         # Verify the result
         self.assertEqual("success", result["status"])
         self.assertEqual(symptoms, result["raw_data"]["symptoms_description"])
+        self.assertTrue(len(result["detected_symptoms"]["task"]) > 0)
+        self.assertTrue(len(result["detected_symptoms"]["network"]) > 0)
     
     @mock.patch("boto3.client")
     def test_client_error_handling(self, mock_boto_client):
@@ -264,7 +276,7 @@ class TestGetEcsTroubleshootingGuidance(unittest.TestCase):
         self.assertIn("error", result)
         # Don't rely on specific error message containing "Access" as it depends on the exception formatting
 
-    @mock.patch("awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance.get_task_definitions")
+    @mock.patch("awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance.find_related_task_definitions")
     @mock.patch("boto3.client")
     def test_service_collection(self, mock_boto_client, mock_find_related_task_definitions):
         """Test that services are correctly collected in find_related_resources function."""
@@ -309,10 +321,10 @@ class TestGetEcsTroubleshootingGuidance(unittest.TestCase):
         }.get(service_name, mock.Mock())
         
         # Import the function directly for testing
-        from awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance import discover_resources
-
+        from awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance import find_related_resources
+        
         # Call the function
-        result, _ = discover_resources("test-app")
+        result = find_related_resources("test-app")
         
         # Verify clusters were found
         self.assertIn("test-app-cluster", result['clusters'])
@@ -325,7 +337,7 @@ class TestGetEcsTroubleshootingGuidance(unittest.TestCase):
         self.assertNotIn("other-service", result['services'])
         self.assertNotIn("unrelated-service", result['services'])
         
-    @mock.patch("awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance.get_task_definitions")
+    @mock.patch("awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance.find_related_task_definitions")
     @mock.patch("boto3.client")
     def test_related_clusters_status_collection(self, mock_boto_client, mock_find_related_task_definitions):
         """Test that statuses from related clusters are correctly collected."""
@@ -424,8 +436,20 @@ class TestGetEcsTroubleshootingGuidance(unittest.TestCase):
         self.assertEqual(1, second_cluster["pendingTasksCount"])
         self.assertEqual(2, second_cluster["activeServicesCount"])
         self.assertEqual(3, second_cluster["registeredContainerInstancesCount"])
+        
+        # No backward compatibility fields to check anymore
+        
+        # Verify diagnostic path uses the cluster name from first cluster
+        test_app_prod_found = False
+        for step in result["diagnostic_path"]:
+            if step["tool"] == "fetch_task_failures" and "cluster_name" in step["args"]:
+                if step["args"]["cluster_name"] == "test-app-prod":
+                    test_app_prod_found = True
+                    break
+        
+        self.assertTrue(test_app_prod_found)
 
-    @mock.patch("awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance.get_task_definitions")
+    @mock.patch("awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance.find_related_task_definitions")
     @mock.patch("boto3.client")
     def test_task_definition_collection(self, mock_boto_client, mock_find_related_task_definitions):
         """Test that task definitions are collected using find_related_task_definitions function."""
@@ -468,10 +492,10 @@ class TestGetEcsTroubleshootingGuidance(unittest.TestCase):
         }.get(service_name, mock.Mock())
         
         # Import the function directly for testing
-        from awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance import discover_resources
-
-        # Call function and verify task definitions are collected from get_task_definitions
-        result, _ = discover_resources("test-app")
+        from awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance import find_related_resources
+        
+        # Call function and verify task definitions are collected from find_related_task_definitions
+        result = find_related_resources("test-app")
         
         # Verify find_related_task_definitions was called with the correct app name
         mock_find_related_task_definitions.assert_called_once_with("test-app")
@@ -485,10 +509,10 @@ class TestGetEcsTroubleshootingGuidance(unittest.TestCase):
         self.assertEqual(3, len(result["task_definitions"]))
         
     @mock.patch("boto3.client")
-    def test_validate_container_images_handling(self, mock_boto_client):
-        """Test container image validation functionality with error handling."""
+    def test_check_container_images_handling(self, mock_boto_client):
+        """Test container image checking functionality with error handling."""
         # Import the function directly for testing
-        from awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance import validate_container_images
+        from awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance import check_container_images
         
         # Mock ECR client
         mock_ecr = mock.Mock()
@@ -523,7 +547,7 @@ class TestGetEcsTroubleshootingGuidance(unittest.TestCase):
             }]
         }]
         
-        results_external = validate_container_images(task_defs_external)
+        results_external = check_container_images(task_defs_external)
         self.assertEqual(1, len(results_external))
         self.assertEqual('external', results_external[0]['repository_type'])
         self.assertEqual('unknown', results_external[0]['exists'])
@@ -537,7 +561,7 @@ class TestGetEcsTroubleshootingGuidance(unittest.TestCase):
             }]
         }]
         
-        results_missing_repo = validate_container_images(task_defs_missing_repo)
+        results_missing_repo = check_container_images(task_defs_missing_repo)
         self.assertEqual(1, len(results_missing_repo))
         self.assertEqual('ecr', results_missing_repo[0]['repository_type'])
         self.assertEqual('false', results_missing_repo[0]['exists'])
@@ -552,7 +576,7 @@ class TestGetEcsTroubleshootingGuidance(unittest.TestCase):
             }]
         }]
         
-        results_missing_tag = validate_container_images(task_defs_missing_tag)
+        results_missing_tag = check_container_images(task_defs_missing_tag)
         self.assertEqual(1, len(results_missing_tag))
         self.assertEqual('ecr', results_missing_tag[0]['repository_type'])
         self.assertEqual('false', results_missing_tag[0]['exists'])

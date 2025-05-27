@@ -23,6 +23,14 @@ def register_module(mcp: FastMCP) -> None:
             default=None,
             description="Name of the ECS cluster",
         ),
+        stack_name: Optional[str] = Field(
+            default=None,
+            description="Name of the CloudFormation stack (optional, defaults to {app_name}-ecs-infrastructure)",
+        ),
+        service_name: Optional[str] = Field(
+            default=None,
+            description="Name of the ECS service (optional, defaults to {app_name}-service)",
+        ),
     ) -> Dict[str, Any]:
         """
         Gets the status of an ECS deployment and returns the ALB URL.
@@ -34,7 +42,9 @@ def register_module(mcp: FastMCP) -> None:
         USAGE INSTRUCTIONS:
         1. Provide the name of your application
         2. Optionally specify the cluster name if different from the application name
-        3. The tool will return the deployment status and access URL
+        3. Optionally specify the stack name if different from the default naming convention
+        4. Optionally specify the service name if different from the default naming pattern
+        5. The tool will return the deployment status and access URL
 
         The status information includes:
         - Service status (active, draining, etc.)
@@ -47,8 +57,10 @@ def register_module(mcp: FastMCP) -> None:
         Parameters:
             app_name: Name of the application
             cluster_name: Name of the ECS cluster (optional, defaults to app_name)
+            stack_name: Name of the CloudFormation stack (optional, defaults to {app_name}-ecs-infrastructure)
+            service_name: Name of the ECS service (optional, defaults to {app_name}-service)
 
         Returns:
             Dictionary containing deployment status and ALB URL
         """
-        return await get_deployment_status(app_name, cluster_name)
+        return await get_deployment_status(app_name, cluster_name, stack_name, service_name)

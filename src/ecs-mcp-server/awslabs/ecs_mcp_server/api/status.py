@@ -3,7 +3,7 @@ API for getting the status of ECS deployments.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from awslabs.ecs_mcp_server.utils.aws import get_aws_client
 
@@ -11,7 +11,8 @@ logger = logging.getLogger(__name__)
 
 
 async def get_deployment_status(
-    app_name: str, cluster_name: Optional[str] = None
+    app_name: str, cluster_name: Optional[str] = None, stack_name: Optional[str] = None,
+    service_name: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Gets the status of an ECS deployment and returns the ALB URL.
@@ -22,7 +23,9 @@ async def get_deployment_status(
 
     Args:
         app_name: Name of the application
-        cluster_name: Name of the ECS cluster (optional, defaults to {app_name}-cluster)
+        cluster_name: Name of the ECS cluster (optional, defaults to app_name)
+        stack_name: Name of the CloudFormation stack (optional, defaults to {app_name}-ecs-infrastructure)
+        service_name: Name of the ECS service (optional, defaults to {app_name}-service)
 
     Returns:
         Dict containing deployment status, CloudFormation stack status, ALB URL,
@@ -33,12 +36,14 @@ async def get_deployment_status(
     # Use provided cluster name or default
     cluster = cluster_name or f"{app_name}-cluster"
     
+    # Use provided service name or default
+    service_name_to_check = service_name or f"{app_name}-service"
+    
     # Get CloudFormation stack status
-    stack_name = f"{app_name}-ecs-infrastructure"
-    stack_status = await _get_cfn_stack_status(stack_name)
+    cfn_stack_name, stack_status = await _find_cloudformation_stack(app_name, stack_name)
     
     # If stack doesn't exist or is in a failed state, return early
-    if stack_status.get("status") in ["NOT_FOUND", "ROLLBACK_COMPLETE", "ROLLBACK_IN_PROGRESS", "DELETE_COMPLETE"]:
+    if not cfn_stack_name or stack_status.get("status") in ["NOT_FOUND", "ROLLBACK_COMPLETE", "ROLLBACK_IN_PROGRESS", "DELETE_COMPLETE"]:
         return {
             "app_name": app_name,
             "status": "INFRASTRUCTURE_UNAVAILABLE",
@@ -47,11 +52,14 @@ async def get_deployment_status(
             "alb_url": None,
         }
 
+    # Get ALB URL
+    alb_url = await _get_alb_url(app_name, cfn_stack_name)
+
     # Get service status
     ecs_client = await get_aws_client("ecs")
     try:
         service_response = ecs_client.describe_services(
-            cluster=cluster, services=[f"{app_name}-service"]
+            cluster=cluster, services=[service_name_to_check]
         )
 
         if not service_response["services"]:
@@ -59,7 +67,7 @@ async def get_deployment_status(
                 "app_name": app_name,
                 "status": "NOT_FOUND",
                 "stack_status": stack_status,
-                "message": f"Service {app_name}-service not found in cluster {cluster}",
+                "message": f"Service {service_name_to_check} not found in cluster {cluster}",
                 "alb_url": None,
             }
 
@@ -85,11 +93,8 @@ async def get_deployment_status(
                     else:
                         deployment_status = "IN_PROGRESS"
 
-        # Get ALB URL
-        alb_url = await _get_alb_url(app_name)
-
         # Get task status
-        tasks_response = ecs_client.list_tasks(cluster=cluster, serviceName=f"{app_name}-service")
+        tasks_response = ecs_client.list_tasks(cluster=cluster, serviceName=service_name_to_check)
 
         task_status = []
         if tasks_response.get("taskArns"):
@@ -116,7 +121,6 @@ async def get_deployment_status(
                 overall_status = "COMPLETE"
         elif "FAIL" in stack_status.get("status", "") or "ROLLBACK" in stack_status.get("status", ""):
             overall_status = "FAILED"
-            
         # Generate custom domain and HTTPS guidance if deployment is complete
         custom_domain_guidance = None
         if overall_status == "COMPLETE" and alb_url:
@@ -145,7 +149,7 @@ async def get_deployment_status(
             "status": "ERROR",
             "stack_status": stack_status,
             "message": f"Error getting deployment status: {str(e)}",
-            "alb_url": None,
+            "alb_url": alb_url if 'alb_url' in locals() else None,
         }
 
 
@@ -202,19 +206,90 @@ async def _get_cfn_stack_status(stack_name: str) -> Dict[str, Any]:
         return {"status": "ERROR", "details": str(e)}
 
 
-async def _get_alb_url(app_name: str) -> Optional[str]:
-    """Gets the ALB URL from CloudFormation outputs."""
+def _get_stack_names_to_try(app_name: str, stack_name: Optional[str] = None) -> List[str]:
+    """
+    Get an ordered list of stack names to try.
+    
+    Args:
+        app_name: Name of the application
+        stack_name: A specific stack name to try first (optional)
+        
+    Returns:
+        List of stack names to try in order of priority
+    """
+    STACK_NAME_PATTERNS = ["{}-ecs-infrastructure", "{}-ecs"]
+    stack_names_to_try = []
+    
+    # If a specific stack name is provided, try it first
+    if stack_name:
+        stack_names_to_try.append(stack_name)
+    
+    # Add common pattern-based names
+    for pattern in STACK_NAME_PATTERNS:
+        name = pattern.format(app_name)
+        if name not in stack_names_to_try:
+            stack_names_to_try.append(name)
+    
+    return stack_names_to_try
+
+
+async def _find_cloudformation_stack(app_name: str, stack_name: Optional[str] = None) -> Tuple[Optional[str], Dict[str, Any]]:
+    """
+    Finds a CloudFormation stack using provided name or common patterns.
+    
+    Args:
+        app_name: Name of the application
+        stack_name: Specific stack name to try first (optional)
+        
+    Returns:
+        Tuple of (stack_name or None, stack_status dict)
+    """
+    # Get stack names to try using the helper function
+    stack_names_to_try = _get_stack_names_to_try(app_name, stack_name)
+    
+    # Try each stack name until we find one that exists
+    for name in stack_names_to_try:
+        current_status = await _get_cfn_stack_status(name)
+        if current_status.get("status") != "NOT_FOUND":
+            logger.info(f"Found stack with name: {name}")
+            return name, current_status
+        logger.debug(f"Stack {name} not found, trying next pattern if available")
+    
+    # If no stack found, return None with NOT_FOUND status
+    return None, {"status": "NOT_FOUND", "details": "No stack found with any naming pattern"}
+
+async def _get_alb_url(app_name: str, known_stack_name: Optional[str] = None) -> Optional[str]:
+    """
+    Gets the ALB URL from CloudFormation outputs.
+    
+    Args:
+        app_name: Name of the application
+        known_stack_name: If a valid stack name is already known, pass it to avoid extra API calls
+        
+    Returns:
+        The ALB URL or None if not found
+    """
     cloudformation = await get_aws_client("cloudformation")
-
-    try:
-        response = cloudformation.describe_stacks(StackName=f"{app_name}-ecs-infrastructure")
-
-        for output in response["Stacks"][0]["Outputs"]:
-            if output["OutputKey"] == "LoadBalancerDNS":
-                return f"http://{output['OutputValue']}"
-    except Exception as e:
-        logger.error(f"Error getting ALB URL: {e}")
-
+    
+    # Get stack names to try using the helper function
+    stack_names_to_try = _get_stack_names_to_try(app_name, known_stack_name)
+    
+    for stack_name in stack_names_to_try:
+        try:
+            response = cloudformation.describe_stacks(StackName=stack_name)
+            
+            for output in response["Stacks"][0]["Outputs"]:
+                # Check for both possible output key names
+                if output["OutputKey"] in ["LoadBalancerDNS", "LoadBalancerUrl"]:
+                    url = output["OutputValue"]
+                    # Ensure URL has http:// prefix
+                    if not url.startswith("http://") and not url.startswith("https://"):
+                        url = f"http://{url}"
+                    return url
+        except Exception as e:
+            logger.debug(f"Error getting ALB URL from stack {stack_name}: {e}")
+    
+    logger.error(f"Could not find ALB URL for application {app_name}")
     return None
 
 

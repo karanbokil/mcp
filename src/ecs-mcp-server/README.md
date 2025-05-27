@@ -42,11 +42,41 @@ Add the ECS MCP Server to your MCP client configuration:
       "env": {
         "AWS_PROFILE": "your-aws-profile",
         "AWS_REGION": "us-east-1",
-        "FASTMCP_LOG_LEVEL": "ERROR"
+        "FASTMCP_LOG_LEVEL": "ERROR",
+        "ALLOW_WRITE": "false",
+        "ALLOW_SENSITIVE_DATA": "false"
       }
     }
   }
 }
+```
+
+## Security Controls
+
+The ECS MCP Server includes security controls to prevent accidental changes to infrastructure and limit access to sensitive data:
+
+### ALLOW_WRITE
+
+Controls whether write operations (creating or deleting infrastructure) are allowed.
+
+```bash
+# Enable write operations
+export ALLOW_WRITE=true
+
+# Disable write operations (default)
+export ALLOW_WRITE=false
+```
+
+### ALLOW_SENSITIVE_DATA
+
+Controls whether tools that return logs and detailed resource information are allowed.
+
+```bash
+# Enable access to sensitive data
+export ALLOW_SENSITIVE_DATA=true
+
+# Disable access to sensitive data (default)
+export ALLOW_SENSITIVE_DATA=false
 ```
 
 ## MCP Tools
@@ -96,7 +126,7 @@ result = await containerize_app(
 
 ### 2. create_ecs_infrastructure
 
-Creates ECS infrastructure using CloudFormation.
+Creates ECS infrastructure using CloudFormation. **Requires `ALLOW_WRITE=true`**.
 
 **Parameters:**
 ```json
@@ -151,11 +181,6 @@ Creates ECS infrastructure using CloudFormation.
   "desired_count": {
     "type": "integer",
     "description": "Desired number of tasks",
-    "required": false
-  },
-  "container_port": {
-    "type": "integer",
-    "description": "Port the container listens on",
     "required": false
   },
   "container_port": {
@@ -241,7 +266,7 @@ status = await get_deployment_status(app_name="my-app")
 
 ### 4. delete_ecs_infrastructure
 
-Deletes ECS infrastructure created by the ECS MCP Server.
+Deletes ECS infrastructure created by the ECS MCP Server. **Requires `ALLOW_WRITE=true`**.
 
 **Parameters:**
 ```json
@@ -340,6 +365,17 @@ tasks = await ecs_resource_management(
     filters={"cluster": "my-cluster", "status": "RUNNING"}
 )
 ```
+
+### 6. Troubleshooting Tools
+
+The ECS MCP Server provides several tools for troubleshooting deployments:
+
+- **get_ecs_troubleshooting_guidance**: Initial entry point for troubleshooting
+- **fetch_cloudformation_status**: Infrastructure-level diagnostics
+- **fetch_service_events**: Service-level diagnostics (**Requires `ALLOW_SENSITIVE_DATA=true`**)
+- **fetch_task_failures**: Task-level diagnostics (**Requires `ALLOW_SENSITIVE_DATA=true`**)
+- **fetch_task_logs**: Application-level diagnostics (**Requires `ALLOW_SENSITIVE_DATA=true`**)
+- **detect_image_pull_failures**: Specialized tool for detecting image pull failures
 
 ## Usage
 
@@ -468,6 +504,9 @@ To run the server locally for development:
 
 ```bash
 cd src/ecs-mcp-server
+# Enable write operations and sensitive data access for development
+export ALLOW_WRITE=true
+export ALLOW_SENSITIVE_DATA=true
 python -m awslabs.ecs_mcp_server.main
 ```
 

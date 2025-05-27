@@ -20,6 +20,9 @@ def get_config() -> Dict[str, Any]:
         "aws_region": os.environ.get("AWS_REGION", "us-east-1"),
         "aws_profile": os.environ.get("AWS_PROFILE", None),
         "log_level": os.environ.get("FASTMCP_LOG_LEVEL", "INFO"),
+        # Security settings via environment variables
+        "allow-write": os.environ.get("ALLOW_WRITE", "").lower() in ("true", "1", "yes"),
+        "allow-sensitive-data": os.environ.get("ALLOW_SENSITIVE_DATA", "").lower() in ("true", "1", "yes"),
     }
 
     logger.debug(f"Loaded configuration: {config}")

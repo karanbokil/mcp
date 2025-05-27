@@ -7,11 +7,132 @@ service-level issues that may be affecting deployments.
 
 import logging
 import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import boto3
 from botocore.exceptions import ClientError
+from awslabs.ecs_mcp_server.utils.time_utils import calculate_time_window
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_filtered_events(service: Dict[str, Any], start_time: datetime.datetime, end_time: datetime.datetime) -> List[Dict[str, Any]]:
+    """Extract and filter service events by time window.
+    
+    Parameters
+    ----------
+    service : Dict[str, Any]
+        Service description from ECS API
+    start_time : datetime
+        Start time for filtering events (timezone-aware)
+    end_time : datetime
+        End time for filtering events (timezone-aware)
+        
+    Returns
+    -------
+    List[Dict[str, Any]]
+        List of filtered and formatted events
+    """
+    events = service.get("events", [])
+    if not events:
+        return []
+        
+    filtered_events = []
+    
+    for event in events:
+        event_time = event.get("createdAt")
+        if not event_time:
+            continue
+            
+        if event_time.tzinfo is None:
+            event_time = event_time.replace(tzinfo=datetime.timezone.utc)
+            
+        # Include events within the time window
+        if start_time <= event_time <= end_time:
+            filtered_events.append({
+                "message": event["message"],
+                "timestamp": event_time.isoformat(),
+                "id": event.get("id", "unknown")
+            })
+            
+    return filtered_events
+
+
+def _check_target_group_health(elb_client, target_group_arn: str) -> Optional[Dict[str, Any]]:
+    """Check target group health and return any unhealthy targets."""
+    try:
+        tg_health = elb_client.describe_target_health(TargetGroupArn=target_group_arn)
+        
+        # Find unhealthy targets
+        unhealthy_targets = [
+            t for t in tg_health.get("TargetHealthDescriptions", []) 
+            if t.get("TargetHealth", {}).get("State") != "healthy"
+        ]
+        
+        if unhealthy_targets:
+            return {
+                "type": "unhealthy_targets",
+                "count": len(unhealthy_targets),
+                "details": unhealthy_targets
+            }
+            
+        return None
+    except ClientError as error:
+        return {
+            "type": "health_check_error",
+            "error": str(error)
+        }
+
+
+def _check_port_mismatch(elb_client, target_group_arn: str, container_port: int) -> Optional[Dict[str, Any]]:
+    """Check if container port and target group port match."""
+    try:
+        tg = elb_client.describe_target_groups(TargetGroupArns=[target_group_arn])
+        if (tg["TargetGroups"] and 
+            tg["TargetGroups"][0]["Port"] != container_port):
+            return {
+                "type": "port_mismatch",
+                "container_port": container_port,
+                "target_group_port": tg["TargetGroups"][0]["Port"]
+            }
+        return None
+    except ClientError as error:
+        return {
+            "type": "target_group_error",
+            "error": str(error)
+        }
+
+
+def _analyze_load_balancer_issues(service: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Analyze load balancer configuration for common issues."""
+    load_balancers = service.get("loadBalancers", [])
+    if not load_balancers:
+        return []
+        
+    load_balancer_issues = []
+    elb = boto3.client('elbv2')
+    
+    for lb in load_balancers:
+        lb_issues = []
+        
+        if "targetGroupArn" in lb:
+            # Check target health
+            health_issue = _check_target_group_health(elb, lb["targetGroupArn"])
+            if health_issue:
+                lb_issues.append(health_issue)
+                
+            # Check port mismatch if container port is specified
+            if "containerPort" in lb:
+                port_issue = _check_port_mismatch(elb, lb["targetGroupArn"], lb["containerPort"])
+                if port_issue:
+                    lb_issues.append(port_issue)
+        
+        if lb_issues:
+            load_balancer_issues.append({
+                "load_balancer": lb,
+                "issues": lb_issues
+            })
+            
+    return load_balancer_issues
 
 
 def fetch_service_events(
@@ -46,26 +167,8 @@ def fetch_service_events(
         Service status, events, deployment status, and configuration issues
     """
     try:            
-        # Determine the time range based on provided parameters
-        now = datetime.datetime.now(datetime.timezone.utc)
-        
-        # Handle provided start_time and end_time
-        if end_time is None:
-            # If no end_time provided, use current time
-            actual_end_time = now
-        else:
-            # Ensure end_time is timezone-aware
-            actual_end_time = end_time if end_time.tzinfo else end_time.replace(tzinfo=datetime.timezone.utc)
-        
-        if start_time is not None:
-            # If start_time provided, use it directly
-            actual_start_time = start_time if start_time.tzinfo else start_time.replace(tzinfo=datetime.timezone.utc)
-        elif end_time is not None:
-            # If only end_time provided, calculate start_time using time_window
-            actual_start_time = actual_end_time - datetime.timedelta(seconds=time_window)
-        else:
-            # Default case: use time_window from now
-            actual_start_time = now - datetime.timedelta(seconds=time_window)
+        # Calculate time window
+        actual_start_time, actual_end_time = calculate_time_window(time_window, start_time, end_time)
         
         response = {
             "status": "success",
@@ -97,75 +200,20 @@ def fetch_service_events(
             
             # Extract deployment status
             if "deployments" in service:
-                deployments = service["deployments"]
+                primary_deployment = next((d for d in service["deployments"] if d["status"] == "PRIMARY"), None)
+                previous_deployments = [d for d in service["deployments"] if d["status"] == "ACTIVE" and d != primary_deployment]
+                
                 response["deployment_status"] = {
-                    "active_deployment": next((d for d in deployments if d["status"] == "PRIMARY"), None),
-                    "previous_deployments": [d for d in deployments if d["status"] == "ACTIVE" and d != next((d for d in deployments if d["status"] == "PRIMARY"), None)],
-                    "count": len(deployments)
+                    "active_deployment": primary_deployment,
+                    "previous_deployments": previous_deployments,
+                    "count": len(service["deployments"])
                 }
             
             # Extract service events
-            if "events" in service:
-                filtered_events = []
-                for event in service["events"]:
-                    filtered_events.append({
-                        "message": event["message"],
-                        "timestamp": event["createdAt"].isoformat() if isinstance(event["createdAt"], datetime.datetime) else event["createdAt"],
-                        "id": event.get("id", "unknown")
-                    })
-                
-                response["events"] = filtered_events
+            response["events"] = _extract_filtered_events(service, actual_start_time, actual_end_time)
             
             # Check for load balancer issues
-            if "loadBalancers" in service:
-                for lb in service["loadBalancers"]:
-                    # Check for common load balancer issues
-                    lb_issues = []
-                    
-                    # Check if target group exists and is healthy
-                    if "targetGroupArn" in lb:
-                        elb = boto3.client('elbv2')
-                        try:
-                            tg_health = elb.describe_target_health(TargetGroupArn=lb["targetGroupArn"])
-                            
-                            # Check if any targets are unhealthy
-                            unhealthy_targets = [t for t in tg_health.get("TargetHealthDescriptions", []) 
-                                              if t.get("TargetHealth", {}).get("State") != "healthy"]
-                            
-                            if unhealthy_targets:
-                                lb_issues.append({
-                                    "type": "unhealthy_targets",
-                                    "count": len(unhealthy_targets),
-                                    "details": unhealthy_targets
-                                })
-                                
-                            # Check if container port and target group port match
-                            if "containerPort" in lb:
-                                try:
-                                    tg = elb.describe_target_groups(TargetGroupArns=[lb["targetGroupArn"]])
-                                    if tg["TargetGroups"] and tg["TargetGroups"][0]["Port"] != lb["containerPort"]:
-                                        lb_issues.append({
-                                            "type": "port_mismatch",
-                                            "container_port": lb["containerPort"],
-                                            "target_group_port": tg["TargetGroups"][0]["Port"]
-                                        })
-                                except ClientError as tg_error:
-                                    lb_issues.append({
-                                        "type": "target_group_error",
-                                        "error": str(tg_error)
-                                    })
-                                    
-                        except ClientError as health_error:
-                            lb_issues.append({
-                                "type": "health_check_error",
-                                "error": str(health_error)
-                            })
-                    
-                    if lb_issues:
-                        response["load_balancer_issues"].append({
-                            "load_balancer": lb,
-                            "issues": lb_issues
-                        })
+            response["load_balancer_issues"] = _analyze_load_balancer_issues(service)
             
         except ClientError as e:
             response["service_error"] = str(e)

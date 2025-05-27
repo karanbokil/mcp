@@ -1,5 +1,5 @@
 """
-Consolidated ECS troubleshooting tool that aggregates all troubleshooting functionality.
+ECS troubleshooting tool that aggregates all troubleshooting functionality.
 
 This module provides a single entry point for all ECS troubleshooting operations
 that were previously available as separate tools.
@@ -200,7 +200,7 @@ def generate_troubleshooting_docs():
     
     # Combine all documentation sections
     doc_header = """
-Consolidated ECS troubleshooting tool with multiple diagnostic actions.
+ECS troubleshooting tool with multiple diagnostic actions.
 
 This tool provides access to all ECS troubleshooting operations through a single
 interface. Use the 'action' parameter to specify which troubleshooting operation
@@ -269,7 +269,7 @@ def ecs_troubleshooting_tool(
     parameters: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
-    Consolidated ECS troubleshooting tool.
+    ECS troubleshooting tool.
     
     This tool provides access to all ECS troubleshooting operations through a single
     interface. Use the 'action' parameter to specify which troubleshooting operation

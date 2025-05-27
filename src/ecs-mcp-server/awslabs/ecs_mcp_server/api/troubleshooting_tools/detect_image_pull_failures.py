@@ -11,8 +11,8 @@ import boto3
 from botocore.exceptions import ClientError
 
 from awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance import (
-    get_task_definitions,
-    validate_container_images,
+    find_related_task_definitions,
+    check_container_images,
 )
 
 logger = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ def detect_image_pull_failures(app_name: str) -> Dict[str, Any]:
         }
         
         # Find related task definitions
-        task_definitions = get_task_definitions(app_name)
+        task_definitions = find_related_task_definitions(app_name)
         
         if not task_definitions:
             response["assessment"] = f"No task definitions found related to {app_name}"
@@ -49,7 +49,7 @@ def detect_image_pull_failures(app_name: str) -> Dict[str, Any]:
             return response
             
         # Check container images
-        image_results = validate_container_images(task_definitions)
+        image_results = check_container_images(task_definitions)
         
         # Analyze results
         failed_images = [result for result in image_results if result['exists'] != 'true']

@@ -166,34 +166,7 @@ This will create an `htmlcov` directory with an interactive HTML report that you
 
 ## Code Style and Linting
 
-The project follows PEP 8 style guidelines. To check code style:
-
-```bash
-# Run flake8
-flake8 awslabs/ecs_mcp_server
-
-# Run black in check mode
-black --check awslabs/ecs_mcp_server
-
-# Run isort in check mode
-isort --check-only awslabs/ecs_mcp_server
-```
-
-To automatically format the code:
-
-```bash
-# Format with black
-black awslabs/ecs_mcp_server
-
-# Sort imports with isort
-isort awslabs/ecs_mcp_server
-```
-
-Install pre-commit hooks to ensure code style and quality checks run before each commit:
-
-```bash
-pre-commit install
-```
+Use pre-commit in [DEVELOPER_GUIDE.md](../../DEVELOPER_GUIDE.md)
 
 ## Development Workflow
 

@@ -197,7 +197,7 @@ class TestEcsTroubleshootingTool:
             "fetch_task_failures",
             "fetch_task_logs",
             "detect_image_pull_failures",
-            "fetch_network_configuration"
+            "fetch_network_configuration",
         ]
 
         for action in expected_actions:
@@ -366,9 +366,9 @@ class TestGuardrails:
             "fetch_cloudformation_status",
             "fetch_service_events",
             "fetch_task_failures",
-            "fetch_task_logs", 
+            "fetch_task_logs",
             "detect_image_pull_failures",
-            "fetch_network_configuration"
+            "fetch_network_configuration",
         }
         actual_actions = set(ACTIONS.keys())
         assert actual_actions == expected_actions, (
@@ -384,7 +384,7 @@ class TestGuardrails:
             "fetch_task_failures": {"required": 2, "optional": 3},
             "fetch_task_logs": {"required": 2, "optional": 5},
             "detect_image_pull_failures": {"required": 1, "optional": 0},
-            "fetch_network_configuration": {"required": 1, "optional": 2}
+            "fetch_network_configuration": {"required": 1, "optional": 2},
         }
 
         for action_name, expected_counts in expected_param_counts.items():

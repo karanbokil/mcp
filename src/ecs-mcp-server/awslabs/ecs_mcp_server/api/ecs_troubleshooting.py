@@ -6,6 +6,7 @@ that were previously available as separate tools.
 """
 
 import logging
+import inspect
 from typing import Dict, Any, Optional, Literal
 
 from awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance import (
@@ -263,7 +264,7 @@ def _validate_parameters(action: str, app_name: Optional[str], parameters: Dict[
 # Pre-generate the documentation once to avoid regenerating it on each call
 TROUBLESHOOTING_DOCS = generate_troubleshooting_docs()
 
-def ecs_troubleshooting_tool(
+async def ecs_troubleshooting_tool(
     app_name: Optional[str] = None,
     action: TroubleshootingAction = "get_ecs_troubleshooting_guidance",
     parameters: Optional[Dict[str, Any]] = None
@@ -294,6 +295,20 @@ def ecs_troubleshooting_tool(
         # Validate action
         _validate_action(action)
         
+        # Check security permissions for sensitive data actions
+        sensitive_data_actions = ['fetch_task_logs', 'fetch_service_events', 'fetch_task_failures']
+        if action in sensitive_data_actions:
+            # Import here to avoid circular imports
+            from awslabs.ecs_mcp_server.utils.config import get_config
+            
+            # Check if sensitive data access is allowed
+            config = get_config()
+            if not config.get("allow-sensitive-data", False):
+                return {
+                    "status": "error",
+                    "error": f"Action {action} is not allowed without ALLOW_SENSITIVE_DATA=true in your environment due to potential exposure of sensitive information."
+                }
+        
         # Validate parameters
         _validate_parameters(action, app_name, parameters)
         
@@ -303,8 +318,10 @@ def ecs_troubleshooting_tool(
         # Transform parameters using action-specific transformer
         func_params = action_config["transformer"](app_name, parameters)
         
-        # Call the function
+        # Call the function and await it if it's a coroutine
         result = action_config["func"](**func_params)
+        if inspect.iscoroutine(result):
+            result = await result
         
         return result
         

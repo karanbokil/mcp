@@ -13,7 +13,11 @@ from awslabs.ecs_mcp_server.api.status import get_deployment_status
 def register_module(mcp: FastMCP) -> None:
     """Register deployment status module tools and prompts with the MCP server."""
     
-    @mcp.tool(name="get_deployment_status")
+    @mcp.tool(
+        name="get_deployment_status",
+        annotations={
+            "readOnlyHint": True,
+        })
     async def mcp_get_deployment_status(
         app_name: str = Field(
             ...,

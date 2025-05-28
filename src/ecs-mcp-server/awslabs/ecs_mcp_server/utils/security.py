@@ -4,9 +4,17 @@ Security utilities for the ECS MCP Server.
 
 import functools
 import logging
-from typing import Any, Dict, Callable, Awaitable
+from typing import Any, Dict, Callable, Awaitable, Literal
 
 logger = logging.getLogger(__name__)
+
+# Define permission types as constants
+PERMISSION_WRITE = "write"
+PERMISSION_SENSITIVE_DATA = "sensitive-data"
+PERMISSION_NONE = "none"
+
+# Define permission type
+PermissionType = Literal[PERMISSION_WRITE, PERMISSION_SENSITIVE_DATA, PERMISSION_NONE]
 
 
 class SecurityError(Exception):
@@ -14,13 +22,13 @@ class SecurityError(Exception):
     pass
 
 
-def check_write_permission(config: Dict[str, Any], tool_name: str) -> bool:
+def check_permission(config: Dict[str, Any], permission_type: PermissionType) -> bool:
     """
-    Checks if write operations are allowed based on configuration settings.
+    Checks if the specified permission is allowed based on configuration settings.
     
     Args:
         config: The MCP server configuration
-        tool_name: The name of the tool being invoked
+        permission_type: The type of permission to check
         
     Returns:
         bool: Whether the operation is allowed
@@ -28,72 +36,29 @@ def check_write_permission(config: Dict[str, Any], tool_name: str) -> bool:
     Raises:
         SecurityError: If the operation is not allowed
     """
-    write_tools = ["create_ecs_infrastructure", "delete_ecs_infrastructure"]
-    
-    if tool_name in write_tools and not config.get("allow-write", False):
+    if permission_type == PERMISSION_WRITE and not config.get("allow-write", False):
         raise SecurityError(
             "Write operations are disabled for security. "
             "Set ALLOW_WRITE=true in your environment to enable, "
             "but be aware of the security implications."
         )
-    return True
-
-
-def enforce_sensitive_data_access(config: Dict[str, Any], tool_name: str) -> bool:
-    """
-    Enforces sensitive data access restrictions based on configuration.
-    
-    Args:
-        config: The MCP server configuration
-        tool_name: The name of the tool being invoked
-        
-    Returns:
-        bool: Whether the operation is allowed
-    
-    Raises:
-        SecurityError: If the operation is not allowed
-    """
-    # Tools that can return sensitive data
-    sensitive_data_tools = ["fetch_task_logs", "fetch_service_events", "fetch_task_failures"]
-    
-    if tool_name in sensitive_data_tools and not config.get("allow-sensitive-data", False):
+    elif permission_type == PERMISSION_SENSITIVE_DATA and not config.get("allow-sensitive-data", False):
         raise SecurityError(
-            f"Tool {tool_name} is not allowed without ALLOW_SENSITIVE_DATA=true "
+            "Access to sensitive data is not allowed without ALLOW_SENSITIVE_DATA=true "
             "in your environment due to potential exposure of sensitive information."
         )
-    return True
-
-
-def validate_security_permissions(config: Dict[str, Any], tool_name: str) -> bool:
-    """
-    Validates all security permissions for a tool.
-    
-    Args:
-        config: The MCP server configuration
-        tool_name: The name of the tool being invoked
-        
-    Returns:
-        bool: Whether the operation is allowed
-    
-    Raises:
-        SecurityError: If the operation is not allowed
-    """
-    # Check write permissions
-    check_write_permission(config, tool_name)
-    
-    # Check sensitive data access
-    enforce_sensitive_data_access(config, tool_name)
     
     return True
 
 
-def secure_tool(config: Dict[str, Any], tool_name: str):
+def secure_tool(config: Dict[str, Any], permission_type: PermissionType, tool_name: str = None):
     """
     Decorator to secure a tool function with permission checks.
     
     Args:
         config: The MCP server configuration
-        tool_name: The name of the tool to secure
+        permission_type: The type of permission required for this tool
+        tool_name: Optional name of the tool (for logging purposes)
         
     Returns:
         Decorator function that wraps the tool with security checks
@@ -103,12 +68,14 @@ def secure_tool(config: Dict[str, Any], tool_name: str):
         async def wrapper(*args, **kwargs):
             try:
                 # Validate security permissions
-                validate_security_permissions(config, tool_name)
+                check_permission(config, permission_type)
                 # Call the original function if validation passes
                 return await func(*args, **kwargs)
             except SecurityError as e:
+                # Get tool name for logging
+                log_tool_name = tool_name or func.__name__
                 # Return error if validation fails
-                logger.warning(f"Security validation failed for tool {tool_name}: {str(e)}")
+                logger.warning(f"Security validation failed for tool {log_tool_name}: {str(e)}")
                 return {
                     "error": str(e),
                     "status": "failed",

@@ -13,7 +13,11 @@ from awslabs.ecs_mcp_server.api.containerize import containerize_app
 def register_module(mcp: FastMCP) -> None:
     """Register containerize module tools and prompts with the MCP server."""
     
-    @mcp.tool(name="containerize_app")
+    @mcp.tool(
+        name="containerize_app",
+        annotations={
+            "readOnlyHint": True,
+        })
     async def mcp_containerize_app(
         app_path: str = Field(
             ...,

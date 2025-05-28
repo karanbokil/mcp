@@ -6,6 +6,8 @@ AWS ECS MCP Server - Main entry point
 import logging
 import os
 import sys
+import functools
+from typing import Any, Dict
 
 from mcp.server.fastmcp import FastMCP
 
@@ -18,7 +20,12 @@ from awslabs.ecs_mcp_server.modules import (
     troubleshooting
 )
 from awslabs.ecs_mcp_server.utils.config import get_config
-from awslabs.ecs_mcp_server.utils.security import secure_tool
+from awslabs.ecs_mcp_server.utils.security import (
+    secure_tool,
+    PERMISSION_WRITE,
+    PERMISSION_SENSITIVE_DATA,
+    PERMISSION_NONE
+)
 
 # Configure logging
 logging.basicConfig(
@@ -65,13 +72,8 @@ IMPORTANT:
 
 # Apply security wrappers to API functions
 # Write operations
-infrastructure.create_infrastructure = secure_tool(config, "create_ecs_infrastructure")(infrastructure.create_infrastructure)
-delete.delete_infrastructure = secure_tool(config, "delete_ecs_infrastructure")(delete.delete_infrastructure)
-
-# Sensitive data operations
-troubleshooting.fetch_task_logs = secure_tool(config, "fetch_task_logs")(troubleshooting.fetch_task_logs)
-troubleshooting.fetch_service_events = secure_tool(config, "fetch_service_events")(troubleshooting.fetch_service_events)
-troubleshooting.fetch_task_failures = secure_tool(config, "fetch_task_failures")(troubleshooting.fetch_task_failures)
+infrastructure.create_infrastructure = secure_tool(config, PERMISSION_WRITE, "create_ecs_infrastructure")(infrastructure.create_infrastructure)
+delete.delete_infrastructure = secure_tool(config, PERMISSION_WRITE, "delete_ecs_infrastructure")(delete.delete_infrastructure)
 
 # Register all modules
 containerize.register_module(mcp)

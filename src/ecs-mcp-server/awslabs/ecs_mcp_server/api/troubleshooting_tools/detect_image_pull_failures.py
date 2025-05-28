@@ -7,8 +7,6 @@ container images exist and are accessible, helping to diagnose image pull failur
 
 import logging
 from typing import Dict, Any
-import boto3
-from botocore.exceptions import ClientError
 
 from awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance import (
     get_task_definitions,
@@ -18,7 +16,7 @@ from awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_gu
 logger = logging.getLogger(__name__)
 
 
-def detect_image_pull_failures(app_name: str) -> Dict[str, Any]:
+async def detect_image_pull_failures(app_name: str) -> Dict[str, Any]:
     """
     Specialized tool for detecting image pull failures.
     
@@ -41,7 +39,7 @@ def detect_image_pull_failures(app_name: str) -> Dict[str, Any]:
         }
         
         # Find related task definitions
-        task_definitions = get_task_definitions(app_name)
+        task_definitions = await get_task_definitions(app_name)
         
         if not task_definitions:
             response["assessment"] = f"No task definitions found related to {app_name}"
@@ -49,7 +47,7 @@ def detect_image_pull_failures(app_name: str) -> Dict[str, Any]:
             return response
             
         # Check container images
-        image_results = validate_container_images(task_definitions)
+        image_results = await validate_container_images(task_definitions)
         
         # Analyze results
         failed_images = [result for result in image_results if result['exists'] != 'true']

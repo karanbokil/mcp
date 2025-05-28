@@ -8,14 +8,14 @@ common failure reasons to help diagnose container-level issues.
 import logging
 import datetime
 from typing import Dict, Any, Optional
-import boto3
 from botocore.exceptions import ClientError
+from awslabs.ecs_mcp_server.utils.aws import get_aws_client
 from awslabs.ecs_mcp_server.utils.time_utils import calculate_time_window
 
 logger = logging.getLogger(__name__)
 
 
-def fetch_task_failures(
+async def fetch_task_failures(
     app_name: str,
     cluster_name: str,
     time_window: int = 3600,
@@ -55,8 +55,8 @@ def fetch_task_failures(
             "raw_data": {}
         }
         
-        # Initialize ECS client
-        ecs = boto3.client('ecs')
+        # Initialize ECS client using get_aws_client
+        ecs = await get_aws_client('ecs')
         
         # Check if cluster exists
         try:

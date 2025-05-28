@@ -8,6 +8,33 @@
     }
   },
   "Resources": {
+    "ECRPushPullRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ecs-tasks.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            },
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": {"Fn::Sub": "arn:aws:iam::${AWS::AccountId}:root"}
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "RoleName": {"Fn::Sub": "${AppName}-ecr-role"},
+        "ManagedPolicyArns": [],
+        "Path": "/"
+      }
+    },
     "ECRRepository": {
       "Type": "AWS::ECR::Repository",
       "Properties": {
@@ -23,7 +50,7 @@
               "Sid": "AllowPushPull",
               "Effect": "Allow",
               "Principal": {
-                "AWS": {"Fn::Sub": "arn:aws:iam::${AWS::AccountId}:root"}
+                "AWS": {"Fn::GetAtt": ["ECRPushPullRole", "Arn"]}
               },
               "Action": [
                 "ecr:GetDownloadUrlForLayer",
@@ -49,6 +76,10 @@
     "ECRRepositoryURI": {
       "Description": "ECR Repository URI",
       "Value": {"Fn::Sub": "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AppName}-repo"}
+    },
+    "ECRPushPullRoleArn": {
+      "Description": "ARN of the ECR Push/Pull role",
+      "Value": {"Fn::GetAtt": ["ECRPushPullRole", "Arn"]}
     }
   }
 }

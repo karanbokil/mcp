@@ -56,6 +56,48 @@ The ECS MCP Server is currently in development and is designed for the following
 
 **Important Note on Troubleshooting Tools**: Even the troubleshooting tools should be used with caution in production environments. Always set `ALLOW_SENSITIVE_DATA=false` and `ALLOW_WRITE=false` flags when connecting to production accounts to prevent accidental exposure of sensitive information or unintended infrastructure modifications.
 
+## Production Considerations
+
+While the ECS MCP Server is primarily designed for development, testing, and non-critical environments, certain components can be considered for controlled production use with appropriate safeguards.
+
+### Allowlisted Actions for Production
+
+The following operations are read-only and relatively safe for production environments when used with appropriate IAM permissions. Note: they can return sensitive information, so ensure `ALLOW_SENSITIVE_DATA=false` is set in production configurations.
+
+| Tool | Operation | Production Safety |
+|------|-----------|-------------------|
+| `ecs_resource_management` | `list` operations (clusters, services, tasks) | ✅ Safe - Read-only |
+| `ecs_resource_management` | `describe` operations (clusters, services, tasks) | ✅ Safe - Read-only |
+| `ecs_troubleshooting_tool` | `fetch_service_events` | ✅ Safe - Read-only |
+| `ecs_troubleshooting_tool` | `get_ecs_troubleshooting_guidance` | ✅ Safe - Read-only |
+| `get_deployment_status` | Status checking | ✅ Safe - Read-only |
+
+The following operations modify resources and should be used with extreme caution in production:
+
+| Tool | Operation | Production Safety |
+|------|-----------|-------------------|
+| `create_ecs_infrastructure` | Creating resources | ⚠️ High Risk - Creates infrastructure |
+| `delete_ecs_infrastructure` | Deleting resources | 🛑 Dangerous - Deletes infrastructure |
+| `containerize_app` | Generate container configs | 🟡 Medium Risk - Local changes only |
+
+### When to Consider Production Use
+
+The ECS MCP Server may be appropriate for production environments in the following scenarios:
+
+1. **Read-only monitoring**: Using resource management tools with read-only IAM policies
+2. **Troubleshooting non-critical issues**: Using diagnostic tools to gather logs and status information
+3. **Sandbox or isolated environments**: Using deployment tools in production-like environments that are isolated from core services
+
+### When to Avoid Production Use
+
+Avoid using ECS MCP Server in production for:
+
+1. Critical business infrastructure
+2. Applications handling sensitive customer data
+3. High-throughput or high-availability services
+4. Regulated workloads with compliance requirements
+5. Infrastructure lacking proper backup and disaster recovery procedures
+
 ## Configuration
 
 Add the ECS MCP Server to your MCP client configuration:
@@ -138,15 +180,11 @@ Controls whether tools that return logs and detailed resource information are al
 We strongly recommend creating dedicated IAM roles with least-privilege permissions when using the ECS MCP Server:
 
 1. **Create a dedicated IAM role** specifically for ECS MCP Server operations
-2. **Apply least-privilege permissions** by attaching only the necessary policies:
-   - `AmazonECR-FullAccess` (for container registry operations)
-   - `AmazonECS-FullAccess` (for ECS operations)
-   - `AmazonCloudFormationFullAccess` (for stack creation/updates)
-   - `AmazonS3ReadOnlyAccess` (for accessing artifacts)
-   - Custom policy for VPC operations (if needed)
+2. **Apply least-privilege permissions** by attaching only the necessary policies based on your use case
 3. **Use scoped-down resource policies** whenever possible
 4. **Apply a permission boundary** to limit the maximum permissions
-```
+
+For detailed example IAM policies tailored for different ECS MCP Server use cases (read-only monitoring, troubleshooting, deployment, and service-specific access), see [EXAMPLE_IAM_POLICIES.md](EXAMPLE_IAM_POLICIES.md).
 
 
 ## MCP Tools

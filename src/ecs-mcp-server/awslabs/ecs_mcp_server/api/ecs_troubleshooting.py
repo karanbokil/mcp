@@ -27,6 +27,9 @@ from awslabs.ecs_mcp_server.api.troubleshooting_tools.fetch_task_logs import (
 from awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance import (
     get_ecs_troubleshooting_guidance,
 )
+from awslabs.ecs_mcp_server.api.troubleshooting_tools.fetch_network_configuration import (
+    fetch_network_configuration,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +41,7 @@ TroubleshootingAction = Literal[
     "fetch_task_failures",
     "fetch_task_logs",
     "detect_image_pull_failures",
+    "fetch_network_configuration"
 ]
 
 # Combined actions configuration with inline parameter transformers and documentation
@@ -173,9 +177,28 @@ ACTIONS = {
         "optional_params": [],
         "transformer": lambda app_name, params: {"app_name": app_name},
         "description": "Specialized tool for detecting container image pull failures",
-        "param_descriptions": {"app_name": "Application name to check for image pull failures"},
-        "example": 'action="detect_image_pull_failures", parameters={}',
+        "param_descriptions": {
+            "app_name": "Application name to check for image pull failures"
+        },
+        "example": 'action="detect_image_pull_failures", parameters={}'
     },
+    "fetch_network_configuration": {
+        "func": fetch_network_configuration,
+        "required_params": ["app_name"],
+        "optional_params": ["vpc_id", "cluster_name"],
+        "transformer": lambda app_name, params: {
+            "app_name": app_name,
+            "vpc_id": params.get("vpc_id"),
+            "cluster_name": params.get("cluster_name")
+        },
+        "description": "Network-level diagnostics for ECS deployments",
+        "param_descriptions": {
+            "app_name": "The name of the application to analyze",
+            "vpc_id": "Specific VPC ID to analyze",
+            "cluster_name": "Specific ECS cluster name"
+        },
+        "example": 'action="fetch_network_configuration", parameters={"vpc_id": "vpc-12345678", "cluster_name": "my-cluster"}'
+    }
 }
 
 
@@ -322,7 +345,7 @@ async def ecs_troubleshooting_tool(
         _validate_action(action)
 
         # Check security permissions for sensitive data actions
-        sensitive_data_actions = ["fetch_task_logs", "fetch_service_events", "fetch_task_failures"]
+        sensitive_data_actions = ['fetch_task_logs', 'fetch_service_events', 'fetch_task_failures', 'fetch_network_configuration']
         if action in sensitive_data_actions:
             # Import here to avoid circular imports
             from awslabs.ecs_mcp_server.utils.config import get_config

@@ -18,4 +18,5 @@ __all__ = [
     "fetch_task_failures",
     "fetch_task_logs",
     "detect_image_pull_failures",
+    'fetch_network_configuration'
 ]

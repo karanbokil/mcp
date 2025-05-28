@@ -202,9 +202,9 @@ class TestEcsTroubleshootingTool:
         for action in expected_actions:
             assert action in ACTIONS, f"Missing action in ACTIONS: {action}"
             assert "func" in ACTIONS[action], f"Missing func for action: {action}"
-            assert (
-                "required_params" in ACTIONS[action]
-            ), f"Missing required_params for action: {action}"
+            assert "required_params" in ACTIONS[action], (
+                f"Missing required_params for action: {action}"
+            )
             assert "transformer" in ACTIONS[action], f"Missing transformer for action: {action}"
 
         assert len(ACTIONS) == len(expected_actions), "ACTIONS has unexpected actions"
@@ -212,9 +212,9 @@ class TestEcsTroubleshootingTool:
     def test_required_params_mapping(self):
         for action, config in ACTIONS.items():
             assert "required_params" in config, f"Missing required_params for action: {action}"
-            assert isinstance(
-                config["required_params"], list
-            ), f"required_params must be a list for action: {action}"
+            assert isinstance(config["required_params"], list), (
+                f"required_params must be a list for action: {action}"
+            )
 
 
 class TestTransformerFunctions:
@@ -299,9 +299,9 @@ class TestGenerateTroubleshootingDocs:
         assert "Example:" in docs, "Documentation should contain examples"
 
         # Check for quick usage examples section
-        assert (
-            "Quick Usage Examples" in docs
-        ), "Documentation should have a Quick Usage Examples section"
+        assert "Quick Usage Examples" in docs, (
+            "Documentation should have a Quick Usage Examples section"
+        )
 
     def test_docs_formatting(self):
         """Test that the documentation has correct formatting."""
@@ -354,9 +354,9 @@ class TestGuardrails:
 
     def test_actions_count_unchanged(self):
         """Fail if new actions are added/removed without updating this test."""
-        assert (
-            len(ACTIONS) == 6
-        ), f"Expected 6 actions, got {len(ACTIONS)}. Update test if this is intentional."
+        assert len(ACTIONS) == 6, (
+            f"Expected 6 actions, got {len(ACTIONS)}. Update test if this is intentional."
+        )
 
     def test_expected_actions_exist(self):
         """Fail if action names change or new ones are added."""
@@ -369,9 +369,9 @@ class TestGuardrails:
             "detect_image_pull_failures",
         }
         actual_actions = set(ACTIONS.keys())
-        assert (
-            actual_actions == expected_actions
-        ), f"Actions changed! Expected: {expected_actions}, Got: {actual_actions}"
+        assert actual_actions == expected_actions, (
+            f"Actions changed! Expected: {expected_actions}, Got: {actual_actions}"
+        )
 
     def test_parameter_counts_unchanged(self):
         """Fail if parameter counts change without updating test."""
@@ -433,21 +433,21 @@ class TestGuardrails:
 
             # Verify field types
             assert callable(config["func"]), f"Action '{action_name}' func must be callable"
-            assert callable(
-                config["transformer"]
-            ), f"Action '{action_name}' transformer must be callable"
-            assert isinstance(
-                config["required_params"], list
-            ), f"Action '{action_name}' required_params must be list"
-            assert isinstance(
-                config["optional_params"], list
-            ), f"Action '{action_name}' optional_params must be list"
-            assert isinstance(
-                config["description"], str
-            ), f"Action '{action_name}' description must be string"
-            assert isinstance(
-                config["param_descriptions"], dict
-            ), f"Action '{action_name}' param_descriptions must be dict"
-            assert isinstance(
-                config["example"], str
-            ), f"Action '{action_name}' example must be string"
+            assert callable(config["transformer"]), (
+                f"Action '{action_name}' transformer must be callable"
+            )
+            assert isinstance(config["required_params"], list), (
+                f"Action '{action_name}' required_params must be list"
+            )
+            assert isinstance(config["optional_params"], list), (
+                f"Action '{action_name}' optional_params must be list"
+            )
+            assert isinstance(config["description"], str), (
+                f"Action '{action_name}' description must be string"
+            )
+            assert isinstance(config["param_descriptions"], dict), (
+                f"Action '{action_name}' param_descriptions must be dict"
+            )
+            assert isinstance(config["example"], str), (
+                f"Action '{action_name}' example must be string"
+            )

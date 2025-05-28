@@ -68,7 +68,9 @@ class TestImagePullFailureDetection(unittest.TestCase):
         # Mock describe_task_definition for the task definitions
         mock_ecs.describe_task_definition.return_value = {
             "taskDefinition": {
-                "taskDefinitionArn": "arn:aws:ecs:us-west-2:123456789012:task-definition/test-failure-task-def-prbqv:1",
+                "taskDefinitionArn": (
+                    "arn:aws:ecs:us-west-2:123456789012:task-definition/test-failure-task-def-prbqv:1"
+                ),
                 "family": "test-failure-task-def-prbqv",
                 "revision": 1,
             }

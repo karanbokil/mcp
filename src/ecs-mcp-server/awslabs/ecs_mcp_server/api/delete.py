@@ -203,9 +203,9 @@ async def delete_infrastructure(
                 "UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS",
             ]:
                 results["ecs_stack"]["status"] = "skipped"
-                results["ecs_stack"][
-                    "message"
-                ] = f"Stack is in {ecs_stack['StackStatus']} state and cannot be deleted"
+                results["ecs_stack"]["message"] = (
+                    f"Stack is in {ecs_stack['StackStatus']} state and cannot be deleted"
+                )
             else:
                 # Delete the stack
                 cloudformation.delete_stack(StackName=ecs_stack_name)
@@ -229,9 +229,9 @@ async def delete_infrastructure(
                 "UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS",
             ]:
                 results["ecr_stack"]["status"] = "skipped"
-                results["ecr_stack"][
-                    "message"
-                ] = f"Stack is in {ecr_stack['StackStatus']} state and cannot be deleted"
+                results["ecr_stack"]["message"] = (
+                    f"Stack is in {ecr_stack['StackStatus']} state and cannot be deleted"
+                )
             else:
                 # Delete the stack
                 cloudformation.delete_stack(StackName=ecr_stack_name)

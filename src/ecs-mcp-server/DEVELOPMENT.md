@@ -105,7 +105,7 @@ To run all unit tests:
 
 ```bash
 cd src/ecs-mcp-server
-python -m tests/unit
+python -m pytest tests/unit
 ```
 
 To run a specific test file:

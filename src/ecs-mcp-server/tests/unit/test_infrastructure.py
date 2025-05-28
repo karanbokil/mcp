@@ -213,8 +213,9 @@ async def test_create_ecr_infrastructure(mock_get_aws_client, mock_get_aws_accou
         {
             "Stacks": [
                 {
-                    "StackId": 
-                        "arn:aws:cloudformation:us-west-2:123456789012:stack/test-app-ecr/abcdef",
+                    "StackId": (
+                        "arn:aws:cloudformation:us-west-2:123456789012:stack/test-app-ecr/abcdef"
+                    ),
                     "StackStatus": "CREATE_COMPLETE",
                     "Outputs": [
                         {
@@ -295,8 +296,9 @@ async def test_create_ecs_infrastructure(
         {
             "Stacks": [
                 {
-                    "StackId": 
-                        "arn:aws:cloudformation:us-west-2:123456789012:stack/test-app-ecs/ghijkl",
+                    "StackId": (
+                        "arn:aws:cloudformation:us-west-2:123456789012:stack/test-app-ecs/ghijkl"
+                    ),
                     "StackStatus": "CREATE_COMPLETE",
                     "Outputs": [
                         {
@@ -492,8 +494,9 @@ async def test_create_ecr_infrastructure_update(mock_get_aws_client, mock_get_aw
     mock_cfn.describe_stacks.return_value = {
         "Stacks": [
             {
-                "StackId": 
-                    "arn:aws:cloudformation:us-west-2:123456789012:stack/test-app-ecr/abcdef",
+                "StackId": (
+                    "arn:aws:cloudformation:us-west-2:123456789012:stack/test-app-ecr/abcdef"
+                ),
                 "StackStatus": "CREATE_COMPLETE",
                 "Outputs": [
                     {
@@ -543,8 +546,9 @@ async def test_create_ecr_infrastructure_no_update(mock_get_aws_client, mock_get
     mock_cfn.describe_stacks.return_value = {
         "Stacks": [
             {
-                "StackId": 
-                    "arn:aws:cloudformation:us-west-2:123456789012:stack/test-app-ecr/abcdef",
+                "StackId": (
+                    "arn:aws:cloudformation:us-west-2:123456789012:stack/test-app-ecr/abcdef"
+                ),
                 "StackStatus": "CREATE_COMPLETE",
                 "Outputs": [
                     {

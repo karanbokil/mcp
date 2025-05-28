@@ -482,8 +482,9 @@ class TestTaskDefinitionOperationsAPI:
         }
         mock_ecs.describe_task_definition.return_value = {
             "taskDefinition": {
-                "taskDefinitionArn": 
-                    "arn:aws:ecs:us-east-1:123456789012:task-definition/test-task:1",
+                "taskDefinitionArn": (
+                    "arn:aws:ecs:us-east-1:123456789012:task-definition/test-task:1"
+                ),
                 "family": "test-task",
                 "revision": 1,
             }
@@ -540,8 +541,9 @@ class TestTaskDefinitionOperationsAPI:
         mock_ecs = MagicMock()
         mock_ecs.describe_task_definition.return_value = {
             "taskDefinition": {
-                "taskDefinitionArn": 
-                    "arn:aws:ecs:us-east-1:123456789012:task-definition/test-task:1",
+                "taskDefinitionArn": (
+                    "arn:aws:ecs:us-east-1:123456789012:task-definition/test-task:1"
+                ),
                 "family": "test-task",
                 "revision": 1,
             },
@@ -581,8 +583,9 @@ class TestTaskDefinitionOperationsAPI:
         mock_ecs = MagicMock()
         mock_ecs.describe_task_definition.return_value = {
             "taskDefinition": {
-                "taskDefinitionArn": 
-                    "arn:aws:ecs:us-east-1:123456789012:task-definition/test-task:1",
+                "taskDefinitionArn": (
+                    "arn:aws:ecs:us-east-1:123456789012:task-definition/test-task:1"
+                ),
                 "family": "test-task",
                 "revision": 1,
             }
@@ -651,8 +654,9 @@ class TestContainerInstanceOperationsAPI:
         mock_ecs.describe_container_instances.return_value = {
             "containerInstances": [
                 {
-                    "containerInstanceArn": 
-                        "arn:aws:ecs:us-east-1:123456789012:container-instance/test-cluster/instance-1",
+                    "containerInstanceArn": (
+                        "arn:aws:ecs:us-east-1:123456789012:container-instance/test-cluster/instance-1"
+                    ),
                     "ec2InstanceId": "i-12345678",
                     "status": "ACTIVE",
                 }
@@ -754,8 +758,9 @@ class TestContainerInstanceOperationsAPI:
         mock_ecs.describe_container_instances.return_value = {
             "containerInstances": [
                 {
-                    "containerInstanceArn": 
-                        "arn:aws:ecs:us-east-1:123456789012:container-instance/test-cluster/instance-1",
+                    "containerInstanceArn": (
+                        "arn:aws:ecs:us-east-1:123456789012:container-instance/test-cluster/instance-1"
+                    ),
                     "ec2InstanceId": "i-12345678",
                     "status": "ACTIVE",
                 }
@@ -857,14 +862,16 @@ class TestCapacityProviderOperationsAPI:
         mock_ecs.describe_capacity_providers.return_value = {
             "capacityProviders": [
                 {
-                    "capacityProviderArn": 
-                        "arn:aws:ecs:us-east-1:123456789012:capacity-provider/FARGATE",
+                    "capacityProviderArn": (
+                        "arn:aws:ecs:us-east-1:123456789012:capacity-provider/FARGATE"
+                    ),
                     "name": "FARGATE",
                     "status": "ACTIVE",
                 },
                 {
-                    "capacityProviderArn": 
-                        "arn:aws:ecs:us-east-1:123456789012:capacity-provider/FARGATE_SPOT",
+                    "capacityProviderArn": (
+                        "arn:aws:ecs:us-east-1:123456789012:capacity-provider/FARGATE_SPOT"
+                    ),
                     "name": "FARGATE_SPOT",
                     "status": "ACTIVE",
                 },
@@ -920,8 +927,9 @@ class TestCapacityProviderOperationsAPI:
         mock_ecs.describe_capacity_providers.return_value = {
             "capacityProviders": [
                 {
-                    "capacityProviderArn": 
-                        "arn:aws:ecs:us-east-1:123456789012:capacity-provider/FARGATE",
+                    "capacityProviderArn": (
+                        "arn:aws:ecs:us-east-1:123456789012:capacity-provider/FARGATE"
+                    ),
                     "name": "FARGATE",
                     "status": "ACTIVE",
                 }

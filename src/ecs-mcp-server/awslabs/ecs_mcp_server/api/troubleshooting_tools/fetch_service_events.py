@@ -158,7 +158,7 @@ async def fetch_service_events(
     time_window : int, optional
         Time window in seconds to look back for events (default: 3600)
     start_time : datetime, optional
-        Explicit start time for the analysis window 
+        Explicit start time for the analysis window
         (UTC, takes precedence over time_window if provided)
     end_time : datetime, optional
         Explicit end time for the analysis window (UTC, defaults to current time if not provided)

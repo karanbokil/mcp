@@ -49,7 +49,10 @@ class TestImagePullFailureDetection(unittest.TestCase):
         mock_task_paginator.paginate.return_value = [
             {
                 "taskDefinitionArns": [
-                    "arn:aws:ecs:us-west-2:123456789012:task-definition/test-failure-task-def-prbqv:1",
+                    (
+                        "arn:aws:ecs:us-west-2:123456789012:task-definition/"
+                        "test-failure-task-def-prbqv:1"
+                    ),
                     "arn:aws:ecs:us-west-2:123456789012:task-definition/other-task:1",
                 ]
             }
@@ -65,8 +68,7 @@ class TestImagePullFailureDetection(unittest.TestCase):
         # Mock describe_task_definition for the task definitions
         mock_ecs.describe_task_definition.return_value = {
             "taskDefinition": {
-                "taskDefinitionArn": 
-                    "arn:aws:ecs:us-west-2:123456789012:task-definition/test-failure-task-def-prbqv:1",
+                "taskDefinitionArn": "arn:aws:ecs:us-west-2:123456789012:task-definition/test-failure-task-def-prbqv:1",
                 "family": "test-failure-task-def-prbqv",
                 "revision": 1,
             }
@@ -121,8 +123,9 @@ class TestImagePullFailureDetection(unittest.TestCase):
         # Mock describe_task_definition
         mock_ecs.describe_task_definition.return_value = {
             "taskDefinition": {
-                "taskDefinitionArn": 
-                    "arn:aws:ecs:us-west-2:123456789012:task-definition/test-failure-prbqv:1",
+                "taskDefinitionArn": (
+                    "arn:aws:ecs:us-west-2:123456789012:task-definition/test-failure-prbqv:1"
+                ),
                 "family": "test-failure-prbqv",
                 "revision": 1,
                 "containerDefinitions": [
@@ -157,7 +160,7 @@ class TestImagePullFailureDetection(unittest.TestCase):
         def mock_describe_repositories(repositoryNames):
             if repositoryNames[0] == "non-existent-image":
                 error = {"Error": {"Code": "RepositoryNotFoundException"}}
-                raise boto3.exceptions.botocore.exceptions.ClientError(
+                raise boto3.client("ecr").exceptions.RepositoryNotFoundException(
                     error, "DescribeRepositories"
                 )
             return {"repositories": [{"repositoryName": repositoryNames[0]}]}
@@ -170,8 +173,9 @@ class TestImagePullFailureDetection(unittest.TestCase):
         # Create test task definitions
         task_defs = [
             {
-                "taskDefinitionArn": 
-                    "arn:aws:ecs:us-west-2:123456789012:task-definition/failing-task-def-prbqv:1",
+                "taskDefinitionArn": (
+                    "arn:aws:ecs:us-west-2:123456789012:task-definition/failing-task-def-prbqv:1"
+                ),
                 "family": "failing-task-def-prbqv",
                 "containerDefinitions": [
                     {"name": "web", "image": "non-existent-repo/non-existent-image:latest"}
@@ -200,8 +204,9 @@ class TestImagePullFailureDetection(unittest.TestCase):
         # Mock the task definitions
         mock_find_task_defs.return_value = [
             {
-                "taskDefinitionArn": 
-                    "arn:aws:ecs:us-west-2:123456789012:task-definition/failing-task-def-prbqv:1",
+                "taskDefinitionArn": (
+                    "arn:aws:ecs:us-west-2:123456789012:task-definition/failing-task-def-prbqv:1"
+                ),
                 "family": "failing-task-def-prbqv",
                 "containerDefinitions": [
                     {"name": "web", "image": "non-existent-repo/non-existent-image:latest"}
@@ -213,8 +218,9 @@ class TestImagePullFailureDetection(unittest.TestCase):
         mock_validate_images.return_value = [
             {
                 "image": "non-existent-repo/non-existent-image:latest",
-                "task_definition": 
-                    "arn:aws:ecs:us-west-2:123456789012:task-definition/failing-task-def-prbqv:1",
+                "task_definition": (
+                    "arn:aws:ecs:us-west-2:123456789012:task-definition/failing-task-def-prbqv:1"
+                ),
                 "container_name": "web",
                 "exists": "unknown",
                 "error": "Repository not found in ECR",

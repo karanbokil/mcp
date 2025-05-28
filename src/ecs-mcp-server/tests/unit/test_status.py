@@ -278,8 +278,9 @@ class TestDeploymentStatus(unittest.TestCase):
         mock_cfn_client.describe_stack_events.return_value = {
             "StackEvents": [
                 {
-                    "StackId": 
-                        "arn:aws:cloudformation:us-west-2:123456789012:stack/test-stack/abcdef",
+                    "StackId": (
+                        "arn:aws:cloudformation:us-west-2:123456789012:stack/test-stack/abcdef"
+                    ),
                     "EventId": "event1",
                     "StackName": "test-stack",
                     "LogicalResourceId": "resource1",
@@ -289,8 +290,9 @@ class TestDeploymentStatus(unittest.TestCase):
                     "ResourceStatusReason": "Resource creation complete",
                 },
                 {
-                    "StackId": 
-                        "arn:aws:cloudformation:us-west-2:123456789012:stack/test-stack/abcdef",
+                    "StackId": (
+                        "arn:aws:cloudformation:us-west-2:123456789012:stack/test-stack/abcdef"
+                    ),
                     "EventId": "event2",
                     "StackName": "test-stack",
                     "LogicalResourceId": "resource2",

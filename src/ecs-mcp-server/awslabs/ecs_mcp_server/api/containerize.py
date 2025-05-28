@@ -169,12 +169,10 @@ def _generate_containerization_guidance(
                     "arm64": {
                         "description": "ARM64 (Apple Silicon, AWS Graviton)",
                         "finch_command": (
-                            f"finch build --platform linux/arm64 -t "
-                            f"{app_name}:<image_version> ."
+                            f"finch build --platform linux/arm64 -t {app_name}:<image_version> ."
                         ),
                         "docker_command": (
-                            f"docker build --platform linux/arm64 -t "
-                            f"{app_name}:<image_version> ."
+                            f"docker build --platform linux/arm64 -t {app_name}:<image_version> ."
                         ),
                         "benefits": [
                             "Better performance on ARM-based systems",
@@ -184,12 +182,10 @@ def _generate_containerization_guidance(
                     "amd64": {
                         "description": "AMD64/x86_64 (Intel/AMD)",
                         "finch_command": (
-                            f"finch build --platform linux/amd64 -t "
-                            f"{app_name}:<image_version> ."
+                            f"finch build --platform linux/amd64 -t {app_name}:<image_version> ."
                         ),
                         "docker_command": (
-                            f"docker build --platform linux/amd64 -t "
-                            f"{app_name}:<image_version> ."
+                            f"docker build --platform linux/amd64 -t {app_name}:<image_version> ."
                         ),
                         "benefits": ["Wider compatibility with existing systems"],
                     },

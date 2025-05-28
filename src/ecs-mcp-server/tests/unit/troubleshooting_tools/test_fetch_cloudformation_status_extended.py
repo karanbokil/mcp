@@ -1,5 +1,5 @@
 """
-Extended unit tests for the fetch_cloudformation_status module using pytest's native 
+Extended unit tests for the fetch_cloudformation_status module using pytest's native
 async test support.
 """
 

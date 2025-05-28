@@ -26,7 +26,7 @@ async def get_deployment_status(
     Args:
         app_name: Name of the application
         cluster_name: Name of the ECS cluster (optional, defaults to app_name)
-        stack_name: Name of the CloudFormation stack 
+        stack_name: Name of the CloudFormation stack
                    (optional, defaults to {app_name}-ecs-infrastructure)
         service_name: Name of the ECS service (optional, defaults to {app_name}-service)
 
@@ -56,8 +56,9 @@ async def get_deployment_status(
             "app_name": app_name,
             "status": "INFRASTRUCTURE_UNAVAILABLE",
             "stack_status": stack_status,
-            "message": (f"Infrastructure for {app_name} is not available: "
-                       f"{stack_status.get('status')}"),
+            "message": (
+                f"Infrastructure for {app_name} is not available: {stack_status.get('status')}"
+            ),
             "alb_url": None,
         }
 
@@ -337,8 +338,10 @@ def _generate_custom_domain_guidance(app_name: str, alb_url: str) -> Dict[str, A
     return {
         "custom_domain": {
             "title": "Setting up a Custom Domain",
-            "description": ("Your application is currently accessible via the ALB URL. "
-                          "For a more professional setup, you can use a custom domain."),
+            "description": (
+                "Your application is currently accessible via the ALB URL. "
+                "For a more professional setup, you can use a custom domain."
+            ),
             "steps": [
                 "Register a domain through Route 53 or another domain registrar "
                 "if you don't already have one.",
@@ -348,21 +351,27 @@ def _generate_custom_domain_guidance(app_name: str, alb_url: str) -> Dict[str, A
             ],
             "route53_commands": [
                 "# Create a hosted zone for your domain",
-                (f"aws route53 create-hosted-zone --name yourdomain.com "
-                 f"--caller-reference {app_name}-$(date +%s)"),
+                (
+                    f"aws route53 create-hosted-zone --name yourdomain.com "
+                    f"--caller-reference {app_name}-$(date +%s)"
+                ),
                 "",
                 "# Add an alias record pointing to the ALB",
-                ("aws route53 change-resource-record-sets --hosted-zone-id YOUR_HOSTED_ZONE_ID "
-                 "--change-batch '{\"Changes\": [{\"Action\": \"CREATE\", "
-                 "\"ResourceRecordSet\": {\"Name\": \"yourdomain.com\", \"Type\": \"A\", "
-                 "\"AliasTarget\": {\"HostedZoneId\": \"YOUR_ALB_HOSTED_ZONE_ID\", "
-                 "\"DNSName\": \"" + alb_hostname + "\", \"EvaluateTargetHealth\": true}}}]}'")
+                (
+                    "aws route53 change-resource-record-sets --hosted-zone-id YOUR_HOSTED_ZONE_ID "
+                    '--change-batch \'{"Changes": [{"Action": "CREATE", '
+                    '"ResourceRecordSet": {"Name": "yourdomain.com", "Type": "A", '
+                    '"AliasTarget": {"HostedZoneId": "YOUR_ALB_HOSTED_ZONE_ID", '
+                    '"DNSName": "' + alb_hostname + '", "EvaluateTargetHealth": true}}}]}\''
+                ),
             ],
         },
         "https_setup": {
             "title": "Setting up HTTPS with AWS Certificate Manager",
-            "description": ("Secure your application with HTTPS using AWS Certificate Manager "
-                          "(ACM) and update your ALB listener."),
+            "description": (
+                "Secure your application with HTTPS using AWS Certificate Manager "
+                "(ACM) and update your ALB listener."
+            ),
             "steps": [
                 "Request a certificate through AWS Certificate Manager for your domain.",
                 "Validate the certificate (typically through DNS validation).",
@@ -374,9 +383,11 @@ def _generate_custom_domain_guidance(app_name: str, alb_url: str) -> Dict[str, A
                 "aws acm request-certificate --domain-name yourdomain.com --validation-method DNS",
                 "",
                 "# Get the certificate ARN",
-                ("aws acm list-certificates --query "
-                 "\"CertificateSummaryList[?DomainName=='yourdomain.com'].CertificateArn\" "
-                 "--output text"),
+                (
+                    "aws acm list-certificates --query "
+                    "\"CertificateSummaryList[?DomainName=='yourdomain.com'].CertificateArn\" "
+                    "--output text"
+                ),
                 "",
                 "# Add an HTTPS listener to your ALB",
                 "aws elbv2 create-listener \\",
@@ -390,8 +401,10 @@ def _generate_custom_domain_guidance(app_name: str, alb_url: str) -> Dict[str, A
                 "# Optional: Create a redirect from HTTP to HTTPS",
                 "aws elbv2 modify-listener \\",
                 "  --listener-arn YOUR_HTTP_LISTENER_ARN \\",
-                ('  --default-actions Type=redirect,RedirectConfig=\'{"Protocol":"HTTPS",'
-                 '"Port":"443","StatusCode":"HTTP_301"}\''),
+                (
+                    '  --default-actions Type=redirect,RedirectConfig=\'{"Protocol":"HTTPS",'
+                    '"Port":"443","StatusCode":"HTTP_301"}\''
+                ),
             ],
         },
         "cloudformation_update": {
@@ -404,12 +417,16 @@ def _generate_custom_domain_guidance(app_name: str, alb_url: str) -> Dict[str, A
             ],
             "commands": [
                 "# Download your current CloudFormation template",
-                (f"aws cloudformation get-template --stack-name {app_name}-ecs-infrastructure "
-                 f"--query TemplateBody --output json > {app_name}-template.json"),
+                (
+                    f"aws cloudformation get-template --stack-name {app_name}-ecs-infrastructure "
+                    f"--query TemplateBody --output json > {app_name}-template.json"
+                ),
                 "",
                 "# After modifying the template, update the stack",
-                (f"aws cloudformation update-stack --stack-name {app_name}-ecs-infrastructure "
-                 f"--template-body file://{app_name}-template.json --capabilities CAPABILITY_IAM"),
+                (
+                    f"aws cloudformation update-stack --stack-name {app_name}-ecs-infrastructure "
+                    f"--template-body file://{app_name}-template.json --capabilities CAPABILITY_IAM"
+                ),
             ],
         },
         "next_steps": [

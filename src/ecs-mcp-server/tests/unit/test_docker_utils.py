@@ -158,7 +158,7 @@ async def test_get_ecr_login_password_success(mock_get_aws_client):
     mock_ecr.get_authorization_token.return_value = {
         "authorizationData": [
             {
-                "authorizationToken": "QVdTOmV4YW1wbGVwYXNzd29yZA==",  
+                "authorizationToken": "QVdTOmV4YW1wbGVwYXNzd29yZA==",
                 # Base64 encoded "AWS:examplepassword"
                 "proxyEndpoint": "https://123456789012.dkr.ecr.us-west-2.amazonaws.com",
             }

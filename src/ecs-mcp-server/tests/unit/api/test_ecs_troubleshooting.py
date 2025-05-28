@@ -13,7 +13,6 @@ from awslabs.ecs_mcp_server.api.ecs_troubleshooting import (
 
 
 class TestEcsTroubleshootingTool:
-
     def test_valid_action_validation(self):
         for action in ACTIONS.keys():
             _validate_action(action)
@@ -219,7 +218,6 @@ class TestEcsTroubleshootingTool:
 
 
 class TestTransformerFunctions:
-
     def test_service_events_transformer_with_time_parameters(self):
         config = ACTIONS["fetch_service_events"]
         result = config["transformer"](
@@ -258,7 +256,6 @@ class TestTransformerFunctions:
 
 
 class TestEdgeCases:
-
     def test_empty_app_name(self):
         with pytest.raises(ValueError, match="app_name is required"):
             _validate_parameters("get_ecs_troubleshooting_guidance", "", {})
@@ -392,14 +389,14 @@ class TestGuardrails:
             required_count = len(config["required_params"])
             optional_count = len(config.get("optional_params", []))
 
-            assert (
-                required_count == expected_counts["required"]
-            ), (f"{action_name}: Expected {expected_counts['required']} required params, "
-                f"got {required_count}")
-            assert (
-                optional_count == expected_counts["optional"]
-            ), (f"{action_name}: Expected {expected_counts['optional']} optional params, "
-                f"got {optional_count}")
+            assert required_count == expected_counts["required"], (
+                f"{action_name}: Expected {expected_counts['required']} required params, "
+                f"got {required_count}"
+            )
+            assert optional_count == expected_counts["optional"], (
+                f"{action_name}: Expected {expected_counts['optional']} optional params, "
+                f"got {optional_count}"
+            )
 
     def test_documentation_contains_expected_content(self):
         """Fail if generated docs are missing expected action descriptions."""

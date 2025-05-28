@@ -337,8 +337,9 @@ def secure_tool(
                 return {
                     "error": str(e),
                     "status": "failed",
-                    "message": ("Security validation failed. "
-                              "Please check your environment configuration."),
+                    "message": (
+                        "Security validation failed. Please check your environment configuration."
+                    ),
                 }
 
         return wrapper

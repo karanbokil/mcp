@@ -42,7 +42,7 @@ async def fetch_task_logs(
     filter_pattern : str, optional
         CloudWatch logs filter pattern
     start_time : datetime, optional
-        Explicit start time for the analysis window 
+        Explicit start time for the analysis window
         (UTC, takes precedence over time_window if provided)
     end_time : datetime, optional
         Explicit end time for the analysis window (UTC, defaults to current time if not provided)

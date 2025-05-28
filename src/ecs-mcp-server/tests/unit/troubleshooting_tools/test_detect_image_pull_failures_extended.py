@@ -1,5 +1,5 @@
 """
-Extended unit tests for the detect_image_pull_failures module using pytest's native 
+Extended unit tests for the detect_image_pull_failures module using pytest's native
 async test support.
 """
 

@@ -1,5 +1,5 @@
 """
-Unit tests for the get_ecs_troubleshooting_guidance function using pytest's native 
+Unit tests for the get_ecs_troubleshooting_guidance function using pytest's native
 async test support.
 """
 
@@ -226,7 +226,7 @@ async def test_client_error_handling(mock_boto_client):
         {"Error": {"Code": "AccessDenied", "Message": "User is not authorized"}}, "DescribeStacks"
     )
 
-    # Create a proper ECS mock to avoid 'not subscriptable' error when it tries to access 
+    # Create a proper ECS mock to avoid 'not subscriptable' error when it tries to access
     # list_clusters
     mock_ecs_client = mock.Mock()
     mock_ecs_client.list_clusters = mock.Mock(return_value={"clusterArns": []})
@@ -251,7 +251,7 @@ async def test_client_error_handling(mock_boto_client):
     # Verify the result - change to match actual implementation
     assert "error" == result["status"]
     assert "error" in result
-    # Don't rely on specific error message containing "Access" as it depends on the 
+    # Don't rely on specific error message containing "Access" as it depends on the
     # exception formatting
 
 

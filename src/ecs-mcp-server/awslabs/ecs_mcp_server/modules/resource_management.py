@@ -22,8 +22,10 @@ def register_module(mcp: FastMCP) -> None:
         ),
         resource_type: str = Field(
             ...,
-            description=("Type of resource (cluster, service, task, task_definition, "
-                        "container_instance, capacity_provider)"),
+            description=(
+                "Type of resource (cluster, service, task, task_definition, "
+                "container_instance, capacity_provider)"
+            ),
         ),
         identifier: Optional[str] = None,
         filters: Optional[Dict[str, Any]] = None,
@@ -36,20 +38,20 @@ def register_module(mcp: FastMCP) -> None:
         USAGE EXAMPLES:
         - List all clusters: ecs_resource_management("list", "cluster")
         - Describe a cluster: ecs_resource_management("describe", "cluster", "my-cluster")
-        - List services in cluster: ecs_resource_management("list", "service", 
+        - List services in cluster: ecs_resource_management("list", "service",
           filters={"cluster": "my-cluster"})
-        - List tasks by status: ecs_resource_management("list", "task", 
+        - List tasks by status: ecs_resource_management("list", "task",
           filters={"cluster": "my-cluster", "status": "RUNNING"})
-        - Describe a task: ecs_resource_management("describe", "task", "task-id", 
+        - Describe a task: ecs_resource_management("describe", "task", "task-id",
           filters={"cluster": "my-cluster"})
-        - List task definitions: ecs_resource_management("list", "task_definition", 
+        - List task definitions: ecs_resource_management("list", "task_definition",
           filters={"family": "nginx"})
-        - Describe a task definition: ecs_resource_management("describe", "task_definition", 
+        - Describe a task definition: ecs_resource_management("describe", "task_definition",
           "family:revision")
 
         Parameters:
             action: Action to perform (list, describe)
-            resource_type: Type of resource (cluster, service, task, task_definition, 
+            resource_type: Type of resource (cluster, service, task, task_definition,
                           container_instance, capacity_provider)
             identifier: Resource identifier (name or ARN) for describe actions (optional)
             filters: Filters for list operations (optional)

@@ -36,7 +36,7 @@ async def fetch_task_failures(
     time_window : int, optional
         Time window in seconds to look back for failures (default: 3600)
     start_time : datetime, optional
-        Explicit start time for the analysis window 
+        Explicit start time for the analysis window
         (UTC, takes precedence over time_window if provided)
     end_time : datetime, optional
         Explicit end time for the analysis window (UTC, defaults to current time if not provided)
@@ -208,7 +208,7 @@ async def fetch_task_failures(
                         "failure_categories": {},
                         "raw_data": {},
                     }
-                # For test_failed_tasks_found and test_out_of_memory_failure, 
+                # For test_failed_tasks_found and test_out_of_memory_failure,
                 # return responses with failed tasks
                 elif any("test_failed_tasks_found" in frame for frame in stack_trace):
                     # Get the current time for timestamps

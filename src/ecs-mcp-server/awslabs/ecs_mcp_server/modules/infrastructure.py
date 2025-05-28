@@ -26,10 +26,12 @@ def register_module(mcp: FastMCP) -> None:
         ),
         force_deploy: bool = Field(
             default=False,
-            description=("Set to True ONLY if you have Docker installed and running, and you agree "
-                        "to let the server build and deploy your image to ECR, as well as deploy "
-                        "ECS infrastructure for you in CloudFormation. If False, template files "
-                        "will be generated locally for your review."),
+            description=(
+                "Set to True ONLY if you have Docker installed and running, and you agree "
+                "to let the server build and deploy your image to ECR, as well as deploy "
+                "ECS infrastructure for you in CloudFormation. If False, template files "
+                "will be generated locally for your review."
+            ),
         ),
         vpc_id: Optional[str] = Field(
             default=None,
@@ -71,9 +73,9 @@ def register_module(mcp: FastMCP) -> None:
         2. Provide the path to your web application directory
         3. Decide whether to use force_deploy:
            - If False (default): Template files will be generated locally for your review
-           - If True: Docker image will be built and pushed to ECR, and CloudFormation stacks 
+           - If True: Docker image will be built and pushed to ECR, and CloudFormation stacks
              will be deployed
-           - ENSURE you get user permission to deploy and inform that this is only for 
+           - ENSURE you get user permission to deploy and inform that this is only for
              non-production applications.
         4. Optionally specify VPC and subnet IDs if you want to use existing resources
         5. Configure CPU, memory, and scaling options as needed

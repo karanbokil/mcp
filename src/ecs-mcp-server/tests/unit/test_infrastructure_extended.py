@@ -244,8 +244,9 @@ class TestInfrastructureExtended(unittest.TestCase):
                     "Outputs": [
                         {
                             "OutputKey": "ECRRepositoryURI",
-                            "OutputValue": 
-                                "123456789012.dkr.ecr.us-west-2.amazonaws.com/test-app-repo",
+                            "OutputValue": (
+                                "123456789012.dkr.ecr.us-west-2.amazonaws.com/test-app-repo"
+                            ),
                         }
                     ]
                 }
@@ -287,8 +288,9 @@ class TestInfrastructureExtended(unittest.TestCase):
                     "Outputs": [
                         {
                             "OutputKey": "ECRRepositoryURI",
-                            "OutputValue": 
-                                "123456789012.dkr.ecr.us-west-2.amazonaws.com/test-app-repo",
+                            "OutputValue": (
+                                "123456789012.dkr.ecr.us-west-2.amazonaws.com/test-app-repo"
+                            ),
                         }
                     ]
                 }
@@ -331,8 +333,9 @@ class TestInfrastructureExtended(unittest.TestCase):
                     "Outputs": [
                         {
                             "OutputKey": "ECRRepositoryURI",
-                            "OutputValue": 
-                                "123456789012.dkr.ecr.us-west-2.amazonaws.com/test-app-repo",
+                            "OutputValue": (
+                                "123456789012.dkr.ecr.us-west-2.amazonaws.com/test-app-repo"
+                            ),
                         }
                     ]
                 }

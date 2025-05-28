@@ -341,8 +341,10 @@ async def get_stack_status(app_name: str) -> str:
 def create_assessment(app_name: str, stack_status: str, resources: Dict) -> str:
     """Create a human-readable assessment of the application's state."""
     if stack_status == "NOT_FOUND":
-        assessment = (f"CloudFormation stack '{app_name}' does not exist. "
-                     f"Infrastructure deployment may have failed or not been attempted.")
+        assessment = (
+            f"CloudFormation stack '{app_name}' does not exist. "
+            f"Infrastructure deployment may have failed or not been attempted."
+        )
 
         # Add information about related resources if found
         if resources["task_definitions"]:
@@ -364,8 +366,10 @@ def create_assessment(app_name: str, stack_status: str, resources: Dict) -> str:
         )
 
     elif stack_status == "CREATE_COMPLETE" and not resources["clusters"]:
-        assessment = (f"CloudFormation stack '{app_name}' exists and is complete, "
-                     f"but no related ECS clusters were found.")
+        assessment = (
+            f"CloudFormation stack '{app_name}' exists and is complete, "
+            f"but no related ECS clusters were found."
+        )
 
     elif stack_status == "CREATE_COMPLETE" and resources["clusters"]:
         cluster_name = resources["clusters"][0]

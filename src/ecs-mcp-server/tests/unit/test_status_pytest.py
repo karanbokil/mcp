@@ -163,7 +163,9 @@ async def test_get_deployment_status_deploying(
                 "events": [
                     {"message": "service test-app-service has started 1 tasks: task task-1."},
                     {
-                        "message": "service test-app-service has begun draining connections on 1 tasks."
+                        "message": (
+                            "service test-app-service has begun draining connections on 1 tasks."
+                        )
                     },
                 ],
             }

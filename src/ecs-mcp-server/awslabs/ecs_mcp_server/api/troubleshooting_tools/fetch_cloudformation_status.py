@@ -8,13 +8,13 @@ identify failed resources, and extract error messages to help diagnose infrastru
 import logging
 import datetime
 from typing import Dict, Any
-import boto3
 from botocore.exceptions import ClientError
+from awslabs.ecs_mcp_server.utils.aws import get_aws_client
 
 logger = logging.getLogger(__name__)
 
 
-def fetch_cloudformation_status(stack_id: str) -> Dict[str, Any]:
+async def fetch_cloudformation_status(stack_id: str) -> Dict[str, Any]:
     """
     Infrastructure-level diagnostics for CloudFormation stacks.
 
@@ -38,8 +38,8 @@ def fetch_cloudformation_status(stack_id: str) -> Dict[str, Any]:
             "raw_events": []
         }
         
-        # Initialize CloudFormation client
-        cloudformation = boto3.client('cloudformation')
+        # Initialize CloudFormation client using get_aws_client
+        cloudformation = await get_aws_client('cloudformation')
         
         # Check if stack exists
         try:

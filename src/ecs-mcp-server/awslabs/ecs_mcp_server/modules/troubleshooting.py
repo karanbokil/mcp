@@ -42,6 +42,9 @@ def register_module(mcp: FastMCP) -> None:
     
     @mcp.tool(
         name="ecs_troubleshooting_tool",
+        annotations={
+            "readOnlyHint": True,
+        },
         description=TROUBLESHOOTING_DOCS # Dynamically generated documentation string
     )
     async def mcp_ecs_troubleshooting_tool(
@@ -58,7 +61,7 @@ def register_module(mcp: FastMCP) -> None:
             description="Action-specific parameters",
         ),
     ) -> Dict[str, Any]:
-        return ecs_troubleshooting_tool(app_name, action, parameters)
+        return await ecs_troubleshooting_tool(app_name, action, parameters)
 
     # Define prompt groups for bulk registration
     prompt_groups = {

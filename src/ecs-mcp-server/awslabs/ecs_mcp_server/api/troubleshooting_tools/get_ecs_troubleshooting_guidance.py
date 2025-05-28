@@ -7,19 +7,23 @@ for troubleshooting ECS deployments.
 
 import logging
 import datetime
+import inspect
 from typing import Dict, Any, Optional, List, Tuple
-import boto3
 from botocore.exceptions import ClientError
 
 from awslabs.ecs_mcp_server.utils.arn_parser import parse_arn
+from awslabs.ecs_mcp_server.utils.aws import get_aws_client
 
 logger = logging.getLogger(__name__)
 
 
-def handle_aws_api_call(func, error_value=None, *args, **kwargs):
+async def handle_aws_api_call(func, error_value=None, *args, **kwargs):
     """Execute AWS API calls with standardized error handling."""
     try:
-        return func(*args, **kwargs)
+        result = func(*args, **kwargs)
+        if inspect.iscoroutine(result):
+            result = await result
+        return result
     except ClientError as e:
         logger.warning(f"API error in {func.__name__ if hasattr(func, '__name__') else 'unknown'}: {e}")
         return error_value
@@ -28,12 +32,12 @@ def handle_aws_api_call(func, error_value=None, *args, **kwargs):
         return error_value
 
 
-def find_clusters(app_name: str) -> List[str]:
+async def find_clusters(app_name: str) -> List[str]:
     """Find ECS clusters related to the application."""
     clusters = []
-    ecs = boto3.client('ecs')
+    ecs = await get_aws_client('ecs')
     
-    cluster_list = handle_aws_api_call(ecs.list_clusters, {"clusterArns": []})
+    cluster_list = await handle_aws_api_call(ecs.list_clusters, {"clusterArns": []})
     if not cluster_list or "clusterArns" not in cluster_list:
         return clusters
         
@@ -45,10 +49,10 @@ def find_clusters(app_name: str) -> List[str]:
     return clusters
 
 
-def find_services(app_name: str, cluster_name: str) -> List[str]:
+async def find_services(app_name: str, cluster_name: str) -> List[str]:
     """Find ECS services in a specific cluster related to the application."""
     services = []
-    ecs = boto3.client('ecs')
+    ecs = await get_aws_client('ecs')
     
     try:
         service_list = ecs.list_services(cluster=cluster_name)
@@ -69,12 +73,12 @@ def find_services(app_name: str, cluster_name: str) -> List[str]:
     return services
 
 
-def find_load_balancers(app_name: str) -> List[Dict[str, Any]]:
+async def find_load_balancers(app_name: str) -> List[Dict[str, Any]]:
     """Find load balancers related to the application."""
     load_balancers = []
-    elbv2 = boto3.client('elbv2')
+    elbv2 = await get_aws_client('elbv2')
     
-    lb_list = handle_aws_api_call(
+    lb_list = await handle_aws_api_call(
         elbv2.describe_load_balancers,
         {"LoadBalancers": []}
     )
@@ -89,7 +93,7 @@ def find_load_balancers(app_name: str) -> List[Dict[str, Any]]:
     return load_balancers
 
 
-def get_task_definitions(app_name: str) -> List[Dict[str, Any]]:
+async def get_task_definitions(app_name: str) -> List[Dict[str, Any]]:
     """
     Find task definitions related to the application using simple name matching.
     
@@ -107,7 +111,7 @@ def get_task_definitions(app_name: str) -> List[Dict[str, Any]]:
         List of task definition dictionaries with full details
     """
     task_definitions = []
-    ecs = boto3.client('ecs')
+    ecs = await get_aws_client('ecs')
     app_name_lower = app_name.lower()
     
     try:
@@ -135,7 +139,7 @@ def get_task_definitions(app_name: str) -> List[Dict[str, Any]]:
         
         # Get task definitions for the latest revision of each matching family
         for arn, _ in families_by_latest.values():
-            task_def_response = handle_aws_api_call(
+            task_def_response = await handle_aws_api_call(
                 ecs.describe_task_definition,
                 None,
                 taskDefinition=arn
@@ -151,7 +155,7 @@ def get_task_definitions(app_name: str) -> List[Dict[str, Any]]:
     return task_definitions
 
 
-def discover_resources(app_name: str) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
+async def discover_resources(app_name: str) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
     """
     Main resource discovery coordinator function.
     
@@ -171,19 +175,19 @@ def discover_resources(app_name: str) -> Tuple[Dict[str, Any], List[Dict[str, An
         - List of complete task definition objects
     """
     resources = {
-        "clusters": find_clusters(app_name),
+        "clusters": await find_clusters(app_name),
         "services": [],
         "task_definitions": [],
-        "load_balancers": find_load_balancers(app_name)
+        "load_balancers": await find_load_balancers(app_name)
     }
     
     # Find services for each discovered cluster and default cluster
     for cluster in resources["clusters"] + ["default"]:
-        services = find_services(app_name, cluster)
+        services = await find_services(app_name, cluster)
         resources["services"].extend(services)
     
     # Get task definitions
-    task_defs = get_task_definitions(app_name)
+    task_defs = await get_task_definitions(app_name)
     
     # For task definitions, extract and format the resource ID
     for task_def in task_defs:
@@ -193,7 +197,6 @@ def discover_resources(app_name: str) -> Tuple[Dict[str, Any], List[Dict[str, An
                 resources["task_definitions"].append(parsed_arn.resource_id)
             
     return resources, task_defs
-
 
 
 def is_ecr_image(image_uri: str) -> bool:
@@ -226,7 +229,7 @@ def parse_ecr_image_uri(image_uri: str) -> Tuple[str, str]:
         return "", ""
 
 
-def validate_image(image_uri: str) -> Dict[str, Any]:
+async def validate_image(image_uri: str) -> Dict[str, Any]:
     """
     Validate if a container image exists and is accessible.
     
@@ -253,7 +256,7 @@ def validate_image(image_uri: str) -> Dict[str, Any]:
     if is_ecr_image(image_uri):
         # ECR image logic
         result['repository_type'] = 'ecr'
-        ecr = boto3.client('ecr')
+        ecr = await get_aws_client('ecr')
         
         # Parse repository name and tag
         repo_name, tag = parse_ecr_image_uri(image_uri)
@@ -292,7 +295,7 @@ def validate_image(image_uri: str) -> Dict[str, Any]:
     return result
 
 
-def validate_container_images(task_definitions: List[Dict]) -> List[Dict]:
+async def validate_container_images(task_definitions: List[Dict]) -> List[Dict]:
     """Validate container images in task definitions."""
     results = []
     
@@ -301,7 +304,7 @@ def validate_container_images(task_definitions: List[Dict]) -> List[Dict]:
             image = container.get('image', '')
             
             # Use the unified validate_image function
-            result = validate_image(image)
+            result = await validate_image(image)
                 
             # Add task and container context
             result.update({
@@ -314,10 +317,9 @@ def validate_container_images(task_definitions: List[Dict]) -> List[Dict]:
     return results
 
 
-
-def get_stack_status(app_name: str) -> str:
+async def get_stack_status(app_name: str) -> str:
     """Get CloudFormation stack status for the application."""
-    cloudformation = boto3.client('cloudformation')
+    cloudformation = await get_aws_client('cloudformation')
     try:
         cf_response = cloudformation.describe_stacks(StackName=app_name)
         if cf_response["Stacks"]:
@@ -363,13 +365,13 @@ def create_assessment(app_name: str, stack_status: str, resources: Dict) -> str:
     return assessment
 
 
-def get_cluster_details(cluster_names: List[str]) -> List[Dict[str, Any]]:
+async def get_cluster_details(cluster_names: List[str]) -> List[Dict[str, Any]]:
     """Get detailed information about ECS clusters."""
     if not cluster_names:
         return []
         
-    ecs = boto3.client('ecs')
-    clusters_info = handle_aws_api_call(
+    ecs = await get_aws_client('ecs')
+    clusters_info = await handle_aws_api_call(
         ecs.describe_clusters,
         {"clusters": [], "failures": []},
         clusters=cluster_names
@@ -394,7 +396,7 @@ def get_cluster_details(cluster_names: List[str]) -> List[Dict[str, Any]]:
     return detailed_clusters
 
 
-def get_ecs_troubleshooting_guidance(
+async def get_ecs_troubleshooting_guidance(
     app_name: str,
     symptoms_description: Optional[str] = None
 ) -> Dict[str, Any]:
@@ -422,17 +424,17 @@ def get_ecs_troubleshooting_guidance(
         }
         
         # 1. Discover resources and collect raw task definitions
-        resources, task_definitions = discover_resources(app_name)
+        resources, task_definitions = await discover_resources(app_name)
         response['raw_data']['related_resources'] = resources
         response['raw_data']['task_definitions'] = task_definitions
         
         # 2. Get detailed cluster information
-        clusters = get_cluster_details(resources["clusters"])
+        clusters = await get_cluster_details(resources["clusters"])
         response['raw_data']['clusters'] = clusters
         
         try:
             # 3. Check stack status
-            stack_status = get_stack_status(app_name)
+            stack_status = await get_stack_status(app_name)
             response['raw_data']['cloudformation_status'] = stack_status
         except ClientError as e:
             # Handle auth error or other ClientError
@@ -443,7 +445,7 @@ def get_ecs_troubleshooting_guidance(
             return response
         
         # 4. Check container images
-        image_check_results = validate_container_images(task_definitions)
+        image_check_results = await validate_container_images(task_definitions)
         response['raw_data']['image_check_results'] = image_check_results
         
         # Store symptoms description as raw input if provided

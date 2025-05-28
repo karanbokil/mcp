@@ -55,7 +55,9 @@ Add the ECS MCP Server to your MCP client configuration:
       "env": {
         "AWS_PROFILE": "your-aws-profile", // Optional - uses your local AWS configuration if not specified
         "AWS_REGION": "your-aws-region", // Optional - uses your local AWS configuration if not specified
-        "FASTMCP_LOG_LEVEL": "ERROR"
+        "FASTMCP_LOG_LEVEL": "ERROR",
+        "ALLOW_WRITE": "false",
+        "ALLOW_SENSITIVE_DATA": "false"
       }
     }
   }
@@ -78,12 +80,43 @@ If running from a local repository, configure the MCP client like this:
       "env": {
         "AWS_PROFILE": "your-aws-profile",
         "AWS_REGION": "your-aws-region",
-        "FASTMCP_LOG_LEVEL": "DEBUG"
+        "FASTMCP_LOG_LEVEL": "DEBUG",
+        "ALLOW_WRITE": "false",
+        "ALLOW_SENSITIVE_DATA": "false"
       }
     }
   }
 }
 ```
+
+## Security Controls
+
+The ECS MCP Server includes security controls in your MCP client configuration to prevent accidental changes to infrastructure and limit access to sensitive data:
+
+### ALLOW_WRITE
+
+Controls whether write operations (creating or deleting infrastructure) are allowed.
+
+```bash
+# Enable write operations
+"ALLOW_WRITE": "true"
+
+# Disable write operations (default)
+"ALLOW_WRITE": "false"
+```
+
+### ALLOW_SENSITIVE_DATA
+
+Controls whether tools that return logs and detailed resource information are allowed.
+
+```bash
+# Enable access to sensitive data
+"ALLOW_SENSITIVE_DATA": "true"
+
+# Disable access to sensitive data (default)
+"ALLOW_SENSITIVE_DATA": "false"
+```
+
 
 ## MCP Tools
 

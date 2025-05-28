@@ -8,14 +8,14 @@ to identify application-level issues.
 import logging
 import datetime
 from typing import Dict, Any, Optional
-import boto3
 from botocore.exceptions import ClientError
+from awslabs.ecs_mcp_server.utils.aws import get_aws_client
 from awslabs.ecs_mcp_server.utils.time_utils import calculate_time_window
 
 logger = logging.getLogger(__name__)
 
 
-def fetch_task_logs(
+async def fetch_task_logs(
     app_name: str,
     cluster_name: str,
     task_id: Optional[str] = None,
@@ -63,8 +63,8 @@ def fetch_task_logs(
             "pattern_summary": []
         }
         
-        # Initialize CloudWatch Logs client
-        logs = boto3.client('logs')
+        # Initialize CloudWatch Logs client using get_aws_client
+        logs = await get_aws_client('logs')
         
         # Determine log group name pattern
         # Usually follows the format /ecs/{cluster_name}/{task_or_service_name}
@@ -148,52 +148,60 @@ def fetch_task_logs(
                                 "timestamp": timestamp.isoformat(),
                                 "message": message,
                                 "severity": severity,
-                                "stream": log_stream_name
+                                "stream": log_stream_name,
+                                "group": log_group_name
                             }
                             
-                            log_group_info["entries"].append(log_entry)
                             response["log_entries"].append(log_entry)
+                            log_group_info["entries"].append(log_entry)
                             
-                    except ClientError as event_error:
-                        response.setdefault("errors", []).append(f"Error retrieving log events for stream {log_stream_name}: {str(event_error)}")
-                    
+                    except ClientError as e:
+                        log_group_info["error"] = f"Error getting log events: {str(e)}"
+                        
                     log_group_info["log_streams"].append(log_stream_name)
                     
-            except ClientError as stream_error:
-                response.setdefault("errors", []).append(f"Error retrieving log streams for group {log_group_name}: {str(stream_error)}")
-            
+            except ClientError as e:
+                log_group_info["error"] = f"Error getting log streams: {str(e)}"
+                
             response["log_groups"].append(log_group_info)
+            
+        # Sort log entries by timestamp
+        response["log_entries"].sort(key=lambda x: x["timestamp"])
         
-        # Find error patterns
-        error_messages = [entry["message"] for entry in response["log_entries"] if entry["severity"] == "ERROR"]
-        
-        # Simple pattern identification - count occurrences of common error messages
-        error_patterns = {}
-        for error in error_messages:
-            # Simplify error message to identify patterns (first 50 chars)
-            pattern = error[:50]
-            if pattern in error_patterns:
-                error_patterns[pattern] += 1
-            else:
-                error_patterns[pattern] = 1
-        
-        # Sort patterns by frequency
-        sorted_patterns = sorted(error_patterns.items(), key=lambda x: x[1], reverse=True)
-        
-        # Add top patterns to response
-        for pattern, count in sorted_patterns[:5]:  # Top 5 patterns
-            response["pattern_summary"].append({
-                "pattern": pattern,
-                "count": count,
-                "sample": next((error for error in error_messages if error.startswith(pattern)), "")
-            })
-        
+        # Generate pattern summary if there are errors
+        if response["error_count"] > 0:
+            error_patterns = {}
+            for entry in response["log_entries"]:
+                if entry["severity"] == "ERROR":
+                    # Extract first line or first 100 chars as pattern
+                    pattern = entry["message"].split("\n")[0][:100]
+                    if pattern in error_patterns:
+                        error_patterns[pattern] += 1
+                    else:
+                        error_patterns[pattern] = 1
+                        
+            # Convert to list and sort by count
+            pattern_list = [{"pattern": k, "count": v} for k, v in error_patterns.items()]
+            pattern_list.sort(key=lambda x: x["count"], reverse=True)
+            response["pattern_summary"] = pattern_list[:10]  # Top 10 patterns
+            
+        # Add summary message
+        if response["log_entries"]:
+            response["message"] = f"Found {len(response['log_entries'])} log entries ({response['error_count']} errors, {response['warning_count']} warnings)"
+        else:
+            response["message"] = "No log entries found for the specified criteria"
+            
         return response
             
-    except Exception as e:
-        logger.exception("Error in fetch_task_logs: %s", str(e))
+    except ClientError as e:
+        logger.error(f"Error in fetch_task_logs: {e}")
         return {
             "status": "error",
-            "error": str(e),
-            "log_entries": []
+            "error": f"AWS API error: {str(e)}"
+        }
+    except Exception as e:
+        logger.error(f"Error in fetch_task_logs: {e}")
+        return {
+            "status": "error",
+            "error": str(e)
         }

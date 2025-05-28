@@ -6,6 +6,8 @@ AWS ECS MCP Server - Main entry point
 import logging
 import os
 import sys
+import functools
+from typing import Any, Dict
 
 from mcp.server.fastmcp import FastMCP
 
@@ -18,6 +20,12 @@ from awslabs.ecs_mcp_server.modules import (
     troubleshooting
 )
 from awslabs.ecs_mcp_server.utils.config import get_config
+from awslabs.ecs_mcp_server.utils.security import (
+    secure_tool,
+    PERMISSION_WRITE,
+    PERMISSION_SENSITIVE_DATA,
+    PERMISSION_NONE
+)
 
 # Configure logging
 logging.basicConfig(
@@ -25,6 +33,9 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger("ecs-mcp-server")
+
+# Load configuration
+config = get_config()
 
 # Create the MCP server
 mcp = FastMCP(
@@ -54,9 +65,15 @@ IMPORTANT:
 - Ensure all dependencies are properly defined in requirements.txt, package.json, etc.
 - For containerization, your application should listen on a configurable port
 - AWS credentials must be properly configured with appropriate permissions
+- Set ALLOW_WRITE=true to enable infrastructure creation and deletion
+- Set ALLOW_SENSITIVE_DATA=true to enable access to logs and detailed resource information
 """,
 )
 
+# Apply security wrappers to API functions
+# Write operations
+infrastructure.create_infrastructure = secure_tool(config, PERMISSION_WRITE, "create_ecs_infrastructure")(infrastructure.create_infrastructure)
+delete.delete_infrastructure = secure_tool(config, PERMISSION_WRITE, "delete_ecs_infrastructure")(delete.delete_infrastructure)
 
 # Register all modules
 containerize.register_module(mcp)
@@ -66,17 +83,13 @@ resource_management.register_module(mcp)
 troubleshooting.register_module(mcp)
 delete.register_module(mcp)
 
-
-# Note: All prompt patterns are now handled in their respective module files
-
 def main() -> None:
     """Main entry point for the ECS MCP Server."""
     try:
-        # Load configuration
-        config = get_config()
-
         # Start the server
         logger.info("Server started")
+        logger.info(f"Write operations enabled: {config.get('allow-write', False)}")
+        logger.info(f"Sensitive data access enabled: {config.get('allow-sensitive-data', False)}")
         mcp.run()
     except KeyboardInterrupt:
         logger.info("Server stopped by user")

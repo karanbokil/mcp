@@ -8,5 +8,5 @@ from .ecs_troubleshooting import ecs_troubleshooting_tool
 
 # Export the functions that will be available to the MCP server
 __all__ = [
-    'ecs_troubleshooting_tool',
+    "ecs_troubleshooting_tool",
 ]

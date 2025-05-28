@@ -2,6 +2,7 @@
 Deployment Status module for ECS MCP Server.
 This module provides tools to check the status of ECS deployments.
 """
+
 from typing import Any, Dict, Optional
 
 from mcp.server.fastmcp import FastMCP
@@ -12,10 +13,8 @@ from awslabs.ecs_mcp_server.api.status import get_deployment_status
 
 def register_module(mcp: FastMCP) -> None:
     """Register deployment status module tools and prompts with the MCP server."""
-    
-    @mcp.tool(
-        name="get_deployment_status",
-        annotations=None)
+
+    @mcp.tool(name="get_deployment_status", annotations=None)
     async def mcp_get_deployment_status(
         app_name: str = Field(
             ...,
@@ -27,7 +26,8 @@ def register_module(mcp: FastMCP) -> None:
         ),
         stack_name: Optional[str] = Field(
             default=None,
-            description="Name of the CloudFormation stack (optional, defaults to {app_name}-ecs-infrastructure)",
+            description=("Name of the CloudFormation stack "
+                        "(optional, defaults to {app_name}-ecs-infrastructure)"),
         ),
         service_name: Optional[str] = Field(
             default=None,
@@ -46,7 +46,8 @@ def register_module(mcp: FastMCP) -> None:
         2. Optionally specify the cluster name if different from the application name
         3. Optionally specify the stack name if different from the default naming convention
         4. Optionally specify the service name if different from the default naming pattern
-        5. The tool will return the deployment status and access URL once the deployment is complete.
+        5. The tool will return the deployment status and access URL once the deployment 
+           is complete.
 
         Poll this tool every 30 seconds till the status is active.
 
@@ -62,7 +63,8 @@ def register_module(mcp: FastMCP) -> None:
         Parameters:
             app_name: Name of the application
             cluster_name: Name of the ECS cluster (optional, defaults to app_name)
-            stack_name: Name of the CloudFormation stack (optional, defaults to {app_name}-ecs-infrastructure)
+            stack_name: Name of the CloudFormation stack 
+                       (optional, defaults to {app_name}-ecs-infrastructure)
             service_name: Name of the ECS service (optional, defaults to {app_name}-service)
 
         Returns:

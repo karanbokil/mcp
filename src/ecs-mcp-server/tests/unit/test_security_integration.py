@@ -2,21 +2,19 @@
 Integration tests for the security features.
 """
 
-import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
-import json
 import asyncio
+import json
+from unittest.mock import AsyncMock
 
-from awslabs.ecs_mcp_server.utils.security import secure_tool, ResponseSanitizer, PERMISSION_NONE
+import pytest
+
+from awslabs.ecs_mcp_server.utils.security import PERMISSION_NONE, secure_tool
 
 
 @pytest.fixture
 def mock_config():
     """Fixture for a mock configuration."""
-    return {
-        "allow-write": True,
-        "allow-sensitive-data": True
-    }
+    return {"allow-write": True, "allow-sensitive-data": True}
 
 
 class TestSecurityIntegration:
@@ -25,17 +23,19 @@ class TestSecurityIntegration:
     def test_secure_tool_with_pii(self, mock_config):
         """Test that secure_tool properly sanitizes PII in responses."""
         # Create a mock function that returns a response with PII
-        mock_func = AsyncMock(return_value={
-            "status": "success",
-            "message": "Operation completed",
-            "user": {
-                "email": "user@example.com",
-                "account_id": "123456789012",
-                "ip_address": "192.168.1.1"
-            },
-            "aws_key": "AKIAIOSFODNN7EXAMPLE",
-            "alb_url": "http://my-app-123456789.us-east-1.elb.amazonaws.com"
-        })
+        mock_func = AsyncMock(
+            return_value={
+                "status": "success",
+                "message": "Operation completed",
+                "user": {
+                    "email": "user@example.com",
+                    "account_id": "123456789012",
+                    "ip_address": "192.168.1.1",
+                },
+                "aws_key": "AKIAIOSFODNN7EXAMPLE",
+                "alb_url": "http://my-app-123456789.us-east-1.elb.amazonaws.com",
+            }
+        )
 
         # Apply the secure_tool decorator
         secured_func = secure_tool(mock_config, PERMISSION_NONE, "test_tool")(mock_func)
@@ -65,27 +65,27 @@ class TestSecurityIntegration:
     def test_secure_tool_with_nested_pii(self, mock_config):
         """Test that secure_tool properly sanitizes nested PII in responses."""
         # Create a mock function that returns a response with nested PII
-        mock_func = AsyncMock(return_value={
-            "status": "success",
-            "message": "Operation completed",
-            "resources": [
-                {
-                    "name": "resource1",
-                    "owner": "user@example.com",
-                    "details": {
-                        "account_id": "123456789012",
-                        "credentials": {
-                            "password": "password=secret123"
-                        }
-                    }
-                },
-                {
-                    "name": "resource2",
-                    "ip_addresses": ["192.168.1.1", "10.0.0.1"],
-                    "aws_key": "AKIAIOSFODNN7EXAMPLE"
-                }
-            ]
-        })
+        mock_func = AsyncMock(
+            return_value={
+                "status": "success",
+                "message": "Operation completed",
+                "resources": [
+                    {
+                        "name": "resource1",
+                        "owner": "user@example.com",
+                        "details": {
+                            "account_id": "123456789012",
+                            "credentials": {"password": "password=secret123"},
+                        },
+                    },
+                    {
+                        "name": "resource2",
+                        "ip_addresses": ["192.168.1.1", "10.0.0.1"],
+                        "aws_key": "AKIAIOSFODNN7EXAMPLE",
+                    },
+                ],
+            }
+        )
 
         # Apply the secure_tool decorator
         secured_func = secure_tool(mock_config, PERMISSION_NONE, "test_tool")(mock_func)
@@ -129,16 +129,16 @@ class TestSecurityIntegration:
                     "UserName": "admin",
                     "UserId": "AIDACKCEVSQ6C2EXAMPLE",
                     "Email": "admin@example.com",
-                    "CreateDate": "2019-12-31T12:00:00Z"
+                    "CreateDate": "2019-12-31T12:00:00Z",
                 },
                 {
                     "UserName": "user",
                     "UserId": "AIDACKCEVSQ6C2EXAMPLE2",
                     "Email": "user@example.com",
-                    "CreateDate": "2020-01-01T12:00:00Z"
-                }
+                    "CreateDate": "2020-01-01T12:00:00Z",
+                },
             ],
-            "IsTruncated": False
+            "IsTruncated": False,
         }
 
         # Create a mock function that returns the AWS response

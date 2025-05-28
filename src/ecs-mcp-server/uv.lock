@@ -40,6 +40,7 @@ dependencies = [
     { name = "pyright" },
     { name = "pytest-cov" },
     { name = "pyyaml" },
+    { name = "ruff" },
 ]
 
 [package.optional-dependencies]
@@ -68,6 +69,7 @@ requires-dist = [
     { name = "pytest-cov", specifier = ">=6.1.1" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6.0.0" },
     { name = "pyyaml", specifier = ">=6.0.0" },
+    { name = "ruff", specifier = ">=0.11.11" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.0.272" },
 ]
 provides-extras = ["dev"]

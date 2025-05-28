@@ -2,7 +2,8 @@
 Containerize module for ECS MCP Server.
 This module provides tools and prompts for containerizing web applications.
 """
-from typing import Any, Dict, Optional
+
+from typing import Any, Dict
 
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
@@ -12,10 +13,8 @@ from awslabs.ecs_mcp_server.api.containerize import containerize_app
 
 def register_module(mcp: FastMCP) -> None:
     """Register containerize module tools and prompts with the MCP server."""
-    
-    @mcp.tool(
-        name="containerize_app",
-        annotations=None)
+
+    @mcp.tool(name="containerize_app", annotations=None)
     async def mcp_containerize_app(
         app_path: str = Field(
             ...,
@@ -24,7 +23,7 @@ def register_module(mcp: FastMCP) -> None:
         port: int = Field(
             ...,
             description="Port the application listens on",
-        )
+        ),
     ) -> Dict[str, Any]:
         """
         Start here if a user wants to run their application locally or deploy an app to the cloud.
@@ -74,7 +73,7 @@ def register_module(mcp: FastMCP) -> None:
     def put_in_container_prompt():
         """User wants to containerize an application"""
         return ["containerize_app"]
-        
+
     # Combined prompts
     @mcp.prompt("containerize and deploy")
     def containerize_and_deploy_prompt():

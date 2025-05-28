@@ -2,7 +2,6 @@
 Tests for the response sanitization framework.
 """
 
-import pytest
 from awslabs.ecs_mcp_server.utils.security import ResponseSanitizer
 
 
@@ -48,10 +47,7 @@ class TestResponseSanitizer:
             "message": "Operation completed",
             "access_key": "AKIAIOSFODNN7EXAMPLE",
             "secret_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
-            "server": {
-                "ip": "192.168.1.1",
-                "password": "password=mysecretpassword"
-            }
+            "server": {"ip": "192.168.1.1", "password": "password=mysecretpassword"},
         }
 
         sanitized = ResponseSanitizer.sanitize(data)
@@ -77,7 +73,7 @@ class TestResponseSanitizer:
         data = [
             "AKIAIOSFODNN7EXAMPLE",
             {"secret": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"},
-            ["192.168.1.1", "password=mysecretpassword"]
+            ["192.168.1.1", "password=mysecretpassword"],
         ]
 
         sanitized = ResponseSanitizer.sanitize(data)
@@ -99,7 +95,7 @@ class TestResponseSanitizer:
         # Test with ALB URL
         data = {
             "status": "success",
-            "alb_url": "http://my-app-123456789.us-east-1.elb.amazonaws.com"
+            "alb_url": "http://my-app-123456789.us-east-1.elb.amazonaws.com",
         }
 
         result = ResponseSanitizer.add_public_endpoint_warning(data)
@@ -110,21 +106,20 @@ class TestResponseSanitizer:
         assert any("publicly accessible" in warning for warning in result["warnings"])
 
         # Test without ALB URL
-        data = {
-            "status": "success",
-            "message": "Operation completed"
-        }
+        data = {"status": "success", "message": "Operation completed"}
 
         result = ResponseSanitizer.add_public_endpoint_warning(data)
 
         # Check that no warning is added
-        assert "warnings" not in result or not any("publicly accessible" in warning for warning in result.get("warnings", []))
+        assert "warnings" not in result or not any(
+            "publicly accessible" in warning for warning in result.get("warnings", [])
+        )
 
         # Test with existing warnings
         data = {
             "status": "success",
             "alb_url": "http://my-app-123456789.us-east-1.elb.amazonaws.com",
-            "warnings": ["Existing warning"]
+            "warnings": ["Existing warning"],
         }
 
         result = ResponseSanitizer.add_public_endpoint_warning(data)

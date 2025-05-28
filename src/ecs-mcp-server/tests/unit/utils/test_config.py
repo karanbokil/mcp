@@ -22,9 +22,9 @@ class TestConfig(unittest.TestCase):
             "ALLOW_WRITE": "",
             "ALLOW_SENSITIVE_DATA": "",
         }.get(key, default)
-        
+
         config = get_config()
-        
+
         # Check default values
         self.assertEqual(config["aws_region"], "us-west-2")
         self.assertEqual(config["aws_profile"], "test-profile")
@@ -43,9 +43,9 @@ class TestConfig(unittest.TestCase):
             "ALLOW_WRITE": "true",
             "ALLOW_SENSITIVE_DATA": "true",
         }.get(key, default)
-        
+
         config = get_config()
-        
+
         # Check that flags are enabled
         self.assertTrue(config["allow-write"])
         self.assertTrue(config["allow-sensitive-data"])
@@ -61,9 +61,9 @@ class TestConfig(unittest.TestCase):
             "ALLOW_WRITE": "false",
             "ALLOW_SENSITIVE_DATA": "false",
         }.get(key, default)
-        
+
         config = get_config()
-        
+
         # Check that flags are disabled
         self.assertFalse(config["allow-write"])
         self.assertFalse(config["allow-sensitive-data"])
@@ -79,9 +79,9 @@ class TestConfig(unittest.TestCase):
             "ALLOW_WRITE": "1",
             "ALLOW_SENSITIVE_DATA": "yes",
         }.get(key, default)
-        
+
         config = get_config()
-        
+
         # Check that flags are enabled
         self.assertTrue(config["allow-write"])
         self.assertTrue(config["allow-sensitive-data"])

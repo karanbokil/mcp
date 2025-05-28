@@ -8,9 +8,9 @@ for troubleshooting ECS deployments.
 import inspect
 import logging
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlparse
 
 from botocore.exceptions import ClientError
-from urllib.parse import urlparse
 
 from awslabs.ecs_mcp_server.utils.arn_parser import parse_arn
 from awslabs.ecs_mcp_server.utils.aws import get_aws_client

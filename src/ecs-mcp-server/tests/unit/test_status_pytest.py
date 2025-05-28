@@ -3,10 +3,10 @@ Pytest-style unit tests for status module.
 """
 
 import datetime
+import re
 from unittest.mock import MagicMock, patch
 
 import pytest
-import re
 
 from awslabs.ecs_mcp_server.api.status import (
     _find_cloudformation_stack,

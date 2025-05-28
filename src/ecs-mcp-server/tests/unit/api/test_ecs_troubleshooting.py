@@ -207,7 +207,8 @@ class TestEcsTroubleshootingTool:
             "fetch_service_events",
             "fetch_task_failures",
             "fetch_task_logs",
-            "detect_image_pull_failures"
+            "detect_image_pull_failures",
+            "fetch_network_configuration"
         ]
         
         for action in expected_actions:
@@ -359,7 +360,7 @@ class TestGuardrails:
 
     def test_actions_count_unchanged(self):
         """Fail if new actions are added/removed without updating this test."""
-        assert len(ACTIONS) == 6, f"Expected 6 actions, got {len(ACTIONS)}. Update test if this is intentional."
+        assert len(ACTIONS) == 7, f"Expected 7 actions, got {len(ACTIONS)}. Update test if this is intentional."
 
     def test_expected_actions_exist(self):
         """Fail if action names change or new ones are added."""
@@ -369,7 +370,8 @@ class TestGuardrails:
             "fetch_service_events",
             "fetch_task_failures",
             "fetch_task_logs", 
-            "detect_image_pull_failures"
+            "detect_image_pull_failures",
+            "fetch_network_configuration"
         }
         actual_actions = set(ACTIONS.keys())
         assert actual_actions == expected_actions, f"Actions changed! Expected: {expected_actions}, Got: {actual_actions}"
@@ -382,7 +384,8 @@ class TestGuardrails:
             "fetch_service_events": {"required": 3, "optional": 3},
             "fetch_task_failures": {"required": 2, "optional": 3},
             "fetch_task_logs": {"required": 2, "optional": 5},
-            "detect_image_pull_failures": {"required": 1, "optional": 0}
+            "detect_image_pull_failures": {"required": 1, "optional": 0},
+            "fetch_network_configuration": {"required": 1, "optional": 2}
         }
         
         for action_name, expected_counts in expected_param_counts.items():

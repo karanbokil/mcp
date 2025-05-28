@@ -10,6 +10,7 @@ from .fetch_service_events import fetch_service_events
 from .fetch_task_failures import fetch_task_failures
 from .fetch_task_logs import fetch_task_logs
 from .detect_image_pull_failures import detect_image_pull_failures
+from .fetch_network_configuration import fetch_network_configuration
 
 __all__ = [
     'get_ecs_troubleshooting_guidance',
@@ -17,5 +18,6 @@ __all__ = [
     'fetch_service_events',
     'fetch_task_failures',
     'fetch_task_logs',
-    'detect_image_pull_failures'
+    'detect_image_pull_failures',
+    'fetch_network_configuration'
 ]

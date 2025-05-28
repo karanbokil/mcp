@@ -149,7 +149,7 @@ The troubleshooting tool helps diagnose and resolve common ECS deployment issues
   - **fetch_task_failures**: Task-level diagnostics for ECS task failures
   - **fetch_task_logs**: Application-level diagnostics through CloudWatch logs
   - **detect_image_pull_failures**: Specialized tool for detecting container image pull failures
-  - **analyze_network_configuration**: Network-level diagnostics for ECS services
+  - **fetch_network_configuration**: Network-level diagnostics for ECS deployments including VPC, subnets, security groups, and load balancers
 
 ### Resource Management
 

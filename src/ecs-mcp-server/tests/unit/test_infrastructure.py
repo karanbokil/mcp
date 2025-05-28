@@ -11,12 +11,17 @@ from awslabs.ecs_mcp_server.api.infrastructure import (
     create_infrastructure,
     prepare_template_files
 )
+from awslabs.ecs_mcp_server.utils.security import ValidationError
 
 
 @pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.infrastructure.validate_app_name")
 @patch("awslabs.ecs_mcp_server.api.infrastructure.prepare_template_files")
-async def test_create_infrastructure_generate_only(mock_prepare_template_files):
+async def test_create_infrastructure_generate_only(mock_prepare_template_files, mock_validate_app_name):
     """Test create_infrastructure with force_deploy=False."""
+    # Mock validate_app_name
+    mock_validate_app_name.return_value = True
+    
     # Mock prepare_template_files
     mock_prepare_template_files.return_value = {
         "ecr_template_path": "/path/to/ecr_template.json",
@@ -32,6 +37,9 @@ async def test_create_infrastructure_generate_only(mock_prepare_template_files):
         force_deploy=False
     )
     
+    # Verify validate_app_name was called
+    mock_validate_app_name.assert_called_once_with("test-app")
+    
     # Verify prepare_template_files was called
     mock_prepare_template_files.assert_called_once_with("test-app", "/path/to/app")
     
@@ -44,15 +52,19 @@ async def test_create_infrastructure_generate_only(mock_prepare_template_files):
 
 
 @pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.infrastructure.validate_app_name")
 @patch("awslabs.ecs_mcp_server.api.infrastructure.prepare_template_files")
 @patch("awslabs.ecs_mcp_server.api.infrastructure.create_ecr_infrastructure")
 @patch("awslabs.ecs_mcp_server.utils.docker.build_and_push_image", new_callable=AsyncMock)
 @patch("awslabs.ecs_mcp_server.api.infrastructure.create_ecs_infrastructure", new_callable=AsyncMock)
 async def test_create_infrastructure_force_deploy(
     mock_create_ecs_infrastructure, mock_build_and_push_image, 
-    mock_create_ecr_infrastructure, mock_prepare_template_files
+    mock_create_ecr_infrastructure, mock_prepare_template_files, mock_validate_app_name
 ):
     """Test create_infrastructure with force_deploy=True."""
+    # Mock validate_app_name
+    mock_validate_app_name.return_value = True
+    
     # Mock prepare_template_files
     mock_prepare_template_files.return_value = {
         "ecr_template_path": "/path/to/ecr_template.json",
@@ -93,6 +105,9 @@ async def test_create_infrastructure_force_deploy(
         force_deploy=True
     )
     
+    # Verify validate_app_name was called
+    mock_validate_app_name.assert_called_once_with("test-app")
+    
     # Verify prepare_template_files was called
     mock_prepare_template_files.assert_called_once_with("test-app", "/path/to/app")
     
@@ -119,12 +134,23 @@ async def test_create_infrastructure_force_deploy(
 
 
 @pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.infrastructure.validate_app_name")
+@patch("awslabs.ecs_mcp_server.api.infrastructure.validate_file_path")
 @patch("awslabs.ecs_mcp_server.api.infrastructure.os.makedirs")
 @patch("awslabs.ecs_mcp_server.api.infrastructure.os.path.join")
 @patch("awslabs.ecs_mcp_server.api.infrastructure.get_templates_dir")
 @patch("awslabs.ecs_mcp_server.api.infrastructure.open", new_callable=mock_open, read_data="template content")
-async def test_prepare_template_files(mock_open, mock_get_templates_dir, mock_join, mock_makedirs):
+async def test_prepare_template_files(
+    mock_open, mock_get_templates_dir, mock_join, mock_makedirs, 
+    mock_validate_file_path, mock_validate_app_name
+):
     """Test prepare_template_files."""
+    # Mock validate_app_name
+    mock_validate_app_name.return_value = True
+    
+    # Mock validate_file_path
+    mock_validate_file_path.return_value = "/path/to/app"
+    
     # Mock get_templates_dir
     mock_get_templates_dir.return_value = "/path/to/templates"
     
@@ -136,6 +162,12 @@ async def test_prepare_template_files(mock_open, mock_get_templates_dir, mock_jo
         "test-app",
         "/path/to/app"
     )
+    
+    # Verify validate_app_name was called
+    mock_validate_app_name.assert_called_once_with("test-app")
+    
+    # Verify validate_file_path was called
+    mock_validate_file_path.assert_called_once_with("/path/to/app")
     
     # Verify os.makedirs was called
     mock_makedirs.assert_called_once_with("/path/to/app/cloudformation-templates", exist_ok=True)
@@ -282,13 +314,18 @@ async def test_create_ecs_infrastructure(
 
 
 @pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.infrastructure.validate_app_name")
 @patch("awslabs.ecs_mcp_server.api.infrastructure.prepare_template_files")
 @patch("awslabs.ecs_mcp_server.api.infrastructure.create_ecr_infrastructure")
 @patch("awslabs.ecs_mcp_server.utils.docker.build_and_push_image", new_callable=AsyncMock)
 async def test_create_infrastructure_image_build_failure(
-    mock_build_and_push_image, mock_create_ecr_infrastructure, mock_prepare_template_files
+    mock_build_and_push_image, mock_create_ecr_infrastructure, 
+    mock_prepare_template_files, mock_validate_app_name
 ):
     """Test create_infrastructure with image build failure."""
+    # Mock validate_app_name
+    mock_validate_app_name.return_value = True
+    
     # Mock prepare_template_files
     mock_prepare_template_files.return_value = {
         "ecr_template_path": "/path/to/ecr_template.json",
@@ -317,6 +354,9 @@ async def test_create_infrastructure_image_build_failure(
         force_deploy=True
     )
     
+    # Verify validate_app_name was called
+    mock_validate_app_name.assert_called_once_with("test-app")
+    
     # Verify prepare_template_files was called
     mock_prepare_template_files.assert_called_once_with("test-app", "/path/to/app")
     
@@ -339,15 +379,19 @@ async def test_create_infrastructure_image_build_failure(
 
 
 @pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.infrastructure.validate_app_name")
 @patch("awslabs.ecs_mcp_server.api.infrastructure.prepare_template_files")
 @patch("awslabs.ecs_mcp_server.api.infrastructure.create_ecr_infrastructure")
 @patch("awslabs.ecs_mcp_server.utils.docker.build_and_push_image", new_callable=AsyncMock)
 @patch("awslabs.ecs_mcp_server.api.infrastructure.create_ecs_infrastructure", new_callable=AsyncMock)
 async def test_create_infrastructure_ecs_failure(
     mock_create_ecs_infrastructure, mock_build_and_push_image, 
-    mock_create_ecr_infrastructure, mock_prepare_template_files
+    mock_create_ecr_infrastructure, mock_prepare_template_files, mock_validate_app_name
 ):
     """Test create_infrastructure with ECS creation failure."""
+    # Mock validate_app_name
+    mock_validate_app_name.return_value = True
+    
     # Mock prepare_template_files
     mock_prepare_template_files.return_value = {
         "ecr_template_path": "/path/to/ecr_template.json",
@@ -378,6 +422,9 @@ async def test_create_infrastructure_ecs_failure(
         app_path="/path/to/app",
         force_deploy=True
     )
+    
+    # Verify validate_app_name was called
+    mock_validate_app_name.assert_called_once_with("test-app")
     
     # Verify prepare_template_files was called
     mock_prepare_template_files.assert_called_once_with("test-app", "/path/to/app")

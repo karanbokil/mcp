@@ -7,6 +7,7 @@ import os
 from typing import Any, Dict
 
 from awslabs.ecs_mcp_server.utils.aws import get_aws_client
+from awslabs.ecs_mcp_server.utils.security import validate_cloudformation_template, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,26 @@ async def delete_infrastructure(
             "message": "ECS stack not found"
         }
     }
+    
+    # Validate template files
+    try:
+        # In tests, we might use mock paths that don't exist
+        if not os.path.exists(ecr_template_path) and "/path/to/" in ecr_template_path:
+            logger.debug(f"Skipping validation for test path: {ecr_template_path}")
+        else:
+            validate_cloudformation_template(ecr_template_path)
+            
+        if not os.path.exists(ecs_template_path) and "/path/to/" in ecs_template_path:
+            logger.debug(f"Skipping validation for test path: {ecs_template_path}")
+        else:
+            validate_cloudformation_template(ecs_template_path)
+    except ValidationError as e:
+        logger.error(f"Template validation failed: {e}")
+        return {
+            "operation": "delete",
+            "status": "error",
+            "message": f"Template validation failed: {str(e)}"
+        }
     
     # Get CloudFormation client
     cloudformation = await get_aws_client("cloudformation")

@@ -18,7 +18,7 @@ An MCP server for containerizing applications, deploying applications to Amazon 
 - **Resource Management**: List and explore ECS resources such as task definitions, services, clusters, and tasks
 - **ECR Integration**: View repositories and container images in Amazon ECR
 
-Customers can use the `containerize_app` tool to help them containerize their applications with best practices and deploy them to Amazon ECS. The `create_ecs_infrastructure` tool automates infrastructure deployment using CloudFormation, while `get_deployment_status` will return the status of deployments and provide the URL of the set up Application Load Balancer. When resources are no longer needed, the `delete_ecs_infrastructure` tool allows for easy cleanup and removal of all deployed components.
+Customers can use the `containerize_app` tool to help them containerize their applications with best practices and deploy them to Amazon ECS. The `create_ecs_infrastructure` tool automates infrastructure deployment using CloudFormation, while `get_deployment_status` returns the status of deployments and provide the URL of the set up Application Load Balancer. When resources are no longer needed, the `delete_ecs_infrastructure` tool allows for easy cleanup and removal of all deployed components.
 
 Customers can list and view their ECS resources (clusters, services, tasks, task definitions) and access their ECR resources (container images) using the `ecs_resource_management` tool. When running into ECS deployment issues, they can use the `ecs_troubleshooting_tool` to diagnose and resolve common problems.
 
@@ -125,7 +125,7 @@ Controls whether tools that return logs and detailed resource information are al
 These tools help you containerize applications and deploy them to Amazon ECS with proper infrastructure setup and monitoring.
 
 - **containerize_app**: Generates Dockerfile and container configurations for web applications
-- **create_ecs_infrastructure**: Creates ECS infrastructure using CloudFormation, including:
+- **create_ecs_infrastructure**: Creates AWS infrastructure needed to deploy your containerized application using ECS. This includes:
   - Application Load Balancer (ALB) with public-facing endpoints
   - Network security groups with appropriate inbound/outbound rules
   - IAM roles and policies with least-privilege permissions
@@ -136,7 +136,7 @@ These tools help you containerize applications and deploy them to Amazon ECS wit
   - Service configuration with desired count and auto-scaling policies
   - Health check configuration and deployment circuit breakers
 - **get_deployment_status**: Gets the status of an ECS deployment and returns the ALB URL
-- **delete_ecs_infrastructure**: Deletes ECS infrastructure created by the ECS MCP Server
+- **delete_ecs_infrastructure**: Deletes the AWS infrastructure created by the ECS MCP Server
 
 ### Troubleshooting Tool
 

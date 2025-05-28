@@ -11,7 +11,7 @@ source "$BASE_DIR/utils/aws_helpers.sh"
 # If no cluster name is provided, look for the most recently created cluster matching our pattern
 if [ -z "$1" ]; then
     CLUSTERS=$(aws ecs list-clusters --query 'clusterArns[*]' --output text)
-    
+
     # Loop through clusters to find one matching our pattern
     for CLUSTER_ARN in $CLUSTERS; do
         CLUSTER_NAME=$(echo "$CLUSTER_ARN" | awk -F/ '{print $2}')
@@ -20,7 +20,7 @@ if [ -z "$1" ]; then
             break
         fi
     done
-    
+
     if [ -z "$CLUSTER_NAME" ] || [[ "$CLUSTER_NAME" != *"scenario-06-cluster"* ]]; then
         echo "Could not find a recent scenario-06-cluster. Please provide a cluster name or run 01_create.sh first."
         exit 1
@@ -32,7 +32,7 @@ fi
 # If no service name is provided, look for services in the cluster
 if [ -z "$2" ]; then
     SERVICES=$(aws ecs list-services --cluster $CLUSTER_NAME --query 'serviceArns[*]' --output text)
-    
+
     # Loop through services to find one matching our pattern
     for SERVICE_ARN in $SERVICES; do
         SERVICE_NAME=$(echo "$SERVICE_ARN" | awk -F/ '{print $3}')
@@ -41,7 +41,7 @@ if [ -z "$2" ]; then
             break
         fi
     done
-    
+
     if [ -z "$SERVICE_NAME" ] || [[ "$SERVICE_NAME" != *"scenario-06-service"* ]]; then
         echo "Could not find a service matching 'scenario-06-service' pattern in cluster $CLUSTER_NAME."
         echo "The service may not have been created yet. Please run 01_create.sh first."
@@ -106,12 +106,12 @@ else
         TARGET_REASON=$(echo $TARGETS | jq -r ".TargetHealthDescriptions[$i].TargetHealth.Reason")
         echo "Target $TARGET_IP health: $TARGET_HEALTH"
         echo "Reason: $TARGET_REASON"
-        
+
         if [ "$TARGET_HEALTH" != "healthy" ]; then
             UNHEALTHY_COUNT=$((UNHEALTHY_COUNT + 1))
         fi
     done
-    
+
     if [ $UNHEALTHY_COUNT -gt 0 ]; then
         echo "✅ Found $UNHEALTHY_COUNT unhealthy targets as expected."
     else
@@ -137,15 +137,15 @@ TASKS=$(aws ecs list-tasks --cluster $CLUSTER_NAME --service-name $SERVICE_NAME 
 if [ -n "$TASKS" ]; then
     TASK_ARN=$(echo $TASKS | tr '\t' '\n' | head -1)
     echo "Found running task: $TASK_ARN"
-    
+
     # Get task details
     TASK_DETAILS=$(aws ecs describe-tasks --cluster $CLUSTER_NAME --tasks $TASK_ARN)
     LAST_STATUS=$(echo $TASK_DETAILS | jq -r '.tasks[0].lastStatus')
     HEALTH_STATUS=$(echo $TASK_DETAILS | jq -r '.tasks[0].healthStatus')
-    
+
     echo "Task status: $LAST_STATUS"
     echo "Health status: $HEALTH_STATUS"
-    
+
     if [ "$LAST_STATUS" == "RUNNING" ]; then
         echo "✅ Task is running but likely failing load balancer health checks."
     fi

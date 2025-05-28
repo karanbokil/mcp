@@ -11,7 +11,7 @@ source "$BASE_DIR/utils/aws_helpers.sh"
 # If no cluster name is provided, look for the most recently created cluster matching our pattern
 if [ -z "$1" ]; then
     CLUSTERS=$(aws ecs list-clusters --query 'clusterArns[*]' --output text)
-    
+
     # Loop through clusters to find one matching our pattern
     for CLUSTER_ARN in $CLUSTERS; do
         CLUSTER_NAME=$(echo "$CLUSTER_ARN" | awk -F/ '{print $2}')
@@ -20,7 +20,7 @@ if [ -z "$1" ]; then
             break
         fi
     done
-    
+
     if [ -z "$CLUSTER_NAME" ] || [[ "$CLUSTER_NAME" != *"scenario-04-cluster"* ]]; then
         echo "Could not find a recent scenario-04-cluster. Please provide a cluster name or run 01_create.sh first."
         exit 1
@@ -32,7 +32,7 @@ fi
 # If no service name is provided, look for services in the cluster
 if [ -z "$2" ]; then
     SERVICES=$(aws ecs list-services --cluster $CLUSTER_NAME --query 'serviceArns[*]' --output text)
-    
+
     # Loop through services to find one matching our pattern
     for SERVICE_ARN in $SERVICES; do
         SERVICE_NAME=$(echo "$SERVICE_ARN" | awk -F/ '{print $3}')
@@ -41,7 +41,7 @@ if [ -z "$2" ]; then
             break
         fi
     done
-    
+
     if [ -z "$SERVICE_NAME" ] || [[ "$SERVICE_NAME" != *"scenario-04-service"* ]]; then
         echo "Could not find a service matching 'scenario-04-service' pattern in cluster $CLUSTER_NAME."
         echo "The service may not have been created yet. Please run 01_create.sh first."
@@ -74,7 +74,7 @@ if [ "$RUNNING_COUNT" -eq "$DESIRED_COUNT" ]; then
         HEALTH_STATUS=$(echo $TASK_DETAILS | jq -r '.tasks[0].containers[0].healthStatus')
         echo "Container status: $CONTAINER_STATUS"
         echo "Health status: $HEALTH_STATUS"
-        
+
         if [ "$HEALTH_STATUS" != "HEALTHY" ]; then
             echo "✅ Task is running but not healthy, possibly due to network restrictions."
         else
@@ -91,13 +91,13 @@ echo "Checking for failed task deployments..."
 STOPPED_TASKS=$(aws ecs list-tasks --cluster $CLUSTER_NAME --service-name $SERVICE_NAME --desired-status STOPPED --query 'taskArns[*]' --output text)
 if [ -n "$STOPPED_TASKS" ]; then
     echo "✅ Found stopped tasks: $STOPPED_TASKS"
-    
+
     # Check the stopped reason for the first task
     TASK_ARN=$(echo $STOPPED_TASKS | tr ' ' '\n' | head -1)
     TASK_DETAILS=$(aws ecs describe-tasks --cluster $CLUSTER_NAME --tasks $TASK_ARN)
     STOPPED_REASON=$(echo $TASK_DETAILS | jq -r '.tasks[0].stoppedReason')
     echo "Task stopped reason: $STOPPED_REASON"
-    
+
     # Look for network-related failures in the stopped reason
     if [[ "$STOPPED_REASON" == *"network"* ]] || [[ "$STOPPED_REASON" == *"connectivity"* ]] || [[ "$STOPPED_REASON" == *"CannotPullContainerError"* ]]; then
         echo "✅ Task failure appears to be network-related as expected."

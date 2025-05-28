@@ -11,7 +11,7 @@ source "$BASE_DIR/utils/aws_helpers.sh"
 # If no cluster name is provided, look for the most recently created cluster matching our pattern
 if [ -z "$1" ]; then
     CLUSTERS=$(aws ecs list-clusters --query 'clusterArns[*]' --output text)
-    
+
     # Loop through clusters to find one matching our pattern
     for CLUSTER_ARN in $CLUSTERS; do
         CLUSTER_NAME=$(echo "$CLUSTER_ARN" | awk -F/ '{print $2}')
@@ -20,7 +20,7 @@ if [ -z "$1" ]; then
             break
         fi
     done
-    
+
     if [ -z "$CLUSTER_NAME" ] || [[ "$CLUSTER_NAME" != *"scenario-05-cluster"* ]]; then
         echo "Could not find a recent scenario-05-cluster. Please provide a cluster name."
         exit 1
@@ -32,7 +32,7 @@ fi
 # If no task family is provided, look for task definitions matching our pattern
 if [ -z "$2" ]; then
     TASK_DEFS=$(aws ecs list-task-definitions --family-prefix scenario-05-task --query 'taskDefinitionArns[*]' --output text)
-    
+
     # Get the most recent task definition
     if [ -n "$TASK_DEFS" ]; then
         TASK_DEF_ARN=$(echo $TASK_DEFS | tr ' ' '\n' | head -1)

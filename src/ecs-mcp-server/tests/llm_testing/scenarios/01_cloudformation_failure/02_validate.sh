@@ -12,7 +12,7 @@ source "$BASE_DIR/utils/aws_helpers.sh"
 if [ -z "$1" ]; then
     STACK_NAME=$(aws cloudformation list-stacks --stack-status-filter CREATE_FAILED ROLLBACK_COMPLETE ROLLBACK_FAILED ROLLBACK_IN_PROGRESS \
         --query "sort_by(StackSummaries, &CreationTime)[-1].StackName" --output text)
-    
+
     if [[ "$STACK_NAME" == *"scenario-01-stack"* ]]; then
         echo "Found test stack: $STACK_NAME"
     else
@@ -39,14 +39,14 @@ echo "Stack status: $STATUS"
 # Check if stack has failed
 if [[ $STATUS == *"ROLLBACK"* || $STATUS == *"FAILED"* ]]; then
   echo "✅ Stack has failed as expected."
-  
+
   # Get specific error information
   echo "Fetching error details..."
   aws cloudformation describe-stack-events \
     --stack-name $STACK_NAME \
     --query 'StackEvents[?ResourceStatus==`CREATE_FAILED`].{Resource:LogicalResourceId, Reason:ResourceStatusReason}' \
     --output table
-    
+
   echo "Stack is now ready for LLM troubleshooting testing."
 else
   echo "❌ Stack is not in a failed state. Current status: $STATUS"

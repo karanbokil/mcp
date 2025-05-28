@@ -23,7 +23,7 @@ Resources:
     Type: AWS::ECS::Cluster
     Properties:
       ClusterName: scenario-01-cluster
-  
+
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -38,7 +38,7 @@ Resources:
           # Invalid image name will cause failure
           Image: "scenario-01-image:latest"
           Essential: true
-  
+
   ECSService:
     Type: AWS::ECS::Service
     Properties:

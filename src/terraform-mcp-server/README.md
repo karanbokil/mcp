@@ -30,9 +30,21 @@ MCP server for Terraform on AWS best practices, infrastructure as code patterns,
   - SageMaker endpoint deployment for ML model hosting
   - Serverless Streamlit application deployment for AI interfaces
 
+- **Terraform Registry Module Analysis** - Analyze Terraform Registry modules
+  - Search for modules by URL or identifier
+  - Extract input variables, output variables, and README content
+  - Understand module usage and configuration options
+  - Analyze module structure and dependencies
+
 - **Terraform Workflow Execution** - Run Terraform commands directly
   - Initialize, plan, validate, apply, and destroy operations
   - Pass variables and specify AWS regions
+  - Get formatted command output for analysis
+
+- **Terragrunt Workflow Execution** - Run Terragrunt commands directly
+  - Initialize, plan, validate, apply, run-all and destroy operations
+  - Pass variables and specify AWS regions
+  - Configure terragrunt-config and and include/exclude paths flags
   - Get formatted command output for analysis
 
 ## Tools and Resources
@@ -67,6 +79,29 @@ Here are some ways you can work with MCP across AWS, and we'll be adding support
     }
   }
 }
+```
+
+or docker after a succesful `docker build -t awslabs/terraform-mcp-server .`:
+
+```json
+  {
+    "mcpServers": {
+      "awslabs.terraform-mcp-server": {
+        "command": "docker",
+        "args": [
+          "run",
+          "--rm",
+          "--interactive",
+          "--env",
+          "FASTMCP_LOG_LEVEL=ERROR",
+          "awslabs/terraform-mcp-server:latest"
+        ],
+        "env": {},
+        "disabled": false,
+        "autoApprove": []
+      }
+    }
+  }
 ```
 
 ## Security Considerations

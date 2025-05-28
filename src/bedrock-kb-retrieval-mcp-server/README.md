@@ -53,6 +53,20 @@ If you intend to use reranking functionality, your Bedrock Knowledge Base needs 
 3. Reranking is only available in specific regions. Please refer to the official [documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/rerank-supported.html) for an up to date list of supported regions.
 4. Enable model access for the available reranking models in the specified region.
 
+### Controlling Reranking
+
+Reranking can be globally enabled or disabled using the `BEDROCK_KB_RERANKING_ENABLED` environment variable:
+
+- Set to `false` (default): Disables reranking for all queries unless explicitly enabled
+- Set to `true`: Enables reranking for all queries unless explicitly disabled
+
+The environment variable accepts various formats:
+
+- For enabling: 'true', '1', 'yes', or 'on' (case-insensitive)
+- For disabling: any other value or not set (default behavior)
+
+This setting provides a global default, while individual API calls can still override it by explicitly setting the `reranking` parameter.
+
 For detailed instructions on setting up knowledge bases, see:
 
 - [Create a knowledge base](https://docs.aws.amazon.com/bedrock/latest/userguide/knowledge-base-create.html)
@@ -73,7 +87,8 @@ Here are some ways you can work with MCP across AWS, and we'll be adding support
         "AWS_PROFILE": "your-profile-name",
         "AWS_REGION": "us-east-1",
         "FASTMCP_LOG_LEVEL": "ERROR",
-        "KB_INCLUSION_TAG_KEY: "optional-tag-key-to-filter-kbs"
+        "KB_INCLUSION_TAG_KEY": "optional-tag-key-to-filter-kbs",
+        "BEDROCK_KB_RERANKING_ENABLED": "false"
       },
       "disabled": false,
       "autoApprove": []
@@ -81,6 +96,46 @@ Here are some ways you can work with MCP across AWS, and we'll be adding support
   }
 }
 ```
+
+or docker after a succesful `docker build -t awslabs/bedrock-kb-retrieval-mcp-server .`:
+
+```file
+# ficticious `.env` file with AWS temporary credentials
+AWS_ACCESS_KEY_ID=ASIAIOSFODNN7EXAMPLE
+AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+AWS_SESSION_TOKEN=AQoEXAMPLEH4aoAH0gNCAPy...truncated...zrkuWJOgQs8IZZaIv2BXIa2R4Olgk
+```
+
+```json
+  {
+    "mcpServers": {
+      "awslabs.bedrock-kb-retrieval-mcp-server": {
+        "command": "docker",
+        "args": [
+          "run",
+          "--rm",
+          "--interactive",
+          "--env",
+          "FASTMCP_LOG_LEVEL=ERROR",
+          "--env",
+          "KB_INCLUSION_TAG_KEY=optional-tag-key-to-filter-kbs",
+          "--env",
+          "BEDROCK_KB_RERANKING_ENABLED=false",
+          "--env",
+          "AWS_REGION=us-east-1",
+          "--env-file",
+          "/full/path/to/file/above/.env",
+          "awslabs/bedrock-kb-retrieval-mcp-server:latest"
+        ],
+        "env": {},
+        "disabled": false,
+        "autoApprove": []
+      }
+    }
+  }
+```
+
+NOTE: Your credentials will need to be kept refreshed from your host
 
 ## Limitations
 

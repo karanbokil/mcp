@@ -8,19 +8,25 @@ from awslabs.terraform_mcp_server.impl.resources import (
 )
 from awslabs.terraform_mcp_server.impl.tools import (
     execute_terraform_command_impl,
+    execute_terragrunt_command_impl,
     run_checkov_scan_impl,
     search_aws_provider_docs_impl,
     search_awscc_provider_docs_impl,
     search_specific_aws_ia_modules_impl,
+    search_user_provided_module_impl,
 )
 from awslabs.terraform_mcp_server.models import (
     CheckovScanRequest,
     CheckovScanResult,
     ModuleSearchResult,
+    SearchUserProvidedModuleRequest,
+    SearchUserProvidedModuleResult,
     TerraformAWSCCProviderDocsResult,
     TerraformAWSProviderDocsResult,
     TerraformExecutionRequest,
     TerraformExecutionResult,
+    TerragruntExecutionRequest,
+    TerragruntExecutionResult,
 )
 from awslabs.terraform_mcp_server.static import (
     AWS_TERRAFORM_BEST_PRACTICES,
@@ -29,7 +35,7 @@ from awslabs.terraform_mcp_server.static import (
 )
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
-from typing import Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 
 mcp = FastMCP(
@@ -79,6 +85,61 @@ async def execute_terraform_command(
         strip_ansi=strip_ansi,
     )
     return await execute_terraform_command_impl(request)
+
+
+@mcp.tool(name='ExecuteTerragruntCommand')
+async def execute_terragrunt_command(
+    command: Literal['init', 'plan', 'validate', 'apply', 'destroy', 'output', 'run-all'] = Field(
+        ..., description='Terragrunt command to execute'
+    ),
+    working_directory: str = Field(..., description='Directory containing Terragrunt files'),
+    variables: Optional[Dict[str, str]] = Field(None, description='Terraform variables to pass'),
+    aws_region: Optional[str] = Field(None, description='AWS region to use'),
+    strip_ansi: bool = Field(True, description='Whether to strip ANSI color codes from output'),
+    include_dirs: Optional[List[str]] = Field(
+        None, description='Directories to include in a multi-module run'
+    ),
+    exclude_dirs: Optional[List[str]] = Field(
+        None, description='Directories to exclude from a multi-module run'
+    ),
+    run_all: bool = Field(False, description='Run command on all modules in subdirectories'),
+    terragrunt_config: Optional[str] = Field(
+        None, description='Path to a custom terragrunt config file (not valid with run-all)'
+    ),
+) -> TerragruntExecutionResult:
+    """Execute Terragrunt workflow commands against an AWS account.
+
+    This tool runs Terragrunt commands (init, plan, validate, apply, destroy, run-all) in the
+    specified working directory, with optional variables and region settings. Terragrunt extends
+    Terraform's functionality by providing features like remote state management, dependencies
+    between modules, and the ability to execute Terraform commands on multiple modules at once.
+
+    Parameters:
+        command: Terragrunt command to execute
+        working_directory: Directory containing Terragrunt files
+        variables: Terraform variables to pass
+        aws_region: AWS region to use
+        strip_ansi: Whether to strip ANSI color codes from output
+        include_dirs: Directories to include in a multi-module run
+        exclude_dirs: Directories to exclude from a multi-module run
+        run_all: Run command on all modules in subdirectories
+        terragrunt_config: Path to a custom terragrunt config file (not valid with run-all)
+
+    Returns:
+        A TerragruntExecutionResult object containing command output and status
+    """
+    request = TerragruntExecutionRequest(
+        command=command,
+        working_directory=working_directory,
+        variables=variables,
+        aws_region=aws_region,
+        strip_ansi=strip_ansi,
+        include_dirs=include_dirs,
+        exclude_dirs=exclude_dirs,
+        run_all=run_all,
+        terragrunt_config=terragrunt_config,
+    )
+    return await execute_terragrunt_command_impl(request)
 
 
 @mcp.tool(name='SearchAwsProviderDocs')
@@ -262,6 +323,54 @@ async def run_checkov_scan(
         output_format=output_format,
     )
     return await run_checkov_scan_impl(request)
+
+
+@mcp.tool(name='SearchUserProvidedModule')
+async def search_user_provided_module(
+    module_url: str = Field(
+        ..., description='URL or identifier of the Terraform module (e.g., "hashicorp/consul/aws")'
+    ),
+    version: Optional[str] = Field(None, description='Specific version of the module to analyze'),
+    variables: Optional[Dict[str, Any]] = Field(
+        None, description='Variables to use when analyzing the module'
+    ),
+) -> SearchUserProvidedModuleResult:
+    """Search for a user-provided Terraform registry module and understand its inputs, outputs, and usage.
+
+    This tool takes a Terraform registry module URL and analyzes its input variables,
+    output variables, README, and other details to provide comprehensive information
+    about the module.
+
+    The module URL should be in the format "namespace/name/provider" (e.g., "hashicorp/consul/aws")
+    or "registry.terraform.io/namespace/name/provider".
+
+    Examples:
+        - To search for the HashiCorp Consul module:
+          search_user_provided_module(module_url='hashicorp/consul/aws')
+
+        - To search for a specific version of a module:
+          search_user_provided_module(module_url='terraform-aws-modules/vpc/aws', version='3.14.0')
+
+        - To search for a module with specific variables:
+          search_user_provided_module(
+              module_url='terraform-aws-modules/eks/aws',
+              variables={'cluster_name': 'my-cluster', 'vpc_id': 'vpc-12345'}
+          )
+
+    Parameters:
+        module_url: URL or identifier of the Terraform module (e.g., "hashicorp/consul/aws")
+        version: Optional specific version of the module to analyze
+        variables: Optional dictionary of variables to use when analyzing the module
+
+    Returns:
+        A SearchUserProvidedModuleResult object containing module information
+    """
+    request = SearchUserProvidedModuleRequest(
+        module_url=module_url,
+        version=version,
+        variables=variables,
+    )
+    return await search_user_provided_module_impl(request)
 
 
 # * Resources

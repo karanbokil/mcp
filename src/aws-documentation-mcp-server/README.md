@@ -19,7 +19,7 @@ This MCP server provides tools to access AWS documentation, search for content, 
 
 ## Installation
 
-To add this MCP server to your Amazon Q or Claude, add the following to your MCP config file. With Amazon Q, create (if does not yet exist) a file named `.amazonq/mcp.json` under the same directory that is running `q chat`. Then add the following config:
+Here are some ways you can work with MCP across AWS, and we'll be adding support to more products including Amazon Q Developer CLI soon: (e.g. for Amazon Q Developer CLI MCP, ~/.aws/amazonq/mcp.json):
 
 ```json
 {
@@ -35,6 +35,29 @@ To add this MCP server to your Amazon Q or Claude, add the following to your MCP
     }
   }
 }
+```
+
+or docker after a succesful `docker build -t awslabs/aws-documentation-mcp-server .`:
+
+```json
+  {
+    "mcpServers": {
+      "awslabs.aws-documentation-mcp-server": {
+        "command": "docker",
+        "args": [
+          "run",
+          "--rm",
+          "--interactive",
+          "--env",
+          "FASTMCP_LOG_LEVEL=ERROR",
+          "awslabs/aws-documentation-mcp-server:latest"
+        ],
+        "env": {},
+        "disabled": false,
+        "autoApprove": []
+      }
+    }
+  }
 ```
 
 ## Basic Usage

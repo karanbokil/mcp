@@ -20,15 +20,36 @@ import logging
 import os
 from awslabs.cost_analysis_mcp_server.cdk_analyzer import analyze_cdk_project
 from awslabs.cost_analysis_mcp_server.static.patterns import BEDROCK
+from awslabs.cost_analysis_mcp_server.terraform_analyzer import analyze_terraform_project
 from bs4 import BeautifulSoup
 from httpx import AsyncClient
 from mcp.server.fastmcp import Context, FastMCP
+from pydantic import BaseModel, Field
 from typing import Any, Dict, List, Optional
 
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+class PricingFilter(BaseModel):
+    """Filter model for AWS Price List API queries."""
+
+    field: str = Field(
+        ..., description="The field to filter on (e.g., 'instanceType', 'location')"
+    )
+    type: str = Field('TERM_MATCH', description='The type of filter match')
+    value: str = Field(..., description='The value to match against')
+
+
+class PricingFilters(BaseModel):
+    """Container for multiple pricing filters."""
+
+    filters: List[PricingFilter] = Field(
+        default_factory=list, description='List of filters to apply to the pricing query'
+    )
+
 
 mcp = FastMCP(
     name='awslabs.cost-analysis-mcp-server',
@@ -117,6 +138,38 @@ async def analyze_cdk_project_wrapper(project_path: str, ctx: Context) -> Option
 
 
 @mcp.tool(
+    name='analyze_terraform_project',
+    description='Analyze a Terraform project to identify AWS services used. This tool dynamically extracts service information from Terraform resource declarations.',
+)
+async def analyze_terraform_project_wrapper(project_path: str, ctx: Context) -> Optional[Dict]:
+    """Analyze a Terraform project to identify AWS services.
+
+    Args:
+        project_path: The path to the Terraform project
+        ctx: MCP context for logging and state management
+
+    Returns:
+        Dictionary containing the identified services and their configurations
+    """
+    try:
+        analysis_result = await analyze_terraform_project(project_path)
+        logger.info(f'Analysis result: {analysis_result}')
+        if analysis_result and 'services' in analysis_result:
+            return analysis_result
+        else:
+            logger.error(f'Invalid analysis result format: {analysis_result}')
+            return {
+                'status': 'error',
+                'services': [],
+                'message': f'Failed to analyze Terraform project at {project_path}: Invalid result format',
+                'details': {'error': 'Invalid result format'},
+            }
+    except Exception as e:
+        await ctx.error(f'Failed to analyze Terraform project: {e}')
+        return None
+
+
+@mcp.tool(
     name='get_pricing_from_web',
     description='Get pricing information from AWS pricing webpage. Service codes typically use lowercase with hyphens format (e.g., "opensearch-service" for both OpenSearch and OpenSearch Serverless, "api-gateway", "lambda"). Note that some services like OpenSearch Serverless are part of broader service codes (use "opensearch-service" not "opensearch-serverless"). Important: Web service codes differ from API service codes (e.g., use "opensearch-service" for web but "AmazonES" for API). When retrieving foundation model pricing, always use the latest models for comparison rather than specific named ones that may become outdated.',
 )
@@ -179,17 +232,37 @@ async def get_pricing_from_web(service_code: str, ctx: Context) -> Optional[Dict
     description="""Get pricing information from AWS Price List API.
     Service codes for API often differ from web URLs.
     (e.g., use "AmazonES" for OpenSearch, not "AmazonOpenSearchService").
+    List of service codes can be found with `curl 'https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/index.json' | jq -r '.offers| .[] | .offerCode'`
     IMPORTANT GUIDELINES:
     - When retrieving foundation model pricing, always use the latest models for comparison
     - For database compatibility with services, only include confirmed supported databases
-    - Providing less information is better than giving incorrect information""",
+    - Providing less information is better than giving incorrect information
+
+    Filters should be provided in the format:
+    [
+        {
+            'Field': 'feeCode',
+            'Type': 'TERM_MATCH',
+            'Value': 'Glacier:EarlyDelete'
+        },
+        {
+            'Field': 'regionCode',
+            'Type': 'TERM_MATCH',
+            'Value': 'ap-southeast-1'
+        }
+    ]
+    Details of the filter can be found at https://docs.aws.amazon.com/aws-cost-management/latest/APIReference/API_pricing_Filter.html
+    """,
 )
-async def get_pricing_from_api(service_code: str, region: str, ctx: Context) -> Optional[Dict]:
+async def get_pricing_from_api(
+    service_code: str, region: str, ctx: Context, filters: Optional[PricingFilters] = None
+) -> Optional[Dict]:
     """Get pricing information from AWS Price List API. If the API request fails in the initial attempt, retry by modifying the service_code.
 
     Args:
         service_code: The service code (e.g., 'AmazonES' for OpenSearch, 'AmazonS3' for S3)
         region: AWS region (e.g., 'us-west-2')
+        filters: Optional list of filter dictionaries in format {'Field': str, 'Type': str, 'Value': str}
         ctx: MCP context for logging and state management
 
     Returns:
@@ -200,9 +273,17 @@ async def get_pricing_from_api(service_code: str, region: str, ctx: Context) -> 
             'pricing', region_name='us-east-1'
         )
 
+        # Start with the region filter
+        region_filter = PricingFilter(field='regionCode', type='TERM_MATCH', value=region)
+        api_filters = [region_filter.dict()]
+
+        # Add any additional filters if provided
+        if filters and filters.filters:
+            api_filters.extend([f.dict() for f in filters.filters])
+
         response = pricing_client.get_products(
             ServiceCode=service_code,
-            Filters=[{'Type': 'TERM_MATCH', 'Field': 'regionCode', 'Value': region}],
+            Filters=api_filters,
             MaxResults=100,
         )
 

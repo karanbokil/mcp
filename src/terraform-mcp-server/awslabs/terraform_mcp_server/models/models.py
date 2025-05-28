@@ -258,3 +258,110 @@ class CheckovScanResult(BaseModel):
     )
     summary: Dict[str, Any] = Field({}, description='Summary of scan results')
     raw_output: Optional[str] = Field(None, description='Raw output from Checkov')
+
+
+class SearchUserProvidedModuleRequest(BaseModel):
+    """Request model for searching user-provided Terraform modules.
+
+    Attributes:
+        module_url: URL of the Terraform module in the registry (e.g., 'hashicorp/consul/aws').
+        version: Optional specific version of the module to analyze.
+        variables: Optional dictionary of variables to use when analyzing the module.
+    """
+
+    module_url: str = Field(
+        ..., description='URL or identifier of the Terraform module (e.g., "hashicorp/consul/aws")'
+    )
+    version: Optional[str] = Field(None, description='Specific version of the module to analyze')
+    variables: Optional[Dict[str, Any]] = Field(
+        None, description='Variables to use when analyzing the module'
+    )
+
+
+class SearchUserProvidedModuleResult(BaseModel):
+    """Result model for searching user-provided Terraform modules.
+
+    Attributes:
+        status: Execution status (success/error).
+        module_name: Name of the analyzed module.
+        module_url: URL of the module in the registry.
+        module_version: Version of the module that was analyzed.
+        module_description: Description of the module.
+        variables: List of variables defined by the module.
+        outputs: List of outputs provided by the module.
+        readme_content: The README content of the module.
+        error_message: Optional error message if execution failed.
+    """
+
+    status: Literal['success', 'error']
+    module_name: str
+    module_url: str
+    module_version: str
+    module_description: str
+    variables: List[TerraformVariable] = Field([], description='Variables defined by the module')
+    outputs: List[TerraformOutput] = Field([], description='Outputs provided by the module')
+    readme_content: Optional[str] = Field(None, description='README content of the module')
+    error_message: Optional[str] = Field(None, description='Error message if execution failed')
+
+
+class TerragruntExecutionRequest(BaseModel):
+    """Request model for Terragrunt command execution with parameters.
+
+    Attributes:
+        command: The Terragrunt command to execute (init, plan, validate, apply, destroy, etc.).
+        working_directory: Directory containing Terragrunt configuration files.
+        variables: Optional dictionary of Terraform variables to pass.
+        aws_region: Optional AWS region to use.
+        strip_ansi: Whether to strip ANSI color codes from command output.
+        include_dirs: Optional list of directories to include in a multi-module run.
+        exclude_dirs: Optional list of directories to exclude from a multi-module run.
+        run_all: Whether to run the command in all subdirectories with terragrunt.hcl files.
+    """
+
+    command: Literal['init', 'plan', 'validate', 'apply', 'destroy', 'output', 'run-all'] = Field(
+        ..., description='Terragrunt command to execute'
+    )
+    working_directory: str = Field(..., description='Directory containing Terragrunt files')
+    variables: Optional[Dict[str, str]] = Field(None, description='Terraform variables to pass')
+    aws_region: Optional[str] = Field(None, description='AWS region to use')
+    strip_ansi: bool = Field(True, description='Whether to strip ANSI color codes from output')
+    include_dirs: Optional[List[str]] = Field(
+        None, description='Directories to include in a multi-module run'
+    )
+    exclude_dirs: Optional[List[str]] = Field(
+        None, description='Directories to exclude from a multi-module run'
+    )
+    run_all: bool = Field(False, description='Run command on all modules in subdirectories')
+    terragrunt_config: Optional[str] = Field(
+        None, description='Path to a custom terragrunt config file (not valid with run-all)'
+    )
+
+
+class TerragruntExecutionResult(BaseModel):
+    """Result model for Terragrunt command execution.
+
+    Attributes:
+        command: The Terragrunt command that was executed.
+        status: Execution status (success/error).
+        return_code: The command's return code (0 for success).
+        stdout: Standard output from the Terragrunt command.
+        stderr: Standard error output from the Terragrunt command.
+        working_directory: Directory where the command was executed.
+        error_message: Optional error message if execution failed.
+        outputs: Dictionary of output values from Terragrunt (for apply command).
+        affected_dirs: List of directories affected by a run-all command.
+    """
+
+    command: str
+    status: Literal['success', 'error']
+    return_code: Optional[int] = None
+    stdout: Optional[str] = None
+    stderr: str = ''
+    working_directory: str
+    error_message: Optional[str] = None
+    outputs: Optional[Dict[str, Any]] = Field(
+        None, description='Terragrunt outputs (for apply or output command)'
+    )
+    affected_dirs: Optional[List[str]] = Field(
+        None, description='Directories affected by a run-all command'
+    )

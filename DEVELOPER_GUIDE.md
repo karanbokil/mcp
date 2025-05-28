@@ -92,12 +92,14 @@ Inspector will run your server on locahost (for instance: http://127.0.0.1:6274)
 
 ### Unit tests
 
-Each MCP server is expected to have a `tests` folder containing unit tests. For instance, you can refer to an existing server like [AWS Documentation Server](src/aws-documentation-mcp-server/tests/).
+![Codecov](https://img.shields.io/codecov/c/github/awslabs/mcp?link=https%3A%2F%2Fapp.codecov.io%2Fgh%2Fawslabs%2Fmcp)
+
+Each MCP server is expected to have a `tests` folder containing unit tests that should meet or exceed merged our reported test coverage (see our "coverage" badge above). For instance, you can refer to an existing server like [AWS Documentation Server](src/aws-documentation-mcp-server/tests/).
 
 | Action            | Explanation                                |
 | :------------------ | :------------------------------------------- |
 | `cd src/example-mcp-server` | This is the directory containing your server files. |
-| `uv run --frozen pytest` | This will run all unit tests for the server. |
+| `uv run --frozen pytest --cov --cov-branch --cov-report=term-missing` | This will run all unit tests for the server and display code coverage. |
 
 ## Opening your Pull Request
 
@@ -106,3 +108,13 @@ Each MCP server is expected to have a `tests` folder containing unit tests. For 
 | [Open your Pull Request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request) | Once all your local tests and branch CI passes, send us a pull request with a conventional semantic title, and answer any default questions in the pull request interface. |
 | Fix issues | Pay attention to any automated CI failures reported in the pull request, and stay involved in the conversation. |
 | Merge ! | Once your PR is merged, the changes will be available on the main branch. If you created a new MCP server, the team will take care of the necessary steps to publish the server to the correct package manager. |
+
+### Remediating Detected Secrets
+
+Running `pre-commit run --all-files` at the top-level may show "Failed" when secrets are detected.
+Run the scanner against the baseline and then audit the findings and commit `.secrets.baseline`.
+
+```shell
+% detect-secrets scan --baseline .secrets.baseline # which might add detected secrets to the baseline.
+% detect-secrets audit .secrets.baseline # to remediate updates in the baseline.
+```

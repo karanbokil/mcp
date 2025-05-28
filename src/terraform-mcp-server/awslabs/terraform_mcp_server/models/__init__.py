@@ -5,11 +5,15 @@ from .models import (
     SubmoduleInfo,
     TerraformExecutionRequest,
     TerraformExecutionResult,
+    TerragruntExecutionRequest,
+    TerragruntExecutionResult,
     CheckovVulnerability,
     CheckovScanRequest,
     CheckovScanResult,
     TerraformVariable,
     TerraformOutput,
+    SearchUserProvidedModuleRequest,
+    SearchUserProvidedModuleResult,
 )
 
 __all__ = [
@@ -19,9 +23,13 @@ __all__ = [
     'SubmoduleInfo',
     'TerraformExecutionRequest',
     'TerraformExecutionResult',
+    'TerragruntExecutionRequest',
+    'TerragruntExecutionResult',
     'CheckovVulnerability',
     'CheckovScanRequest',
     'CheckovScanResult',
     'TerraformVariable',
     'TerraformOutput',
+    'SearchUserProvidedModuleRequest',
+    'SearchUserProvidedModuleResult',
 ]

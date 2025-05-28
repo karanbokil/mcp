@@ -18,7 +18,7 @@ An MCP server for containerizing applications, deploying applications to Amazon 
 - **Resource Management**: List and explore ECS resources such as task definitions, services, clusters, and tasks
 - **ECR Integration**: View repositories and container images in Amazon ECR
 
-Customers can use the containerize_app tool to help them containerize their applications with best practices and deploy them to Amazon ECS. The create_ecs_infrastructure tool automates infrastructure deployment using CloudFormation, while get_deployment_status will return the status of deployments and provide the URL of the set up Application Load Balancer. When resources are no longer needed, the delete_ecs_infrastructure tool allows for easy cleanup and removal of all deployed components.
+Customers can use the `containerize_app` tool to help them containerize their applications with best practices and deploy them to Amazon ECS. The `create_ecs_infrastructure` tool automates infrastructure deployment using CloudFormation, while `get_deployment_status` will return the status of deployments and provide the URL of the set up Application Load Balancer. When resources are no longer needed, the `delete_ecs_infrastructure` tool allows for easy cleanup and removal of all deployed components.
 
 Customers can list and view their ECS resources (clusters, services, tasks, task definitions) and access their ECR resources (container images) using the `ecs_resource_management` tool. When running into ECS deployment issues, they can use the `ecs_troubleshooting_tool` to diagnose and resolve common problems.
 
@@ -53,51 +53,17 @@ Add the ECS MCP Server to your MCP client configuration:
       "command": "uvx",
       "args": ["awslabs.ecs-mcp-server@latest"],
       "env": {
-<<<<<<< HEAD
-        "AWS_PROFILE": "your-aws-profile",
-        "AWS_REGION": "us-east-1",
+        "AWS_PROFILE": "your-aws-profile", // Optional - uses your local AWS configuration if not specified
+        "AWS_REGION": "your-aws-region", // Optional - uses your local AWS configuration if not specified
         "FASTMCP_LOG_LEVEL": "ERROR",
         "ALLOW_WRITE": "false",
         "ALLOW_SENSITIVE_DATA": "false"
-=======
-        "AWS_PROFILE": "your-aws-profile", // Optional - uses your local AWS configuration if not specified
-        "AWS_REGION": "your-aws-region", // Optional - uses your local AWS configuration if not specified
-        "FASTMCP_LOG_LEVEL": "ERROR"
->>>>>>> feature/ecs-mcp-server
       }
     }
   }
 }
 ```
 
-<<<<<<< HEAD
-## Security Controls
-
-The ECS MCP Server includes security controls to prevent accidental changes to infrastructure and limit access to sensitive data:
-
-### ALLOW_WRITE
-
-Controls whether write operations (creating or deleting infrastructure) are allowed.
-
-```bash
-# Enable write operations
-export ALLOW_WRITE=true
-
-# Disable write operations (default)
-export ALLOW_WRITE=false
-```
-
-### ALLOW_SENSITIVE_DATA
-
-Controls whether tools that return logs and detailed resource information are allowed.
-
-```bash
-# Enable access to sensitive data
-export ALLOW_SENSITIVE_DATA=true
-
-# Disable access to sensitive data (default)
-export ALLOW_SENSITIVE_DATA=false
-=======
 If running from a local repository, configure the MCP client like this:
 
 ```json
@@ -114,13 +80,43 @@ If running from a local repository, configure the MCP client like this:
       "env": {
         "AWS_PROFILE": "your-aws-profile",
         "AWS_REGION": "your-aws-region",
-        "FASTMCP_LOG_LEVEL": "DEBUG"
+        "FASTMCP_LOG_LEVEL": "DEBUG",
+        "ALLOW_WRITE": "false",
+        "ALLOW_SENSITIVE_DATA": "false"
       }
     }
   }
 }
->>>>>>> feature/ecs-mcp-server
 ```
+
+## Security Controls
+
+The ECS MCP Server includes security controls in your MCP client configuration to prevent accidental changes to infrastructure and limit access to sensitive data:
+
+### ALLOW_WRITE
+
+Controls whether write operations (creating or deleting infrastructure) are allowed.
+
+```bash
+# Enable write operations
+"ALLOW_WRITE": "true"
+
+# Disable write operations (default)
+"ALLOW_WRITE": "false"
+```
+
+### ALLOW_SENSITIVE_DATA
+
+Controls whether tools that return logs and detailed resource information are allowed.
+
+```bash
+# Enable access to sensitive data
+"ALLOW_SENSITIVE_DATA": "true"
+
+# Disable access to sensitive data (default)
+"ALLOW_SENSITIVE_DATA": "false"
+```
+
 
 ## MCP Tools
 
@@ -157,327 +153,6 @@ The troubleshooting tool helps diagnose and resolve common ECS deployment issues
 
 ### Resource Management
 
-<<<<<<< HEAD
-Creates ECS infrastructure using CloudFormation. **Requires `ALLOW_WRITE=true`**.
-
-**Parameters:**
-```json
-{
-  "app_name": {
-    "type": "string",
-    "description": "Name of the application",
-    "required": true
-  },
-  "app_path": {
-    "type": "string",
-    "description": "Path to the web application directory",
-    "required": true
-  },
-  "force_deploy": {
-    "type": "boolean",
-    "description": "Set to True ONLY if you have Docker installed and running, and you agree to let the server build and deploy your image to ECR, as well as deploy ECS infrastructure for you in CloudFormation. If False, template files will be generated locally for your review.",
-    "required": false,
-    "default": false
-  },
-  "vpc_id": {
-    "type": "string",
-    "description": "VPC ID for deployment (optional, will create new if not provided)",
-    "required": false
-  },
-  "subnet_ids": {
-    "type": "array",
-    "items": {
-      "type": "string"
-    },
-    "description": "List of subnet IDs for deployment",
-    "required": false
-  },
-  "route_table_ids": {
-    "type": "array",
-    "items": {
-      "type": "string"
-    },
-    "description": "List of route table IDs for S3 Gateway endpoint association, will use main route table if not provided",
-    "required": false
-  },
-  "cpu": {
-    "type": "integer",
-    "description": "CPU units for the task (e.g., 256, 512, 1024)",
-    "required": false
-  },
-  "memory": {
-    "type": "integer",
-    "description": "Memory (MB) for the task (e.g., 512, 1024, 2048)",
-    "required": false
-  },
-  "desired_count": {
-    "type": "integer",
-    "description": "Desired number of tasks",
-    "required": false
-  },
-  "container_port": {
-    "type": "integer",
-    "description": "Port the container listens on",
-    "required": false
-  },
-  "environment_vars": {
-    "type": "object",
-    "description": "Environment variables as a JSON object",
-    "required": false
-  },
-  "health_check_path": {
-    "type": "string",
-    "description": "Path for ALB health checks",
-    "required": false
-  }
-}
-```
-
-**Returns:**
-- If force_deploy is False: Template files and guidance for manual deployment
-- If force_deploy is True: Stack name and ID, VPC and subnet IDs, Resources (cluster, service, task definition, load balancer), ECR repository URI, Image URI
-
-**Example:**
-```python
-# Generate templates only
-result = await create_ecs_infrastructure(
-    app_name="my-app",
-    app_path="/path/to/app",
-    force_deploy=False,
-    memory=1024,
-    cpu=512,
-    health_check_path="/health/"
-)
-
-# Build, push, and deploy
-result = await create_ecs_infrastructure(
-    app_name="my-app",
-    app_path="/path/to/app",
-    force_deploy=True,
-    memory=1024,
-    cpu=512,
-    route_table_ids=["rtb-012d33237d56fe9e7"],
-    memory=1024,
-    cpu=512,
-    health_check_path="/health/"
-)
-```
-
-### 3. get_deployment_status
-
-Gets the status of an ECS deployment and returns the ALB URL.
-
-**Parameters:**
-```json
-{
-  "app_name": {
-    "type": "string",
-    "description": "Name of the application",
-    "required": true
-  },
-  "cluster_name": {
-    "type": "string",
-    "description": "Name of the ECS cluster (optional, defaults to app_name)",
-    "required": false
-  }
-}
-```
-
-**Returns:**
-- Service status (active, draining, etc.)
-- Running task count
-- Desired task count
-- Application Load Balancer URL
-- Recent deployment events
-- Health check status
-
-**Example:**
-```python
-status = await get_deployment_status(app_name="my-app")
-```
-
-### 4. delete_ecs_infrastructure
-
-Deletes ECS infrastructure created by the ECS MCP Server. **Requires `ALLOW_WRITE=true`**.
-
-**Parameters:**
-```json
-{
-  "app_name": {
-    "type": "string",
-    "description": "Name of the application",
-    "required": true
-  },
-  "ecr_template_path": {
-    "type": "string",
-    "description": "Path to the ECR CloudFormation template file",
-    "required": true
-  },
-  "ecs_template_path": {
-    "type": "string",
-    "description": "Path to the ECS CloudFormation template file",
-    "required": true
-  }
-}
-```
-
-**Returns:**
-- Operation status
-- ECR stack deletion status
-- ECS stack deletion status
-- Guidance for checking deletion status
-- AWS CLI commands for verification
-
-**Example:**
-```python
-result = await delete_ecs_infrastructure(
-    app_name="my-app",
-    ecr_template_path="/path/to/my-app-ecr-infrastructure.json",
-    ecs_template_path="/path/to/my-app-ecs-infrastructure.json"
-)
-```
-
-**Warning:** This tool is not intended for production usage and is best suited for tearing down prototyped work done with the ECS MCP Server.
-
-### 5. ecs_resource_management
-
-Read-only tool for managing ECS resources.
-
-**Parameters:**
-```json
-{
-  "action": {
-    "type": "string",
-    "description": "Action to perform (list, describe)",
-    "required": true
-  },
-  "resource_type": {
-    "type": "string",
-    "description": "Type of resource (cluster, service, task, task_definition, container_instance, capacity_provider)",
-    "required": true
-  },
-  "identifier": {
-    "type": "string",
-    "description": "Resource identifier (name or ARN) for describe actions",
-    "required": false
-  },
-  "filters": {
-    "type": "object",
-    "description": "Filters for list operations (e.g., {\"cluster\": \"my-cluster\", \"status\": \"RUNNING\"})",
-    "required": false
-  }
-}
-```
-
-**Returns:**
-- Requested ECS resources based on the action and resource type
-- For list actions: collection of resources with counts and statistics
-- For describe actions: detailed information about a specific resource
-
-**Example:**
-```python
-# List all clusters
-clusters = await ecs_resource_management(
-    action="list",
-    resource_type="cluster"
-)
-
-# Describe a specific service in a cluster
-service = await ecs_resource_management(
-    action="describe",
-    resource_type="service",
-    identifier="my-service",
-    filters={"cluster": "my-cluster"}
-)
-
-# List all tasks with a specific status
-tasks = await ecs_resource_management(
-    action="list",
-    resource_type="task",
-    filters={"cluster": "my-cluster", "status": "RUNNING"}
-)
-```
-
-### 6. Troubleshooting Tools
-
-The ECS MCP Server provides several tools for troubleshooting deployments:
-
-- **get_ecs_troubleshooting_guidance**: Initial entry point for troubleshooting
-- **fetch_cloudformation_status**: Infrastructure-level diagnostics
-- **fetch_service_events**: Service-level diagnostics (**Requires `ALLOW_SENSITIVE_DATA=true`**)
-- **fetch_task_failures**: Task-level diagnostics (**Requires `ALLOW_SENSITIVE_DATA=true`**)
-- **fetch_task_logs**: Application-level diagnostics (**Requires `ALLOW_SENSITIVE_DATA=true`**)
-- **detect_image_pull_failures**: Specialized tool for detecting image pull failures
-
-## Usage
-
-The ECS MCP Server provides tools for AI assistants to:
-
-1. Provide guidance on containerizing web applications with best practices
-2. Create ECS infrastructure including task definitions, service configurations, and load balancers
-3. Return public URLs for accessing the deployed application
-4. List and inspect ECS resources across your AWS environment
-5. Explore ECR repositories and container images
-
-## Workflow
-
-The typical workflow when using the ECS MCP Server is:
-
-1. Use `containerize_app` to get guidance on how to containerize your application
-2. Follow the guidance to create your Dockerfile and build your container image
-3. Use `create_ecs_infrastructure` with `force_deploy=False` to generate CloudFormation templates
-4. Review the generated templates and make any necessary adjustments
-5. Either:
-   - Deploy the templates manually using AWS CLI, CloudFormation console, or other IaC tools
-   - Use `create_ecs_infrastructure` with `force_deploy=True` to automatically build, push, and deploy
-6. Use `get_deployment_status` to monitor the deployment and get the public URL
-7. Use `ecs_resource_management` to explore and manage your ECS resources
-
-## Vibe Coder Prompts
-
-The ECS MCP Server is designed to recognize casual, conversational deployment requests. Here are examples of "vibe coder" prompts that will trigger the server:
-
-### Containerization Prompts
-- "Dockerize this app for me"
-- "Can you containerize this project?"
-- "Make a Docker container for this code"
-- "Turn this into a container"
-- "This needs to be in Docker"
-- "Help me put this in a container"
-
-### Deployment Prompts
-- "Ship this to the cloud"
-- "Deploy this app to AWS"
-- "Get this running on the web"
-- "Make this live on the internet"
-- "Push this to production"
-- "Launch this app online"
-- "Can you host this somewhere?"
-- "Put this on the web for me"
-- "Make this accessible online"
-
-### Framework-Specific Prompts
-- "Deploy this Flask app"
-- "Get my React app online"
-- "Host this Express API"
-- "Put my Django site on the web"
-- "Launch this Node.js server"
-
-### Combined Prompts
-- "Containerize and deploy this app"
-- "Docker this and put it on AWS"
-- "Package this up and ship it"
-- "Make this run in the cloud"
-- "Get this app containerized and online"
-
-### Resource Management Prompts
-- "Show me my ECS resources"
-- "List all ECS clusters"
-- "Describe the ECS service for my-app"
-- "How many tasks are running?"
-- "Check task definitions"
-- "Show running containers in ECS"
-=======
 This tool provides read-only access to Amazon ECS resources to help you monitor and understand your deployment environment.
 
 - **ecs_resource_management**: List and describe ECS resources including:
@@ -488,7 +163,6 @@ This tool provides read-only access to Amazon ECS resources to help you monitor 
   - Container Instances: List container instances, describe instance health and capacity
   - Capacity Providers: List and describe capacity providers associated with clusters
   - ECR repositories and container images
->>>>>>> feature/ecs-mcp-server
 
 ## Example Prompts
 
@@ -511,143 +185,10 @@ This tool provides read-only access to Amazon ECS resources to help you monitor 
 
 ### Resource Management
 
-<<<<<<< HEAD
-1. **Clone the Repository**
-
-   ```bash
-   git clone https://github.com/awslabs/mcp.git
-   cd mcp
-   ```
-
-2. **Set Up a Virtual Environment**
-
-   Using `uv` (recommended):
-   ```bash
-   uv venv
-   source .venv/bin/activate  # On Unix/macOS
-   .venv\Scripts\activate     # On Windows
-   ```
-
-   Or using standard Python tools:
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # On Unix/macOS
-   .venv\Scripts\activate     # On Windows
-   ```
-
-3. **Install Development Dependencies**
-
-   ```bash
-   cd src/ecs-mcp-server
-   uv pip install -e ".[dev]"
-   ```
-
-4. **Configure AWS Credentials**
-
-   Ensure you have AWS credentials configured with appropriate permissions:
-   ```bash
-   aws configure
-   ```
-
-### Running the Server Locally
-
-To run the server locally for development:
-
-```bash
-cd src/ecs-mcp-server
-# Enable write operations and sensitive data access for development
-export ALLOW_WRITE=true
-export ALLOW_SENSITIVE_DATA=true
-python -m awslabs.ecs_mcp_server.main
-```
-
-### Testing
-
-The ECS MCP Server uses pytest for testing. The tests are organized into unit tests and integration tests.
-
-#### Running Unit Tests
-
-To run all unit tests:
-
-```bash
-cd src/ecs-mcp-server
-python -m pytest tests/unit
-```
-
-To run a specific test file:
-
-```bash
-python -m pytest tests/unit/test_main.py
-```
-
-To run a specific test case with verbose output:
-
-```bash
-python -m pytest tests/unit/test_main.py::TestMain::test_server_tools -v
-```
-
-#### Test Coverage
-
-To generate a test coverage report:
-
-```bash
-# Generate coverage report
-python -m pytest --cov=awslabs.ecs_mcp_server tests/
-```
-
-For a detailed HTML coverage report:
-
-```bash
-python -m pytest --cov=awslabs.ecs_mcp_server --cov-report=html tests/
-```
-
-This will create an `htmlcov` directory with an interactive HTML report that you can open in your browser.
-
-### Code Style and Linting
-
-The project follows PEP 8 style guidelines. To check code style:
-
-```bash
-# Run flake8
-flake8 awslabs/ecs_mcp_server
-
-# Run black in check mode
-black --check awslabs/ecs_mcp_server
-
-# Run isort in check mode
-isort --check-only awslabs/ecs_mcp_server
-```
-
-To automatically format the code:
-
-```bash
-# Format with black
-black awslabs/ecs_mcp_server
-
-# Sort imports with isort
-isort awslabs/ecs_mcp_server
-```
-
-### Building and Publishing
-
-To build the package:
-
-```bash
-cd src/ecs-mcp-server
-python -m build
-```
-
-The package can be published to PyPI using twine:
-
-```bash
-twine upload dist/*
-```
-=======
 - "Show me my ECS clusters"
 - "List all running tasks in my ECS cluster"
 - "Describe my ECS service configuration"
 - "Get information about my task definition"
->>>>>>> feature/ecs-mcp-server
 
 ## Requirements
 

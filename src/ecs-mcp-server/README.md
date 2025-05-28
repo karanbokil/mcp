@@ -1,8 +1,8 @@
-# AWS ECS MCP Server
+# Amazon ECS MCP Server
 
 [![PyPI version](https://img.shields.io/pypi/v/awslabs.ecs-mcp-server.svg)](https://pypi.org/project/awslabs.ecs-mcp-server/)
 
-A server for providing containerization guidance and deploying web applications to AWS ECS.
+An MCP server for containerizing applications, deploying applications to Amazon Elastic Container Service (ECS), troubleshooting ECS deployments, and managing ECS resources. This server enables AI assistants to help users with the full lifecycle of containerized applications on AWS.
 
 ## Features
 
@@ -18,6 +18,9 @@ A server for providing containerization guidance and deploying web applications 
 - **Resource Management**: List and explore ECS resources such as task definitions, services, clusters, and tasks
 - **ECR Integration**: View repositories and container images in Amazon ECR
 
+Customers can use the containerize_app tool to help them containerize their applications with best practices and deploy them to Amazon ECS. The create_ecs_infrastructure tool automates infrastructure deployment using CloudFormation, while get_deployment_status will return the status of deployments and provide the URL of the set up Application Load Balancer. When resources are no longer needed, the delete_ecs_infrastructure tool allows for easy cleanup and removal of all deployed components.
+
+Customers can list and view their ECS resources (clusters, services, tasks, task definitions) and access their ECR resources (container images) using the `ecs_resource_management` tool. When running into ECS deployment issues, they can use the `ecs_troubleshooting_tool` to diagnose and resolve common problems.
 
 ## Installation
 
@@ -27,6 +30,16 @@ uv pip install awslabs.ecs-mcp-server
 
 # Or install using pip
 pip install awslabs.ecs-mcp-server
+```
+
+You can also run the MCP server directly from a local clone of the GitHub repository:
+
+```bash
+# Clone the repository
+git clone https://github.com/awslabs/ecs-mcp-server.git
+
+# Run the server directly using uv
+uv --directory /path/to/ecs-mcp-server/src/ecs-mcp-server/awslabs/ecs_mcp_server run main.py
 ```
 
 ## Configuration
@@ -40,17 +53,24 @@ Add the ECS MCP Server to your MCP client configuration:
       "command": "uvx",
       "args": ["awslabs.ecs-mcp-server@latest"],
       "env": {
+<<<<<<< HEAD
         "AWS_PROFILE": "your-aws-profile",
         "AWS_REGION": "us-east-1",
         "FASTMCP_LOG_LEVEL": "ERROR",
         "ALLOW_WRITE": "false",
         "ALLOW_SENSITIVE_DATA": "false"
+=======
+        "AWS_PROFILE": "your-aws-profile", // Optional - uses your local AWS configuration if not specified
+        "AWS_REGION": "your-aws-region", // Optional - uses your local AWS configuration if not specified
+        "FASTMCP_LOG_LEVEL": "ERROR"
+>>>>>>> feature/ecs-mcp-server
       }
     }
   }
 }
 ```
 
+<<<<<<< HEAD
 ## Security Controls
 
 The ECS MCP Server includes security controls to prevent accidental changes to infrastructure and limit access to sensitive data:
@@ -77,55 +97,67 @@ export ALLOW_SENSITIVE_DATA=true
 
 # Disable access to sensitive data (default)
 export ALLOW_SENSITIVE_DATA=false
+=======
+If running from a local repository, configure the MCP client like this:
+
+```json
+{
+  "mcpServers": {
+    "awslabs.ecs-mcp-server": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/path/to/ecs-mcp-server/src/ecs-mcp-server/awslabs/ecs_mcp_server",
+        "run",
+        "main.py"
+      ],
+      "env": {
+        "AWS_PROFILE": "your-aws-profile",
+        "AWS_REGION": "your-aws-region",
+        "FASTMCP_LOG_LEVEL": "DEBUG"
+      }
+    }
+  }
+}
+>>>>>>> feature/ecs-mcp-server
 ```
 
 ## MCP Tools
 
-The ECS MCP Server provides the following tools for containerization and deployment:
+### Deployment Tools
 
-### 1. containerize_app
+These tools help you containerize applications and deploy them to Amazon ECS with proper infrastructure setup and monitoring.
 
-Provides guidance for containerizing a web application.
+- **containerize_app**: Generates Dockerfile and container configurations for web applications
+- **create_ecs_infrastructure**: Creates ECS infrastructure using CloudFormation, including:
+  - Application Load Balancer (ALB) with public-facing endpoints
+  - Network security groups with appropriate inbound/outbound rules
+  - IAM roles and policies with least-privilege permissions
+  - VPC configurations with public and private subnets (if needed)
+  - S3 Gateway endpoint associations for ECR image pulls
+  - ECS cluster with capacity provider settings
+  - Task definition with CPU/memory allocations and container configs
+  - Service configuration with desired count and auto-scaling policies
+  - Health check configuration and deployment circuit breakers
+- **get_deployment_status**: Gets the status of an ECS deployment and returns the ALB URL
+- **delete_ecs_infrastructure**: Deletes ECS infrastructure created by the ECS MCP Server
 
-**Parameters:**
-```json
-{
-  "app_path": {
-    "type": "string",
-    "description": "Path to the web application directory",
-    "required": true
-  },
-  "port": {
-    "type": "integer",
-    "description": "Port the application listens on",
-    "required": true
-  }
-}
-```
+### Troubleshooting Tool
 
-**Returns:**
-- Container port
-- Base image recommendation
-- Comprehensive containerization guidance including:
-  - Example Dockerfile content
-  - Example docker-compose.yml content
-  - Tool comparison (Docker vs Finch)
-  - Architecture recommendations (ARM64 vs AMD64)
-  - Validation guidance using Hadolint
-  - Troubleshooting tips
-  - Best practices
+The troubleshooting tool helps diagnose and resolve common ECS deployment issues stemming from infrastructure, service, task, and network configuration.
 
-**Example:**
-```python
-result = await containerize_app(
-    app_path="/path/to/app",
-    port=8000,
-    base_image="amazonlinux:2023"
-)
-```
+- **ecs_troubleshooting_tool**: Consolidated tool with the following actions:
+  - **get_ecs_troubleshooting_guidance**: Initial assessment and troubleshooting path recommendation
+  - **fetch_cloudformation_status**: Infrastructure-level diagnostics for CloudFormation stacks
+  - **fetch_service_events**: Service-level diagnostics for ECS services
+  - **fetch_task_failures**: Task-level diagnostics for ECS task failures
+  - **fetch_task_logs**: Application-level diagnostics through CloudWatch logs
+  - **detect_image_pull_failures**: Specialized tool for detecting container image pull failures
+  - **analyze_network_configuration**: Network-level diagnostics for ECS services
 
-### 2. create_ecs_infrastructure
+### Resource Management
 
+<<<<<<< HEAD
 Creates ECS infrastructure using CloudFormation. **Requires `ALLOW_WRITE=true`**.
 
 **Parameters:**
@@ -445,22 +477,41 @@ The ECS MCP Server is designed to recognize casual, conversational deployment re
 - "How many tasks are running?"
 - "Check task definitions"
 - "Show running containers in ECS"
+=======
+This tool provides read-only access to Amazon ECS resources to help you monitor and understand your deployment environment.
+
+- **ecs_resource_management**: List and describe ECS resources including:
+  - Clusters: List all clusters, describe specific cluster details
+  - Services: List services in a cluster, describe service configuration
+  - Tasks: List running or stopped tasks, describe task details and status
+  - Task Definitions: List task definition families, describe specific task definition revisions
+  - Container Instances: List container instances, describe instance health and capacity
+  - Capacity Providers: List and describe capacity providers associated with clusters
+  - ECR repositories and container images
+>>>>>>> feature/ecs-mcp-server
 
 ## Example Prompts
 
-- "Deploy this Flask application to AWS ECS"
+### Containerization and Deployment
+
 - "Containerize this Node.js app and deploy it to AWS"
+- "Deploy this Flask application to Amazon ECS"
 - "Create an ECS deployment for this web application with auto-scaling"
-- "Set up a containerized environment for this Django app on AWS ECS"
+- "Set up a containerized environment for this Django app on Amazon ECS"
 - "List all my ECS clusters"
 - "Show me details for my-cluster"
 
-## Development
+### Troubleshooting
 
-This section provides guidance for developers who want to contribute to the ECS MCP Server.
+- "Help me troubleshoot my ECS deployment"
+- "My ECS tasks keep failing, can you diagnose the issue?"
+- "The ALB health check is failing for my ECS service"
+- "Why can't I access my deployed application?"
+- "Check what's wrong with my CloudFormation stack"
 
-### Setting Up a Development Environment
+### Resource Management
 
+<<<<<<< HEAD
 1. **Clone the Repository**
 
    ```bash
@@ -591,6 +642,12 @@ The package can be published to PyPI using twine:
 ```bash
 twine upload dist/*
 ```
+=======
+- "Show me my ECS clusters"
+- "List all running tasks in my ECS cluster"
+- "Describe my ECS service configuration"
+- "Get information about my task definition"
+>>>>>>> feature/ecs-mcp-server
 
 ## Requirements
 

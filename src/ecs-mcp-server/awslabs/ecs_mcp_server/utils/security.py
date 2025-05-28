@@ -7,7 +7,7 @@ import logging
 import os.path
 import re
 import json
-from typing import Any, Dict, Callable, Awaitable, Literal, Union
+from typing import Any, Dict, Callable, Awaitable, Literal, Union, List, Optional, Set
 
 logger = logging.getLogger(__name__)
 
@@ -167,9 +167,114 @@ def check_permission(config: Dict[str, Any], permission_type: PermissionType) ->
     return True
 
 
+class ResponseSanitizer:
+    """Sanitizes responses to prevent sensitive information leakage."""
+    
+    # Patterns for sensitive data
+    PATTERNS = {
+        'aws_access_key': r'(?<![A-Z0-9])[A-Z0-9]{20}(?![A-Z0-9])',
+        'aws_secret_key': r'(?<![A-Za-z0-9/+=])[A-Za-z0-9/+=]{40}(?![A-Za-z0-9/+=])',
+        'password': r'(?i)password\s*[=:]\s*[^\s]+',
+        'private_key': r'-----BEGIN (?:RSA|DSA|EC|OPENSSH) PRIVATE KEY-----',
+        'ip_address': r'\b(?:\d{1,3}\.){3}\d{1,3}\b',
+        'email': r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
+        'aws_account_id': r'\b\d{12}\b',
+        'ssn': r'\b\d{3}-\d{2}-\d{4}\b',
+        'credit_card': r'\b(?:\d{4}[- ]?){3}\d{4}\b',
+        'phone': r'\b(?:\+\d{1,2}\s)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b',
+    }
+    
+    # Fields that are allowed in responses
+    ALLOWED_FIELDS: Set[str] = {
+        'status', 'message', 'alb_url', 'service_name', 'cluster_name', 
+        'task_count', 'desired_count', 'events', 'resources', 'guidance',
+        'error', 'warnings', 'templates', 'deployment_status', 'logs',
+        'infrastructure', 'containerization', 'app_name', 'app_path',
+        'ecr_repository', 'ecs_cluster', 'ecs_service', 'ecs_task_definition',
+        'cloudformation_stack', 'cloudformation_status', 'cloudwatch_logs',
+        'task_failures', 'service_events', 'image_pull_failures'
+    }
+    
+    @classmethod
+    def sanitize(cls, response: Any) -> Any:
+        """
+        Sanitizes a response to remove sensitive information.
+        
+        Args:
+            response: The response to sanitize
+            
+        Returns:
+            Any: The sanitized response
+        """
+        if isinstance(response, dict):
+            return cls._sanitize_dict(response)
+        elif isinstance(response, list):
+            return [cls.sanitize(item) for item in response]
+        elif isinstance(response, str):
+            return cls._sanitize_string(response)
+        else:
+            return response
+    
+    @classmethod
+    def _sanitize_dict(cls, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Sanitizes a dictionary.
+        
+        Args:
+            data: The dictionary to sanitize
+            
+        Returns:
+            Dict[str, Any]: The sanitized dictionary
+        """
+        result = {}
+        for key, value in data.items():
+            # Include all keys but sanitize values
+            # This is more permissive than the original implementation
+            # which only included allowed fields
+            result[key] = cls.sanitize(value)
+        return result
+    
+    @classmethod
+    def _sanitize_string(cls, text: str) -> str:
+        """
+        Sanitizes a string to remove sensitive information.
+        
+        Args:
+            text: The string to sanitize
+            
+        Returns:
+            str: The sanitized string
+        """
+        for pattern_name, pattern in cls.PATTERNS.items():
+            text = re.sub(pattern, f"[REDACTED {pattern_name.upper()}]", text)
+        return text
+    
+    @classmethod
+    def add_public_endpoint_warning(cls, response: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Adds warnings for public endpoints in responses.
+        
+        Args:
+            response: The response to modify
+            
+        Returns:
+            Dict[str, Any]: The modified response
+        """
+        if isinstance(response, dict):
+            # Check for ALB URL
+            if 'alb_url' in response:
+                response['warnings'] = response.get('warnings', [])
+                response['warnings'].append(
+                    "WARNING: This ALB URL is publicly accessible. "
+                    "Ensure appropriate security measures are in place before sharing sensitive data."
+                )
+        
+        return response
+
+
 def secure_tool(config: Dict[str, Any], permission_type: PermissionType, tool_name: str = None):
     """
-    Decorator to secure a tool function with permission checks.
+    Decorator to secure a tool function with permission checks and response sanitization.
     
     Args:
         config: The MCP server configuration
@@ -177,7 +282,7 @@ def secure_tool(config: Dict[str, Any], permission_type: PermissionType, tool_na
         tool_name: Optional name of the tool (for logging purposes)
         
     Returns:
-        Decorator function that wraps the tool with security checks
+        Decorator function that wraps the tool with security checks and response sanitization
     """
     def decorator(func: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
         @functools.wraps(func)
@@ -186,7 +291,12 @@ def secure_tool(config: Dict[str, Any], permission_type: PermissionType, tool_na
                 # Validate security permissions
                 check_permission(config, permission_type)
                 # Call the original function if validation passes
-                return await func(*args, **kwargs)
+                response = await func(*args, **kwargs)
+                # Sanitize the response
+                sanitized_response = ResponseSanitizer.sanitize(response)
+                # Add warnings for public endpoints
+                sanitized_response = ResponseSanitizer.add_public_endpoint_warning(sanitized_response)
+                return sanitized_response
             except SecurityError as e:
                 # Get tool name for logging
                 log_tool_name = tool_name or func.__name__

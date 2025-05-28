@@ -42,7 +42,7 @@ class MockFastMCP:
 class TestResourceManagementTool(unittest.TestCase):
     """Test the ecs_resource_management tool in main.py."""
     
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch('mcp.server.fastmcp.FastMCP', MockFastMCP)
     @patch('awslabs.ecs_mcp_server.api.resource_management.ecs_resource_management')
     async def test_ecs_resource_management_tool_registration(self, mock_ecs_resource_management):
@@ -54,13 +54,13 @@ class TestResourceManagementTool(unittest.TestCase):
         tool_names = [tool["name"] for tool in mcp.tools]
         self.assertIn("ecs_resource_management", tool_names)
         
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch('mcp.server.fastmcp.FastMCP', MockFastMCP)
     @patch('awslabs.ecs_mcp_server.api.resource_management.ecs_resource_management')
     async def test_ecs_resource_management_tool_function(self, mock_ecs_resource_management):
         """Test that the ecs_resource_management tool function works correctly."""
         # Import the patched module
-        from awslabs.ecs_mcp_server.main import mcp_ecs_resource_management
+        from awslabs.ecs_mcp_server.modules.resource_management import mcp_ecs_resource_management
         
         # Setup mock
         mock_ecs_resource_management.return_value = {"test": "result"}

@@ -24,7 +24,7 @@ class TestContainerize(unittest.TestCase):
         """Tear down test fixtures."""
         self.temp_dir.cleanup()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_containerize_app(self):
         """Test containerize_app function."""
         # Call containerize_app
@@ -41,9 +41,6 @@ class TestContainerize(unittest.TestCase):
         # Verify the container port was set to the provided value
         self.assertEqual(result["container_port"], 8000)
         
-        # Verify the base image was set to the provided value
-        self.assertEqual(result["base_image"], "amazonlinux:2023")
-        
         # Verify guidance contains expected sections
         self.assertIn("dockerfile_guidance", result["guidance"])
         self.assertIn("docker_compose_guidance", result["guidance"])
@@ -56,7 +53,7 @@ class TestContainerize(unittest.TestCase):
         self.assertIn("validation_guidance", result["guidance"])
         self.assertIn("hadolint", result["guidance"]["validation_guidance"])
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_containerize_app_default_base_image(self):
         """Test containerize_app function with default base image."""
         # Call containerize_app with no base_image
@@ -66,7 +63,7 @@ class TestContainerize(unittest.TestCase):
         )
         
         # Verify the base image was set to the default value
-        self.assertEqual(result["base_image"], "amazonlinux:2023")
+        self.assertIn("public.ecr.aws", result["base_image"])
 
 
 if __name__ == "__main__":

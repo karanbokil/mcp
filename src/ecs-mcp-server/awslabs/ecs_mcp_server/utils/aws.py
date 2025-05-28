@@ -7,6 +7,7 @@ import os
 from typing import Any, Dict, List
 
 import boto3
+from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +17,7 @@ async def get_aws_client(service_name: str):
     region = os.environ.get("AWS_REGION", "us-east-1")
     profile = os.environ.get("AWS_PROFILE", "default")
     logger.info(f"Using AWS profile: {profile} and region: {region}")
-    session = boto3.Session(profile_name=profile, region_name=region)
-    return session.client(service_name, region_name=region)
+    return boto3.client(service_name, region_name=region)
 
 
 async def get_aws_account_id() -> str:
@@ -85,14 +85,19 @@ async def create_ecr_repository(repository_name: str) -> Dict[str, Any]:
         # Check if repository exists
         response = ecr.describe_repositories(repositoryNames=[repository_name])
         return response["repositories"][0]
-    except ecr.exceptions.RepositoryNotFoundException:
-        # Create repository if it doesn't exist
-        response = ecr.create_repository(
-            repositoryName=repository_name,
-            imageScanningConfiguration={"scanOnPush": True},
-            encryptionConfiguration={"encryptionType": "AES256"},
-        )
-        return response["repository"]
+    except ClientError as e:
+        # Check if the error is RepositoryNotFoundException
+        if e.response['Error']['Code'] == 'RepositoryNotFoundException':
+            # Create repository if it doesn't exist
+            response = ecr.create_repository(
+                repositoryName=repository_name,
+                imageScanningConfiguration={"scanOnPush": True},
+                encryptionConfiguration={"encryptionType": "AES256"},
+            )
+            return response["repository"]
+        else:
+            # Re-raise other ClientErrors
+            raise
 
 
 async def get_ecr_login_password() -> str:

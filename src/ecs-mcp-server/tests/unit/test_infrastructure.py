@@ -18,7 +18,7 @@ from awslabs.ecs_mcp_server.api.infrastructure import (
 class TestInfrastructure(unittest.TestCase):
     """Unit tests for infrastructure module."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("awslabs.ecs_mcp_server.api.infrastructure.get_aws_client")
     @patch("awslabs.ecs_mcp_server.api.infrastructure.get_aws_account_id")
     @patch("awslabs.ecs_mcp_server.api.infrastructure.get_default_vpc_and_subnets")
@@ -41,12 +41,12 @@ class TestInfrastructure(unittest.TestCase):
         result = await create_ecs_infrastructure(
             app_name="test-app",
             image_uri="test-image",
+            template_content="{}",  # Add template_content parameter
             cpu=256,
             memory=512,
             desired_count=1,
             container_port=80,
             health_check_path="/",
-            force_deploy=True,
         )
         
         # Verify the function called CloudFormation with the correct parameters

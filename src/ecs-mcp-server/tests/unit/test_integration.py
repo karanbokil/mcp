@@ -16,7 +16,7 @@ from awslabs.ecs_mcp_server.api.delete import delete_infrastructure
 class TestIntegration(unittest.TestCase):
     """Integration tests for ECS MCP Server."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_containerize_and_deploy_workflow(self):
         """Test the containerize and deploy workflow."""
         # This is a placeholder for an integration test that would test the full workflow

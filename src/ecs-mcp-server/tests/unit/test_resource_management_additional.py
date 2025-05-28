@@ -22,7 +22,7 @@ from awslabs.ecs_mcp_server.api.resource_management import (
 class TestContainerInstanceOperations(unittest.TestCase):
     """Tests for container instance operations."""
     
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("awslabs.ecs_mcp_server.api.resource_management.list_container_instances")
     async def test_resource_management_list_container_instances(self, mock_list_container_instances):
         """Test routing to list_container_instances handler."""
@@ -41,7 +41,7 @@ class TestContainerInstanceOperations(unittest.TestCase):
         # Verify result was returned correctly
         self.assertEqual(result, {"container_instances": [], "count": 0})
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
     async def test_list_container_instances(self, mock_get_client):
         """Test list_container_instances function."""
@@ -80,7 +80,7 @@ class TestContainerInstanceOperations(unittest.TestCase):
         self.assertEqual(len(result["container_instances"]), 1)
         self.assertEqual(result["count"], 1)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
     async def test_list_container_instances_missing_cluster(self, mock_get_client):
         """Test list_container_instances function with missing cluster."""
@@ -95,7 +95,7 @@ class TestContainerInstanceOperations(unittest.TestCase):
         self.assertEqual(result["container_instances"], [])
         self.assertEqual(result["count"], 0)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
     async def test_list_container_instances_empty(self, mock_get_client):
         """Test list_container_instances function with empty result."""
@@ -121,7 +121,7 @@ class TestContainerInstanceOperations(unittest.TestCase):
         self.assertEqual(len(result["container_instances"]), 0)
         self.assertEqual(result["count"], 0)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
     async def test_list_container_instances_error(self, mock_get_client):
         """Test list_container_instances function with error."""
@@ -144,7 +144,7 @@ class TestContainerInstanceOperations(unittest.TestCase):
         self.assertEqual(result["container_instances"], [])
         self.assertEqual(result["count"], 0)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
     async def test_describe_container_instance(self, mock_get_client):
         """Test describe_container_instance function."""
@@ -197,7 +197,7 @@ class TestContainerInstanceOperations(unittest.TestCase):
         self.assertEqual(result["ec2_instance"]["InstanceType"], "t2.micro")
         self.assertEqual(result["running_task_count"], 2)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
     async def test_describe_container_instance_not_found(self, mock_get_client):
         """Test describe_container_instance function with non-existent instance."""
@@ -219,7 +219,7 @@ class TestContainerInstanceOperations(unittest.TestCase):
         self.assertIn("error", result)
         self.assertEqual(result["container_instance"], None)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
     async def test_describe_container_instance_error(self, mock_get_client):
         """Test describe_container_instance function with error."""
@@ -245,7 +245,7 @@ class TestContainerInstanceOperations(unittest.TestCase):
 class TestCapacityProviderOperations(unittest.TestCase):
     """Tests for capacity provider operations."""
     
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("awslabs.ecs_mcp_server.api.resource_management.list_capacity_providers")
     async def test_resource_management_list_capacity_providers(self, mock_list_capacity_providers):
         """Test routing to list_capacity_providers handler."""
@@ -261,7 +261,7 @@ class TestCapacityProviderOperations(unittest.TestCase):
         # Verify result was returned correctly
         self.assertEqual(result, {"capacity_providers": [], "count": 0})
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
     async def test_list_capacity_providers(self, mock_get_client):
         """Test list_capacity_providers function."""
@@ -299,7 +299,7 @@ class TestCapacityProviderOperations(unittest.TestCase):
         self.assertEqual(result["count"], 2)
         self.assertEqual(result["next_token"], "next-token")
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
     async def test_list_capacity_providers_error(self, mock_get_client):
         """Test list_capacity_providers function with error."""
@@ -322,7 +322,7 @@ class TestCapacityProviderOperations(unittest.TestCase):
         self.assertEqual(result["capacity_providers"], [])
         self.assertEqual(result["count"], 0)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
     async def test_describe_capacity_provider(self, mock_get_client):
         """Test describe_capacity_provider function."""
@@ -380,7 +380,7 @@ class TestCapacityProviderOperations(unittest.TestCase):
         self.assertEqual(len(result["clusters_using"]), 1)
         self.assertEqual(result["clusters_using"][0]["cluster_name"], "cluster-1")
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
     async def test_describe_capacity_provider_not_found(self, mock_get_client):
         """Test describe_capacity_provider function with non-existent provider."""
@@ -402,7 +402,7 @@ class TestCapacityProviderOperations(unittest.TestCase):
         self.assertIn("error", result)
         self.assertEqual(result["capacity_provider"], None)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
     async def test_describe_capacity_provider_error(self, mock_get_client):
         """Test describe_capacity_provider function with error."""

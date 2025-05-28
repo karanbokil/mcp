@@ -229,12 +229,15 @@ async def list_services(filters: Dict[str, Any]) -> Dict[str, Any]:
             clusters = clusters_response.get("clusterArns", [])
         
         for cluster in clusters:
+            # Get services for this cluster
             service_arns = []
             paginator = ecs_client.get_paginator("list_services")
             
+            # Use the paginator to get all services
             for page in paginator.paginate(cluster=cluster):
                 service_arns.extend(page.get("serviceArns", []))
             
+            # If we found services, describe them
             if service_arns:
                 # Describe services in batches of 10 (API limit)
                 for i in range(0, len(service_arns), 10):

@@ -39,15 +39,33 @@ async def detect_image_pull_failures(app_name: str) -> Dict[str, Any]:
         }
         
         # Find related task definitions
-        task_definitions = await get_task_definitions(app_name)
-        
+        try:
+            task_definitions = await get_task_definitions(app_name)
+        except Exception as e:
+            logger.exception("Error getting task definitions: %s", str(e))
+            return {
+                "status": "error",
+                "error": str(e),
+                "assessment": f"Error checking for image pull failures: {str(e)}",
+                "image_issues": []
+            }
+            
         if not task_definitions:
             response["assessment"] = f"No task definitions found related to {app_name}"
             response["recommendations"].append("Check if your task definition is named differently")
             return response
             
         # Check container images
-        image_results = await validate_container_images(task_definitions)
+        try:
+            image_results = await validate_container_images(task_definitions)
+        except Exception as e:
+            logger.exception("Error validating container images: %s", str(e))
+            return {
+                "status": "error",
+                "error": str(e),
+                "assessment": f"Error validating container images: {str(e)}",
+                "image_issues": []
+            }
         
         # Analyze results
         failed_images = [result for result in image_results if result['exists'] != 'true']

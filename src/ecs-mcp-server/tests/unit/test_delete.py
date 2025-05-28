@@ -18,7 +18,7 @@ from awslabs.ecs_mcp_server.api.delete import delete_infrastructure
 class TestDeleteInfrastructure(unittest.TestCase):
     """Tests for the delete_infrastructure function."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch('awslabs.ecs_mcp_server.api.delete.get_aws_client')
     async def test_delete_infrastructure_no_stacks(self, mock_get_aws_client):
         """Test deleting infrastructure when no stacks exist."""
@@ -46,7 +46,7 @@ class TestDeleteInfrastructure(unittest.TestCase):
         mock_cf_client.list_stacks.assert_called_once()
         mock_cf_client.delete_stack.assert_not_called()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch('awslabs.ecs_mcp_server.api.delete.get_aws_client')
     @patch('builtins.open', new_callable=mock_open, read_data='{"test": "template"}')
     async def test_delete_infrastructure_with_stacks(self, mock_file, mock_get_aws_client):
@@ -89,7 +89,7 @@ class TestDeleteInfrastructure(unittest.TestCase):
         mock_cf_client.delete_stack.assert_any_call(StackName='test-app-ecs-infrastructure')
         mock_cf_client.delete_stack.assert_any_call(StackName='test-app-ecr-infrastructure')
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch('awslabs.ecs_mcp_server.api.delete.get_aws_client')
     @patch('builtins.open', new_callable=mock_open, read_data='{"test": "template"}')
     async def test_delete_infrastructure_template_mismatch(self, mock_file, mock_get_aws_client):
@@ -132,7 +132,7 @@ class TestDeleteInfrastructure(unittest.TestCase):
         mock_cf_client.list_stacks.assert_called_once()
         mock_cf_client.delete_stack.assert_not_called()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch('awslabs.ecs_mcp_server.api.delete.get_aws_client')
     @patch('builtins.open', new_callable=mock_open, read_data='{"test": "template"}')
     async def test_delete_infrastructure_stack_in_progress(self, mock_file, mock_get_aws_client):
@@ -175,7 +175,7 @@ class TestDeleteInfrastructure(unittest.TestCase):
         mock_cf_client.list_stacks.assert_called_once()
         mock_cf_client.delete_stack.assert_not_called()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch('awslabs.ecs_mcp_server.api.delete.get_aws_client')
     async def test_delete_infrastructure_list_stacks_error(self, mock_get_aws_client):
         """Test error handling when listing stacks fails."""
@@ -201,7 +201,7 @@ class TestDeleteInfrastructure(unittest.TestCase):
         mock_cf_client.list_stacks.assert_called_once()
         mock_cf_client.delete_stack.assert_not_called()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch('awslabs.ecs_mcp_server.api.delete.get_aws_client')
     @patch('builtins.open', new_callable=mock_open, read_data='{"test": "template"}')
     async def test_delete_infrastructure_delete_error(self, mock_file, mock_get_aws_client):

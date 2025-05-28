@@ -32,7 +32,6 @@ async def containerize_app(
     """
     logger.info(f"Generating containerization guidance for web application at {app_path}")
 
-    # Use amazonlinux:2023-minimal as default base image if not specified
     base_image = "Slim Docker Library Images from public.ecr.aws (eg public.ecr.aws/docker/library/node:20.19.2-slim)"
 
     # Create guidance for building and running the container

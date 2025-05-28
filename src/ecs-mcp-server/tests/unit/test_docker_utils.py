@@ -31,7 +31,7 @@ class TestDockerUtils(unittest.TestCase):
         with open(full_path, "w") as f:
             f.write(content)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("subprocess.run")
     @patch("awslabs.ecs_mcp_server.utils.docker.get_aws_account_id")
     async def test_build_and_push_image(self, mock_get_account_id, mock_run):
@@ -58,7 +58,7 @@ class TestDockerUtils(unittest.TestCase):
         # Verify the tag was returned
         self.assertEqual(tag, "latest")
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("subprocess.run")
     @patch("awslabs.ecs_mcp_server.utils.docker.get_aws_account_id")
     async def test_build_and_push_image_no_dockerfile(self, mock_get_account_id, mock_run):

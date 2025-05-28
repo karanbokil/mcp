@@ -74,3 +74,10 @@ ignore = []
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = "test_*.py"
+markers = [
+    "asyncio",
+    "anyio",
+]
+
+[tool.coverage.run]
+concurrency = ["gevent"]

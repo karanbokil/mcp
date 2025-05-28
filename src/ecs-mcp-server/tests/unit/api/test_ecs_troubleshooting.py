@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import Mock, patch
 
+
 from awslabs.ecs_mcp_server.api.ecs_troubleshooting import (
     ecs_troubleshooting_tool,
     _validate_action,
@@ -95,14 +96,15 @@ class TestEcsTroubleshootingTool:
         expected = {"app_name": "test-app"}
         assert result == expected
 
-    def test_ecs_troubleshooting_tool_success(self):
+    @pytest.mark.anyio
+    async def test_ecs_troubleshooting_tool_success(self):
         mock_guidance = Mock(return_value={"status": "success", "guidance": "test guidance"})
         
         original_func = ACTIONS["get_ecs_troubleshooting_guidance"]["func"]
         ACTIONS["get_ecs_troubleshooting_guidance"]["func"] = mock_guidance
         
         try:
-            result = ecs_troubleshooting_tool(
+            result = await ecs_troubleshooting_tool(
                 app_name="test-app",
                 action="get_ecs_troubleshooting_guidance",
                 parameters={"symptoms_description": "ALB issues"}
@@ -116,14 +118,15 @@ class TestEcsTroubleshootingTool:
         finally:
             ACTIONS["get_ecs_troubleshooting_guidance"]["func"] = original_func
 
-    def test_ecs_troubleshooting_tool_cloudformation(self):
+    @pytest.mark.anyio
+    async def test_ecs_troubleshooting_tool_cloudformation(self):
         mock_cf_status = Mock(return_value={"status": "success", "stack_status": "CREATE_COMPLETE"})
         
         original_func = ACTIONS["fetch_cloudformation_status"]["func"]
         ACTIONS["fetch_cloudformation_status"]["func"] = mock_cf_status
         
         try:
-            result = ecs_troubleshooting_tool(
+            result = await ecs_troubleshooting_tool(
                 app_name="test-app",
                 action="fetch_cloudformation_status",
                 parameters={"stack_id": "test-stack"}
@@ -134,8 +137,9 @@ class TestEcsTroubleshootingTool:
         finally:
             ACTIONS["fetch_cloudformation_status"]["func"] = original_func
 
-    def test_ecs_troubleshooting_tool_invalid_action(self):
-        result = ecs_troubleshooting_tool(
+    @pytest.mark.anyio
+    async def test_ecs_troubleshooting_tool_invalid_action(self):
+        result = await ecs_troubleshooting_tool(
             app_name="test-app",
             action="invalid_action",
             parameters={}
@@ -144,8 +148,9 @@ class TestEcsTroubleshootingTool:
         assert result["status"] == "error"
         assert "Invalid action" in result["error"]
 
-    def test_ecs_troubleshooting_tool_missing_parameters(self):
-        result = ecs_troubleshooting_tool(
+    @pytest.mark.anyio
+    async def test_ecs_troubleshooting_tool_missing_parameters(self):
+        result = await ecs_troubleshooting_tool(
             app_name=None,
             action="get_ecs_troubleshooting_guidance",
             parameters={}
@@ -154,14 +159,15 @@ class TestEcsTroubleshootingTool:
         assert result["status"] == "error"
         assert "app_name is required" in result["error"]
 
-    def test_ecs_troubleshooting_tool_function_exception(self):
+    @pytest.mark.anyio
+    async def test_ecs_troubleshooting_tool_function_exception(self):
         mock_guidance = Mock(side_effect=Exception("Test exception"))
         
         original_func = ACTIONS["get_ecs_troubleshooting_guidance"]["func"]
         ACTIONS["get_ecs_troubleshooting_guidance"]["func"] = mock_guidance
         
         try:
-            result = ecs_troubleshooting_tool(
+            result = await ecs_troubleshooting_tool(
                 app_name="test-app",
                 action="get_ecs_troubleshooting_guidance",
                 parameters={}
@@ -172,14 +178,15 @@ class TestEcsTroubleshootingTool:
         finally:
             ACTIONS["get_ecs_troubleshooting_guidance"]["func"] = original_func
 
-    def test_ecs_troubleshooting_tool_none_parameters(self):
+    @pytest.mark.anyio
+    async def test_ecs_troubleshooting_tool_none_parameters(self):
         mock_guidance = Mock(return_value={"status": "success"})
         
         original_func = ACTIONS["get_ecs_troubleshooting_guidance"]["func"]
         ACTIONS["get_ecs_troubleshooting_guidance"]["func"] = mock_guidance
         
         try:
-            result = ecs_troubleshooting_tool(
+            result = await ecs_troubleshooting_tool(
                 app_name="test-app",
                 action="get_ecs_troubleshooting_guidance",
                 parameters=None

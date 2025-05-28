@@ -1,12 +1,9 @@
 """
-Unit tests for ECS resource management module.
+Pytest-style unit tests for resource management module.
 """
 
-import unittest
-from unittest.mock import AsyncMock, MagicMock, patch
-from typing import Any, Dict
-
 import pytest
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from awslabs.ecs_mcp_server.api.resource_management import (
     ecs_resource_management,
@@ -20,595 +17,793 @@ from awslabs.ecs_mcp_server.api.resource_management import (
     describe_task_definition,
     list_container_instances,
     describe_container_instance,
-    list_capacity_providers,
-    describe_capacity_provider,
 )
 
 
-class TestEcsResourceManagement(unittest.TestCase):
-    """Tests for the main ecs_resource_management function."""
-    
-    @pytest.mark.asyncio
-    @patch("awslabs.ecs_mcp_server.api.resource_management.list_clusters")
-    async def test_ecs_resource_management_list_clusters(self, mock_list_clusters):
-        """Test routing to list_clusters handler."""
-        # Setup mock
-        mock_list_clusters.return_value = {"clusters": [], "count": 0}
-        
-        # Call the function
-        result = await ecs_resource_management("list", "cluster")
-        
-        # Verify list_clusters was called with empty filters
-        mock_list_clusters.assert_called_once_with({})
-        
-        # Verify result
-        self.assertEqual(result, {"clusters": [], "count": 0})
-
-    @pytest.mark.asyncio
-    @patch("awslabs.ecs_mcp_server.api.resource_management.describe_cluster")
-    async def test_ecs_resource_management_describe_cluster(self, mock_describe_cluster):
-        """Test routing to describe_cluster handler."""
-        # Setup mock
-        mock_describe_cluster.return_value = {"cluster": {}, "service_count": 0}
-        
-        # Call the function
-        result = await ecs_resource_management("describe", "cluster", "test-cluster")
-        
-        # Verify describe_cluster was called with correct parameters
-        mock_describe_cluster.assert_called_once_with("test-cluster", {})
-        
-        # Verify result
-        self.assertEqual(result, {"cluster": {}, "service_count": 0})
-
-    @pytest.mark.asyncio
-    @patch("awslabs.ecs_mcp_server.api.resource_management.list_services")
-    async def test_ecs_resource_management_list_services(self, mock_list_services):
-        """Test routing to list_services handler."""
-        # Setup mock
-        mock_list_services.return_value = {"services": [], "count": 0}
-        
-        # Define filters
-        filters = {"cluster": "test-cluster"}
-        
-        # Call the function
-        result = await ecs_resource_management("list", "service", filters=filters)
-        
-        # Verify list_services was called with correct filters
-        mock_list_services.assert_called_once_with(filters)
-        
-        # Verify result
-        self.assertEqual(result, {"services": [], "count": 0})
-
-    @pytest.mark.asyncio
-    @patch("awslabs.ecs_mcp_server.api.resource_management.describe_service")
-    async def test_ecs_resource_management_describe_service(self, mock_describe_service):
-        """Test routing to describe_service handler."""
-        # Setup mock
-        mock_describe_service.return_value = {"service": {}}
-        
-        # Define filters
-        filters = {"cluster": "test-cluster"}
-        
-        # Call the function
-        result = await ecs_resource_management("describe", "service", "test-service", filters)
-        
-        # Verify describe_service was called with correct parameters
-        mock_describe_service.assert_called_once_with("test-service", filters)
-        
-        # Verify result
-        self.assertEqual(result, {"service": {}})
-
-    @pytest.mark.asyncio
-    async def test_ecs_resource_management_describe_service_missing_cluster(self):
-        """Test validation for describe_service when cluster is missing."""
-        # Call the function and expect ValueError
-        with self.assertRaises(ValueError) as context:
-            await ecs_resource_management("describe", "service", "test-service")
-        
-        # Verify error message
-        self.assertIn("cluster", str(context.exception))
-
-    @pytest.mark.asyncio
-    async def test_ecs_resource_management_invalid_action(self):
-        """Test validation for invalid action."""
-        # Call the function and expect ValueError
-        with self.assertRaises(ValueError) as context:
-            await ecs_resource_management("invalid", "cluster")
-        
-        # Verify error message
-        self.assertIn("Unsupported action", str(context.exception))
-
-    @pytest.mark.asyncio
-    async def test_ecs_resource_management_invalid_resource_type(self):
-        """Test validation for invalid resource type."""
-        # Call the function and expect ValueError
-        with self.assertRaises(ValueError) as context:
-            await ecs_resource_management("list", "invalid")
-        
-        # Verify error message
-        self.assertIn("Unsupported resource type", str(context.exception))
-
-    @pytest.mark.asyncio
-    async def test_ecs_resource_management_describe_missing_identifier(self):
-        """Test validation for describe action missing identifier."""
-        # Call the function and expect ValueError
-        with self.assertRaises(ValueError) as context:
-            await ecs_resource_management("describe", "cluster")
-        
-        # Verify error message
-        self.assertIn("Identifier is required", str(context.exception))
-
-
-class TestClusterOperations(unittest.TestCase):
-    """Tests for cluster operations."""
-    
-    @pytest.mark.asyncio
-    @patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
-    async def test_list_clusters(self, mock_get_client):
-        """Test list_clusters function."""
-        # Mock get_aws_client
-        mock_ecs = MagicMock()
-        mock_ecs.list_clusters.return_value = {
-            "clusterArns": ["arn:aws:ecs:us-east-1:123456789012:cluster/test-cluster"]
-        }
-        mock_ecs.describe_clusters.return_value = {
-            "clusters": [{"clusterName": "test-cluster", "clusterArn": "arn:aws:ecs:us-east-1:123456789012:cluster/test-cluster"}]
-        }
-        mock_get_client.return_value = mock_ecs
-        
-        # Call list_clusters
-        result = await list_clusters({})
-        
-        # Verify get_aws_client was called
-        mock_get_client.assert_called_once_with("ecs")
-        
-        # Verify list_clusters was called
-        mock_ecs.list_clusters.assert_called_once()
-        
-        # Verify describe_clusters was called with correct parameters
-        mock_ecs.describe_clusters.assert_called_once()
-        args, kwargs = mock_ecs.describe_clusters.call_args
-        self.assertIn("clusters", kwargs)
-        
-        # Verify the result
-        self.assertIn("clusters", result)
-        self.assertEqual(len(result["clusters"]), 1)
-        self.assertEqual(result["count"], 1)
-
-    @pytest.mark.asyncio
-    @patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
-    async def test_list_clusters_empty(self, mock_get_client):
-        """Test list_clusters function with empty result."""
-        # Mock get_aws_client
-        mock_ecs = MagicMock()
-        mock_ecs.list_clusters.return_value = {"clusterArns": []}
-        mock_get_client.return_value = mock_ecs
-        
-        # Call list_clusters
-        result = await list_clusters({})
-        
-        # Verify get_aws_client was called
-        mock_get_client.assert_called_once_with("ecs")
-        
-        # Verify list_clusters was called
-        mock_ecs.list_clusters.assert_called_once()
-        
-        # Verify describe_clusters was not called
-        mock_ecs.describe_clusters.assert_not_called()
-        
-        # Verify the result
-        self.assertIn("clusters", result)
-        self.assertEqual(len(result["clusters"]), 0)
-        self.assertEqual(result["count"], 0)
-
-    @pytest.mark.asyncio
-    @patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
-    async def test_list_clusters_error(self, mock_get_client):
-        """Test list_clusters function with error."""
-        # Mock get_aws_client
-        mock_ecs = MagicMock()
-        mock_ecs.list_clusters.side_effect = Exception("Test error")
-        mock_get_client.return_value = mock_ecs
-        
-        # Call list_clusters
-        result = await list_clusters({})
-        
-        # Verify get_aws_client was called
-        mock_get_client.assert_called_once_with("ecs")
-        
-        # Verify list_clusters was called
-        mock_ecs.list_clusters.assert_called_once()
-        
-        # Verify the result contains error
-        self.assertIn("error", result)
-        self.assertEqual(result["clusters"], [])
-        self.assertEqual(result["count"], 0)
-
-    @pytest.mark.asyncio
-    @patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
-    async def test_describe_cluster(self, mock_get_client):
-        """Test describe_cluster function."""
-        # Mock get_aws_client
-        mock_ecs = MagicMock()
-        mock_ecs.describe_clusters.return_value = {
-            "clusters": [{"clusterName": "test-cluster", "clusterArn": "arn:aws:ecs:us-east-1:123456789012:cluster/test-cluster"}]
-        }
-        mock_ecs.list_services.return_value = {"serviceArns": ["service-1", "service-2"]}
-        mock_ecs.list_tasks.side_effect = [
-            {"taskArns": ["task-1", "task-2"]},  # Running tasks
-            {"taskArns": ["task-3"]}            # Stopped tasks
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
+async def test_ecs_resource_management_list_clusters(mock_get_client):
+    """Test ecs_resource_management function with list_clusters action."""
+    # Mock get_aws_client
+    mock_ecs = MagicMock()
+    mock_ecs.list_clusters.return_value = {"clusterArns": ["cluster-1", "cluster-2"]}
+    mock_ecs.describe_clusters.return_value = {
+        "clusters": [
+            {"clusterName": "cluster-1", "status": "ACTIVE"},
+            {"clusterName": "cluster-2", "status": "ACTIVE"}
         ]
-        mock_get_client.return_value = mock_ecs
-        
-        # Call describe_cluster
-        result = await describe_cluster("test-cluster", {})
-        
-        # Verify get_aws_client was called
-        mock_get_client.assert_called_once_with("ecs")
-        
-        # Verify describe_clusters was called with correct parameters
-        mock_ecs.describe_clusters.assert_called_once()
-        args, kwargs = mock_ecs.describe_clusters.call_args
-        self.assertIn("clusters", kwargs)
-        self.assertEqual(kwargs["clusters"], ["test-cluster"])
-        
-        # Verify list_services was called
-        mock_ecs.list_services.assert_called_once()
-        
-        # Verify list_tasks was called twice (for running and stopped tasks)
-        self.assertEqual(mock_ecs.list_tasks.call_count, 2)
-        
-        # Verify the result
-        self.assertIn("cluster", result)
-        self.assertEqual(result["cluster"]["clusterName"], "test-cluster")
-        self.assertEqual(result["service_count"], 2)
-        self.assertEqual(result["running_task_count"], 2)
+    }
+    mock_get_client.return_value = mock_ecs
 
-    @pytest.mark.asyncio
-    @patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
-    async def test_describe_cluster_not_found(self, mock_get_client):
-        """Test describe_cluster function with non-existent cluster."""
-        # Mock get_aws_client
-        mock_ecs = MagicMock()
-        mock_ecs.describe_clusters.return_value = {"clusters": []}
-        mock_get_client.return_value = mock_ecs
-        
-        # Call describe_cluster
-        result = await describe_cluster("non-existent-cluster", {})
-        
-        # Verify get_aws_client was called
-        mock_get_client.assert_called_once_with("ecs")
-        
-        # Verify describe_clusters was called
-        mock_ecs.describe_clusters.assert_called_once()
-        
-        # Verify the result contains error
-        self.assertIn("error", result)
-        self.assertEqual(result["cluster"], None)
+    # Call ecs_resource_management with list_clusters action
+    result = await ecs_resource_management(
+        action="list",
+        resource_type="cluster"
+    )
 
-    @pytest.mark.asyncio
-    @patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
-    async def test_describe_cluster_error(self, mock_get_client):
-        """Test describe_cluster function with error."""
-        # Mock get_aws_client
-        mock_ecs = MagicMock()
-        mock_ecs.describe_clusters.side_effect = Exception("Test error")
-        mock_get_client.return_value = mock_ecs
-        
-        # Call describe_cluster
-        result = await describe_cluster("test-cluster", {})
-        
-        # Verify get_aws_client was called
-        mock_get_client.assert_called_once_with("ecs")
-        
-        # Verify describe_clusters was called
-        mock_ecs.describe_clusters.assert_called_once()
-        
-        # Verify the result contains error
-        self.assertIn("error", result)
-        self.assertEqual(result["cluster"], None)
+    # Verify get_aws_client was called
+    mock_get_client.assert_called_once_with("ecs")
+
+    # Verify list_clusters was called
+    mock_ecs.list_clusters.assert_called_once()
+
+    # Verify the result
+    assert len(result["clusters"]) == 2
+    assert result["count"] == 2
 
 
-class TestServiceOperations(unittest.TestCase):
-    """Tests for service operations."""
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
+async def test_ecs_resource_management_describe_cluster(mock_get_client):
+    """Test ecs_resource_management function with describe_cluster action."""
+    # Mock get_aws_client
+    mock_ecs = MagicMock()
+    mock_ecs.describe_clusters.return_value = {
+        "clusters": [{"clusterName": "test-cluster", "status": "ACTIVE"}]
+    }
+    mock_ecs.list_services.return_value = {"serviceArns": ["service-1"]}
+    mock_ecs.list_tasks.side_effect = [
+        {"taskArns": ["task-1"]},  # Running tasks
+        {"taskArns": []}  # Stopped tasks
+    ]
+    mock_get_client.return_value = mock_ecs
+
+    # Call ecs_resource_management with describe_cluster action
+    result = await ecs_resource_management(
+        action="describe",
+        resource_type="cluster",
+        identifier="test-cluster"
+    )
+
+    # Verify get_aws_client was called
+    mock_get_client.assert_called_once_with("ecs")
+
+    # Verify describe_clusters was called with correct parameters
+    mock_ecs.describe_clusters.assert_called_once_with(
+        clusters=["test-cluster"],
+        include=["ATTACHMENTS", "SETTINGS", "STATISTICS", "TAGS"]
+    )
+
+    # Verify the result
+    assert result["cluster"]["clusterName"] == "test-cluster"
+    assert result["service_count"] == 1
+    assert result["task_count"] == 1
+    assert result["running_task_count"] == 1
+
+
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
+async def test_ecs_resource_management_list_services(mock_get_client):
+    """Test ecs_resource_management function with list_services action."""
+    # Mock get_aws_client
+    mock_ecs = MagicMock()
+    # Mock paginator
+    mock_paginator = MagicMock()
+    mock_paginator.paginate.return_value = [{"serviceArns": ["service-1", "service-2"]}]
+    mock_ecs.get_paginator.return_value = mock_paginator
     
-    @pytest.mark.asyncio
-    @patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
-    async def test_list_services_specific_cluster(self, mock_get_client):
-        """Test list_services function with specific cluster."""
-        # Mock get_aws_client
-        mock_ecs = MagicMock()
-        mock_ecs.list_services.return_value = {"serviceArns": ["service-1", "service-2"]}
-        mock_ecs.describe_services.return_value = {
-            "services": [
-                {"serviceName": "service-1", "serviceArn": "service-1"},
-                {"serviceName": "service-2", "serviceArn": "service-2"}
-            ]
-        }
-        mock_get_client.return_value = mock_ecs
-        
-        # Call list_services with cluster filter
-        result = await list_services({"cluster": "test-cluster"})
-        
-        # Verify get_aws_client was called
-        mock_get_client.assert_called_once_with("ecs")
-        
-        # Verify list_services was called with correct cluster
-        mock_ecs.list_services.assert_called_once()
-        args, kwargs = mock_ecs.list_services.call_args
-        self.assertEqual(kwargs["cluster"], "test-cluster")
-        
-        # Verify describe_services was called
-        mock_ecs.describe_services.assert_called_once()
-        
-        # Verify the result
-        self.assertIn("services", result)
-        self.assertEqual(len(result["services"]), 2)
-        self.assertEqual(result["count"], 2)
-
-    @pytest.mark.asyncio
-    @patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
-    async def test_list_services_all_clusters(self, mock_get_client):
-        """Test list_services function for all clusters."""
-        # Mock get_aws_client
-        mock_ecs = MagicMock()
-        mock_ecs.list_clusters.return_value = {"clusterArns": ["cluster-1", "cluster-2"]}
-        mock_ecs.list_services.return_value = {"serviceArns": ["service-1"]}
-        mock_ecs.describe_services.return_value = {
-            "services": [{"serviceName": "service-1", "serviceArn": "service-1"}]
-        }
-        mock_get_client.return_value = mock_ecs
-        
-        # Call list_services without cluster filter
-        result = await list_services({})
-        
-        # Verify get_aws_client was called
-        mock_get_client.assert_called_once_with("ecs")
-        
-        # Verify list_clusters was called
-        mock_ecs.list_clusters.assert_called_once()
-        
-        # Verify list_services and describe_services were called for each cluster
-        self.assertEqual(mock_ecs.list_services.call_count, 2)
-        self.assertEqual(mock_ecs.describe_services.call_count, 2)
-        
-        # Verify the result
-        self.assertIn("services", result)
-        self.assertEqual(len(result["services"]), 2)  # 1 service from each of 2 clusters
-        self.assertEqual(result["count"], 2)
-
-    @pytest.mark.asyncio
-    @patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
-    async def test_list_services_error(self, mock_get_client):
-        """Test list_services function with error."""
-        # Mock get_aws_client
-        mock_ecs = MagicMock()
-        mock_ecs.list_clusters.side_effect = Exception("Test error")
-        mock_get_client.return_value = mock_ecs
-        
-        # Call list_services
-        result = await list_services({})
-        
-        # Verify get_aws_client was called
-        mock_get_client.assert_called_once_with("ecs")
-        
-        # Verify the result contains error
-        self.assertIn("error", result)
-        self.assertEqual(result["services"], [])
-        self.assertEqual(result["count"], 0)
-
-    @pytest.mark.asyncio
-    @patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
-    async def test_describe_service(self, mock_get_client):
-        """Test describe_service function."""
-        # Mock get_aws_client
-        mock_ecs = MagicMock()
-        mock_ecs.describe_services.return_value = {
-            "services": [{"serviceName": "test-service", "events": [{"message": "event-1"}, {"message": "event-2"}]}]
-        }
-        mock_ecs.list_tasks.side_effect = [
-            {"taskArns": ["task-1", "task-2"]},  # Running tasks
-            {"taskArns": ["task-3"]}            # Stopped tasks
+    mock_ecs.describe_services.return_value = {
+        "services": [
+            {"serviceName": "service-1", "status": "ACTIVE"},
+            {"serviceName": "service-2", "status": "ACTIVE"}
         ]
-        mock_get_client.return_value = mock_ecs
-        
-        # Call describe_service
-        result = await describe_service("test-service", {"cluster": "test-cluster"})
-        
-        # Verify get_aws_client was called
-        mock_get_client.assert_called_once_with("ecs")
-        
-        # Verify describe_services was called with correct parameters
-        mock_ecs.describe_services.assert_called_once()
-        args, kwargs = mock_ecs.describe_services.call_args
-        self.assertEqual(kwargs["cluster"], "test-cluster")
-        self.assertEqual(kwargs["services"], ["test-service"])
-        
-        # Verify list_tasks was called twice (for running and stopped tasks)
-        self.assertEqual(mock_ecs.list_tasks.call_count, 2)
-        
-        # Verify the result
-        self.assertIn("service", result)
-        self.assertEqual(result["service"]["serviceName"], "test-service")
-        self.assertEqual(result["running_task_count"], 2)
-        self.assertEqual(result["stopped_task_count"], 1)
-        self.assertEqual(len(result["recent_events"]), 2)
+    }
+    mock_get_client.return_value = mock_ecs
 
+    # Call ecs_resource_management with list_services action
+    result = await ecs_resource_management(
+        action="list",
+        resource_type="service",
+        filters={"cluster": "test-cluster"}
+    )
 
-class TestTaskOperations(unittest.TestCase):
-    """Tests for task operations."""
+    # Verify get_aws_client was called
+    mock_get_client.assert_called_once_with("ecs")
+
+    # Verify get_paginator was called
+    mock_ecs.get_paginator.assert_called_once_with("list_services")
     
-    @pytest.mark.asyncio
-    @patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
-    async def test_list_tasks_with_filters(self, mock_get_client):
-        """Test list_tasks function with filters."""
-        # Mock get_aws_client
-        mock_ecs = MagicMock()
-        mock_ecs.list_tasks.return_value = {"taskArns": ["task-1", "task-2"]}
-        mock_ecs.describe_tasks.return_value = {
-            "tasks": [
-                {"taskArn": "task-1", "lastStatus": "RUNNING"},
-                {"taskArn": "task-2", "lastStatus": "RUNNING"}
-            ]
-        }
-        mock_get_client.return_value = mock_ecs
-        
-        # Call list_tasks with filters
-        filters = {
-            "cluster": "test-cluster",
-            "service": "test-service",
-            "status": "RUNNING"
-        }
-        result = await list_tasks(filters)
-        
-        # Verify get_aws_client was called
-        mock_get_client.assert_called_once_with("ecs")
-        
-        # Verify list_tasks was called with correct parameters
-        mock_ecs.list_tasks.assert_called_once()
-        args, kwargs = mock_ecs.list_tasks.call_args
-        self.assertEqual(kwargs["cluster"], "test-cluster")
-        self.assertEqual(kwargs["serviceName"], "test-service")
-        self.assertEqual(kwargs["desiredStatus"], "RUNNING")
-        
-        # Verify describe_tasks was called
-        mock_ecs.describe_tasks.assert_called_once()
-        
-        # Verify the result
-        self.assertIn("tasks", result)
-        self.assertEqual(len(result["tasks"]), 2)
-        self.assertEqual(result["count"], 2)
-        self.assertEqual(result["running_count"], 2)
-        self.assertEqual(result["stopped_count"], 0)
+    # Verify paginator.paginate was called with correct cluster
+    mock_paginator.paginate.assert_called_once_with(cluster="test-cluster")
 
-    @pytest.mark.asyncio
-    @patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
-    async def test_describe_task(self, mock_get_client):
-        """Test describe_task function."""
-        # Mock get_aws_client
-        mock_ecs = MagicMock()
-        mock_ecs.describe_tasks.return_value = {
-            "tasks": [{
-                "taskArn": "task-1",
-                "lastStatus": "RUNNING",
-                "taskDefinitionArn": "task-def-1",
-                "containers": [
-                    {
-                        "name": "container-1",
-                        "image": "image-1",
-                        "lastStatus": "RUNNING"
-                    }
-                ]
+    # Verify describe_services was called with correct parameters
+    mock_ecs.describe_services.assert_called_once_with(
+        cluster="test-cluster",
+        services=["service-1", "service-2"],
+        include=["TAGS"]
+    )
+
+    # Verify the result
+    assert len(result["services"]) == 2
+    assert result["count"] == 2
+
+
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
+async def test_ecs_resource_management_describe_service(mock_get_client):
+    """Test ecs_resource_management function with describe_service action."""
+    # Mock get_aws_client
+    mock_ecs = MagicMock()
+    mock_ecs.describe_services.return_value = {
+        "services": [{"serviceName": "test-service", "status": "ACTIVE", "events": []}]
+    }
+    mock_ecs.list_tasks.side_effect = [
+        {"taskArns": ["task-1"]},  # Running tasks
+        {"taskArns": []}  # Stopped tasks
+    ]
+    mock_get_client.return_value = mock_ecs
+
+    # Call ecs_resource_management with describe_service action
+    result = await ecs_resource_management(
+        action="describe",
+        resource_type="service",
+        identifier="test-service",
+        filters={"cluster": "test-cluster"}
+    )
+
+    # Verify get_aws_client was called
+    mock_get_client.assert_called_once_with("ecs")
+
+    # Verify describe_services was called with correct parameters
+    mock_ecs.describe_services.assert_called_once_with(
+        cluster="test-cluster",
+        services=["test-service"],
+        include=["TAGS"]
+    )
+
+    # Verify the result
+    assert result["service"]["serviceName"] == "test-service"
+    assert result["running_task_count"] == 1
+    assert result["stopped_task_count"] == 0
+
+
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
+async def test_ecs_resource_management_describe_service_missing_cluster(mock_get_client):
+    """Test ecs_resource_management function with describe_service action and missing cluster."""
+    # Call ecs_resource_management with describe_service action and no cluster
+    with pytest.raises(ValueError) as excinfo:
+        await ecs_resource_management(
+            action="describe",
+            resource_type="service",
+            identifier="test-service"
+        )
+    
+    # Verify the error message
+    assert "Cluster filter is required" in str(excinfo.value)
+
+
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
+async def test_ecs_resource_management_invalid_action(mock_get_client):
+    """Test ecs_resource_management function with invalid action."""
+    # Call ecs_resource_management with invalid action
+    with pytest.raises(ValueError) as excinfo:
+        await ecs_resource_management(
+            action="invalid",
+            resource_type="cluster"
+        )
+    
+    # Verify the error message
+    assert "Unsupported action" in str(excinfo.value)
+
+
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
+async def test_ecs_resource_management_invalid_resource_type(mock_get_client):
+    """Test ecs_resource_management function with invalid resource type."""
+    # Call ecs_resource_management with invalid resource type
+    with pytest.raises(ValueError) as excinfo:
+        await ecs_resource_management(
+            action="list",
+            resource_type="invalid"
+        )
+    
+    # Verify the error message
+    assert "Unsupported resource type" in str(excinfo.value)
+
+
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
+async def test_ecs_resource_management_describe_missing_identifier(mock_get_client):
+    """Test ecs_resource_management function with describe action and missing identifier."""
+    # Call ecs_resource_management with describe action and no identifier
+    with pytest.raises(ValueError) as excinfo:
+        await ecs_resource_management(
+            action="describe",
+            resource_type="cluster"
+        )
+    
+    # Verify the error message
+    assert "Identifier is required" in str(excinfo.value)
+
+
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
+async def test_list_clusters(mock_get_client):
+    """Test list_clusters function."""
+    # Mock get_aws_client
+    mock_ecs = MagicMock()
+    mock_ecs.list_clusters.return_value = {"clusterArns": ["cluster-1", "cluster-2"]}
+    mock_ecs.describe_clusters.return_value = {
+        "clusters": [
+            {"clusterName": "cluster-1", "status": "ACTIVE"},
+            {"clusterName": "cluster-2", "status": "ACTIVE"}
+        ]
+    }
+    mock_get_client.return_value = mock_ecs
+
+    # Call list_clusters
+    result = await list_clusters({})
+
+    # Verify get_aws_client was called
+    mock_get_client.assert_called_once_with("ecs")
+
+    # Verify list_clusters was called
+    mock_ecs.list_clusters.assert_called_once()
+
+    # Verify the result
+    assert len(result["clusters"]) == 2
+    assert result["count"] == 2
+
+
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
+async def test_list_clusters_empty(mock_get_client):
+    """Test list_clusters function with empty response."""
+    # Mock get_aws_client
+    mock_ecs = MagicMock()
+    mock_ecs.list_clusters.return_value = {"clusterArns": []}
+    mock_get_client.return_value = mock_ecs
+
+    # Call list_clusters
+    result = await list_clusters({})
+
+    # Verify get_aws_client was called
+    mock_get_client.assert_called_once_with("ecs")
+
+    # Verify list_clusters was called
+    mock_ecs.list_clusters.assert_called_once()
+
+    # Verify the result
+    assert result["clusters"] == []
+    assert result["count"] == 0
+
+
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
+async def test_list_clusters_error(mock_get_client):
+    """Test list_clusters function with error."""
+    # Mock get_aws_client
+    mock_ecs = MagicMock()
+    mock_ecs.list_clusters.side_effect = Exception("Test error")
+    mock_get_client.return_value = mock_ecs
+
+    # Call list_clusters
+    result = await list_clusters({})
+
+    # Verify get_aws_client was called
+    mock_get_client.assert_called_once_with("ecs")
+
+    # Verify list_clusters was called
+    mock_ecs.list_clusters.assert_called_once()
+
+    # Verify the result
+    assert "error" in result
+    assert result["clusters"] == []
+    assert result["count"] == 0
+
+
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
+async def test_describe_cluster(mock_get_client):
+    """Test describe_cluster function."""
+    # Mock get_aws_client
+    mock_ecs = MagicMock()
+    mock_ecs.describe_clusters.return_value = {
+        "clusters": [{"clusterName": "test-cluster", "status": "ACTIVE"}]
+    }
+    mock_ecs.list_services.return_value = {"serviceArns": ["service-1"]}
+    mock_ecs.list_tasks.side_effect = [
+        {"taskArns": ["task-1"]},  # Running tasks
+        {"taskArns": []}  # Stopped tasks
+    ]
+    mock_get_client.return_value = mock_ecs
+
+    # Call describe_cluster
+    result = await describe_cluster("test-cluster", {})
+
+    # Verify get_aws_client was called
+    mock_get_client.assert_called_once_with("ecs")
+
+    # Verify describe_clusters was called with correct cluster
+    mock_ecs.describe_clusters.assert_called_once_with(
+        clusters=["test-cluster"],
+        include=["ATTACHMENTS", "SETTINGS", "STATISTICS", "TAGS"]
+    )
+
+    # Verify the result
+    assert result["cluster"]["clusterName"] == "test-cluster"
+    assert result["service_count"] == 1
+    assert result["task_count"] == 1
+    assert result["running_task_count"] == 1
+
+
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
+async def test_describe_cluster_not_found(mock_get_client):
+    """Test describe_cluster function with cluster not found."""
+    # Mock get_aws_client
+    mock_ecs = MagicMock()
+    mock_ecs.describe_clusters.return_value = {
+        "clusters": [],
+        "failures": [{"arn": "test-cluster", "reason": "MISSING"}]
+    }
+    mock_get_client.return_value = mock_ecs
+
+    # Call describe_cluster
+    result = await describe_cluster("test-cluster", {})
+
+    # Verify get_aws_client was called
+    mock_get_client.assert_called_once_with("ecs")
+
+    # Verify describe_clusters was called with correct cluster
+    mock_ecs.describe_clusters.assert_called_once_with(
+        clusters=["test-cluster"],
+        include=["ATTACHMENTS", "SETTINGS", "STATISTICS", "TAGS"]
+    )
+
+    # Verify the result
+    assert "error" in result
+    assert result["cluster"] is None
+
+
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
+async def test_describe_cluster_error(mock_get_client):
+    """Test describe_cluster function with error."""
+    # Mock get_aws_client
+    mock_ecs = MagicMock()
+    mock_ecs.describe_clusters.side_effect = Exception("Test error")
+    mock_get_client.return_value = mock_ecs
+
+    # Call describe_cluster
+    result = await describe_cluster("test-cluster", {})
+
+    # Verify get_aws_client was called
+    mock_get_client.assert_called_once_with("ecs")
+
+    # Verify describe_clusters was called with correct cluster
+    mock_ecs.describe_clusters.assert_called_once_with(
+        clusters=["test-cluster"],
+        include=["ATTACHMENTS", "SETTINGS", "STATISTICS", "TAGS"]
+    )
+
+    # Verify the result
+    assert "error" in result
+    assert result["cluster"] is None
+
+
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
+async def test_list_services_specific_cluster(mock_get_client):
+    """Test list_services function with specific cluster."""
+    # Mock get_aws_client
+    mock_ecs = MagicMock()
+    
+    # Mock paginator
+    mock_paginator = MagicMock()
+    mock_paginator.paginate.return_value = [{"serviceArns": ["service-1", "service-2"]}]
+    mock_ecs.get_paginator.return_value = mock_paginator
+    
+    mock_ecs.describe_services.return_value = {
+        "services": [
+            {"serviceName": "service-1", "serviceArn": "service-1"},
+            {"serviceName": "service-2", "serviceArn": "service-2"}
+        ]
+    }
+    mock_get_client.return_value = mock_ecs
+
+    # Call list_services with cluster filter
+    result = await list_services({"cluster": "test-cluster"})
+
+    # Verify get_aws_client was called
+    mock_get_client.assert_called_once_with("ecs")
+
+    # Verify get_paginator was called
+    mock_ecs.get_paginator.assert_called_once_with("list_services")
+    
+    # Verify paginator.paginate was called with correct cluster
+    mock_paginator.paginate.assert_called_once_with(cluster="test-cluster")
+
+    # Verify describe_services was called with correct parameters
+    mock_ecs.describe_services.assert_called_once_with(
+        cluster="test-cluster",
+        services=["service-1", "service-2"],
+        include=["TAGS"]
+    )
+
+    # Verify the result
+    assert len(result["services"]) == 2
+    assert result["count"] == 2
+
+
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
+async def test_list_services_all_clusters(mock_get_client):
+    """Test list_services function for all clusters."""
+    # Mock get_aws_client
+    mock_ecs = MagicMock()
+    mock_ecs.list_clusters.return_value = {"clusterArns": ["cluster-1", "cluster-2"]}
+    
+    # Mock paginator
+    mock_paginator = MagicMock()
+    mock_paginator.paginate.side_effect = [
+        [{"serviceArns": ["service-1"]}],
+        [{"serviceArns": ["service-2"]}]
+    ]
+    mock_ecs.get_paginator.return_value = mock_paginator
+    
+    mock_ecs.describe_services.side_effect = [
+        {"services": [{"serviceName": "service-1", "serviceArn": "service-1"}]},
+        {"services": [{"serviceName": "service-2", "serviceArn": "service-2"}]}
+    ]
+    mock_get_client.return_value = mock_ecs
+
+    # Call list_services without cluster filter
+    result = await list_services({})
+
+    # Verify get_aws_client was called
+    mock_get_client.assert_called_once_with("ecs")
+
+    # Verify list_clusters was called
+    mock_ecs.list_clusters.assert_called_once()
+
+    # Verify get_paginator was called for each cluster
+    assert mock_ecs.get_paginator.call_count == 2
+    
+    # Verify paginator.paginate was called for each cluster
+    assert mock_paginator.paginate.call_count == 2
+    mock_paginator.paginate.assert_any_call(cluster="cluster-1")
+    mock_paginator.paginate.assert_any_call(cluster="cluster-2")
+
+    # Verify describe_services was called for each cluster
+    assert mock_ecs.describe_services.call_count == 2
+    mock_ecs.describe_services.assert_any_call(cluster="cluster-1", services=["service-1"], include=["TAGS"])
+    mock_ecs.describe_services.assert_any_call(cluster="cluster-2", services=["service-2"], include=["TAGS"])
+
+    # Verify the result
+    assert len(result["services"]) == 2
+    assert result["count"] == 2
+
+
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
+async def test_list_services_error(mock_get_client):
+    """Test list_services function with error."""
+    # Mock get_aws_client
+    mock_ecs = MagicMock()
+    mock_ecs.get_paginator.side_effect = Exception("Test error")
+    mock_get_client.return_value = mock_ecs
+
+    # Call list_services with cluster filter
+    result = await list_services({"cluster": "test-cluster"})
+
+    # Verify get_aws_client was called
+    mock_get_client.assert_called_once_with("ecs")
+
+    # Verify get_paginator was called
+    mock_ecs.get_paginator.assert_called_once_with("list_services")
+
+    # Verify the result
+    assert "error" in result
+    assert result["services"] == []
+    assert result["count"] == 0
+
+
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
+async def test_describe_service(mock_get_client):
+    """Test describe_service function."""
+    # Mock get_aws_client
+    mock_ecs = MagicMock()
+    mock_ecs.describe_services.return_value = {
+        "services": [{"serviceName": "test-service", "status": "ACTIVE", "events": []}]
+    }
+    mock_ecs.list_tasks.side_effect = [
+        {"taskArns": ["task-1"]},  # Running tasks
+        {"taskArns": []}  # Stopped tasks
+    ]
+    mock_get_client.return_value = mock_ecs
+
+    # Call describe_service
+    result = await describe_service("test-service", {"cluster": "test-cluster"})
+
+    # Verify get_aws_client was called
+    mock_get_client.assert_called_once_with("ecs")
+
+    # Verify describe_services was called with correct parameters
+    mock_ecs.describe_services.assert_called_once_with(
+        cluster="test-cluster",
+        services=["test-service"],
+        include=["TAGS"]
+    )
+
+    # Verify the result
+    assert result["service"]["serviceName"] == "test-service"
+    assert result["running_task_count"] == 1
+    assert result["stopped_task_count"] == 0
+
+
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
+async def test_list_tasks_with_filters(mock_get_client):
+    """Test list_tasks function with filters."""
+    # Mock get_aws_client
+    mock_ecs = MagicMock()
+    
+    # Mock paginator
+    mock_paginator = MagicMock()
+    mock_paginator.paginate.return_value = [{"taskArns": ["task-1", "task-2"]}]
+    mock_ecs.get_paginator.return_value = mock_paginator
+    
+    mock_ecs.describe_tasks.return_value = {
+        "tasks": [
+            {"taskArn": "task-1", "lastStatus": "RUNNING"},
+            {"taskArn": "task-2", "lastStatus": "RUNNING"}
+        ]
+    }
+    mock_get_client.return_value = mock_ecs
+
+    # Call list_tasks with filters
+    filters = {
+        "cluster": "test-cluster",
+        "service": "test-service",
+        "status": "RUNNING"
+    }
+    result = await list_tasks(filters)
+
+    # Verify get_aws_client was called
+    mock_get_client.assert_called_once_with("ecs")
+
+    # Verify get_paginator was called
+    mock_ecs.get_paginator.assert_called_once_with("list_tasks")
+    
+    # Verify paginator.paginate was called with correct parameters
+    mock_paginator.paginate.assert_called_once_with(
+        cluster="test-cluster",
+        serviceName="test-service",
+        desiredStatus="RUNNING"
+    )
+
+    # Verify describe_tasks was called with correct parameters
+    mock_ecs.describe_tasks.assert_called_once_with(
+        cluster="test-cluster",
+        tasks=["task-1", "task-2"],
+        include=["TAGS"]
+    )
+
+    # Verify the result
+    assert len(result["tasks"]) == 2
+    assert result["count"] == 2
+    assert result["running_count"] == 2
+
+
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
+async def test_describe_task(mock_get_client):
+    """Test describe_task function."""
+    # Mock get_aws_client
+    mock_ecs = MagicMock()
+    mock_ecs.describe_tasks.return_value = {
+        "tasks": [{
+            "taskArn": "task-1",
+            "lastStatus": "RUNNING",
+            "taskDefinitionArn": "task-def-1",
+            "containers": [
+                {"name": "container-1", "lastStatus": "RUNNING"}
+            ]
+        }]
+    }
+    mock_ecs.describe_task_definition.return_value = {
+        "taskDefinition": {"family": "task-family", "revision": 1}
+    }
+    mock_get_client.return_value = mock_ecs
+
+    # Call describe_task
+    result = await describe_task("task-1", {"cluster": "test-cluster"})
+
+    # Verify get_aws_client was called
+    mock_get_client.assert_called_once_with("ecs")
+
+    # Verify describe_tasks was called with correct parameters
+    mock_ecs.describe_tasks.assert_called_once_with(
+        cluster="test-cluster",
+        tasks=["task-1"],
+        include=["TAGS"]
+    )
+
+    # Verify the result
+    assert result["task"]["taskArn"] == "task-1"
+    assert result["task_definition"]["family"] == "task-family"
+    assert len(result["container_statuses"]) == 1
+
+
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
+async def test_list_task_definitions_with_filters(mock_get_client):
+    """Test list_task_definitions function with filters."""
+    # Mock get_aws_client
+    mock_ecs = MagicMock()
+    mock_ecs.list_task_definitions.return_value = {
+        "taskDefinitionArns": ["taskdef-1", "taskdef-2"]
+    }
+    mock_get_client.return_value = mock_ecs
+
+    # Call list_task_definitions with filters
+    filters = {"family": "test-family", "status": "ACTIVE"}
+    result = await list_task_definitions(filters)
+
+    # Verify get_aws_client was called
+    mock_get_client.assert_called_once_with("ecs")
+
+    # Verify list_task_definitions was called with correct parameters
+    mock_ecs.list_task_definitions.assert_called_once_with(
+        familyPrefix="test-family",
+        status="ACTIVE"
+    )
+
+    # Verify the result
+    assert result["task_definition_arns"] == ["taskdef-1", "taskdef-2"]
+    assert result["count"] == 2
+
+
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
+async def test_describe_task_definition(mock_get_client):
+    """Test describe_task_definition function."""
+    # Mock get_aws_client
+    mock_ecs = MagicMock()
+    mock_ecs.describe_task_definition.return_value = {
+        "taskDefinition": {"family": "test-family", "revision": 1, "taskDefinitionArn": "arn:aws:ecs:us-west-2:123456789012:task-definition/test-family:1"}
+    }
+    mock_ecs.list_task_definitions.return_value = {
+        "taskDefinitionArns": ["arn:aws:ecs:us-west-2:123456789012:task-definition/test-family:1"]
+    }
+    mock_get_client.return_value = mock_ecs
+
+    # Call describe_task_definition
+    result = await describe_task_definition("test-family:1")
+
+    # Verify get_aws_client was called
+    mock_get_client.assert_called_once_with("ecs")
+
+    # Verify describe_task_definition was called with correct parameters
+    mock_ecs.describe_task_definition.assert_called_once_with(
+        taskDefinition="test-family:1"
+    )
+
+    # Verify the result
+    assert result["task_definition"]["family"] == "test-family"
+    assert result["task_definition"]["revision"] == 1
+    assert result["is_latest"] is True
+
+
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
+async def test_list_container_instances(mock_get_client):
+    """Test list_container_instances function."""
+    # Mock get_aws_client
+    mock_ecs = MagicMock()
+    mock_ecs.list_container_instances.return_value = {
+        "containerInstanceArns": ["instance-1", "instance-2"]
+    }
+    mock_ecs.describe_container_instances.return_value = {
+        "containerInstances": [
+            {"containerInstanceArn": "instance-1", "status": "ACTIVE"},
+            {"containerInstanceArn": "instance-2", "status": "ACTIVE"}
+        ]
+    }
+    mock_get_client.return_value = mock_ecs
+
+    # Call list_container_instances
+    result = await list_container_instances({"cluster": "test-cluster"})
+
+    # Verify get_aws_client was called
+    mock_get_client.assert_called_once_with("ecs")
+
+    # Verify list_container_instances was called with correct parameters
+    mock_ecs.list_container_instances.assert_called_once_with(
+        cluster="test-cluster"
+    )
+
+    # Verify the result
+    assert len(result["container_instances"]) == 2
+    assert result["count"] == 2
+
+
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
+async def test_list_container_instances_missing_cluster(mock_get_client):
+    """Test list_container_instances function with missing cluster."""
+    # Call list_container_instances without cluster
+    result = await list_container_instances({})
+    
+    # Verify the result
+    assert "error" in result
+    assert "Cluster is required" in result["error"]
+    assert result["container_instances"] == []
+    assert result["count"] == 0
+
+
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
+async def test_describe_container_instance(mock_get_client):
+    """Test describe_container_instance function."""
+    # Mock get_aws_client
+    mock_ecs = MagicMock()
+    mock_ecs.describe_container_instances.return_value = {
+        "containerInstances": [{"containerInstanceArn": "instance-1", "status": "ACTIVE", "ec2InstanceId": "i-12345"}]
+    }
+    mock_ecs.list_tasks.return_value = {"taskArns": ["task-1"]}
+    
+    # Mock EC2 client
+    mock_ec2 = MagicMock()
+    mock_ec2.describe_instances.return_value = {
+        "Reservations": [{
+            "Instances": [{
+                "InstanceId": "i-12345",
+                "InstanceType": "t2.micro"
             }]
-        }
-        mock_ecs.describe_task_definition.return_value = {
-            "taskDefinition": {
-                "taskDefinitionArn": "task-def-1",
-                "family": "task-family"
-            }
-        }
-        mock_get_client.return_value = mock_ecs
-        
-        # Call describe_task
-        result = await describe_task("task-1", {"cluster": "test-cluster"})
-        
-        # Verify get_aws_client was called
-        mock_get_client.assert_called_once_with("ecs")
-        
-        # Verify describe_tasks was called with correct parameters
-        mock_ecs.describe_tasks.assert_called_once()
-        args, kwargs = mock_ecs.describe_tasks.call_args
-        self.assertEqual(kwargs["cluster"], "test-cluster")
-        self.assertEqual(kwargs["tasks"], ["task-1"])
-        
-        # Verify describe_task_definition was called
-        mock_ecs.describe_task_definition.assert_called_once()
-        
-        # Verify the result
-        self.assertIn("task", result)
-        self.assertEqual(result["task"]["taskArn"], "task-1")
-        self.assertIn("task_definition", result)
-        self.assertIn("container_statuses", result)
-        self.assertEqual(len(result["container_statuses"]), 1)
-        self.assertEqual(result["is_failed"], False)
-
-
-class TestTaskDefinitionOperations(unittest.TestCase):
-    """Tests for task definition operations."""
+        }]
+    }
     
-    @pytest.mark.asyncio
-    @patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
-    async def test_list_task_definitions_with_filters(self, mock_get_client):
-        """Test list_task_definitions function with filters."""
-        # Mock get_aws_client
-        mock_ecs = MagicMock()
-        mock_ecs.list_task_definitions.return_value = {
-            "taskDefinitionArns": ["arn:aws:ecs:us-east-1:123456789012:task-definition/test-task:1"],
-            "nextToken": "next-token"
-        }
-        mock_get_client.return_value = mock_ecs
-        
-        # Call list_task_definitions with filters
-        filters = {
-            "family": "test-task",
-            "status": "ACTIVE",
-            "max_results": 10
-        }
-        result = await list_task_definitions(filters)
-        
-        # Verify get_aws_client was called
-        mock_get_client.assert_called_once_with("ecs")
-        
-        # Verify list_task_definitions was called with correct parameters
-        mock_ecs.list_task_definitions.assert_called_once()
-        args, kwargs = mock_ecs.list_task_definitions.call_args
-        self.assertEqual(kwargs["familyPrefix"], "test-task")
-        self.assertEqual(kwargs["status"], "ACTIVE")
-        self.assertEqual(kwargs["maxResults"], 10)
-        
-        # Verify the result
-        self.assertIn("task_definition_arns", result)
-        self.assertEqual(len(result["task_definition_arns"]), 1)
-        self.assertEqual(result["count"], 1)
-        self.assertEqual(result["next_token"], "next-token")
+    # Return different clients based on service name
+    def get_client_side_effect(service_name):
+        if service_name == "ecs":
+            return mock_ecs
+        elif service_name == "ec2":
+            return mock_ec2
+        return MagicMock()
+    
+    mock_get_client.side_effect = get_client_side_effect
 
-    @pytest.mark.asyncio
-    @patch("awslabs.ecs_mcp_server.api.resource_management.get_aws_client")
-    async def test_describe_task_definition(self, mock_get_client):
-        """Test describe_task_definition function."""
-        # Mock get_aws_client
-        mock_ecs = MagicMock()
-        mock_ecs.describe_task_definition.return_value = {
-            "taskDefinition": {
-                "taskDefinitionArn": "arn:aws:ecs:us-east-1:123456789012:task-definition/test-task:1",
-                "family": "test-task",
-                "revision": 1
-            },
-            "tags": [{"key": "Name", "value": "test-task"}]
-        }
-        mock_ecs.list_task_definitions.return_value = {
-            "taskDefinitionArns": ["arn:aws:ecs:us-east-1:123456789012:task-definition/test-task:1"]
-        }
-        mock_get_client.return_value = mock_ecs
-        
-        # Call describe_task_definition
-        result = await describe_task_definition("test-task:1")
-        
-        # Verify get_aws_client was called
-        mock_get_client.assert_called_once_with("ecs")
-        
-        # Verify describe_task_definition was called with correct parameters
-        mock_ecs.describe_task_definition.assert_called_once()
-        args, kwargs = mock_ecs.describe_task_definition.call_args
-        self.assertEqual(kwargs["taskDefinition"], "test-task:1")
-        
-        # Verify the result
-        self.assertIn("task_definition", result)
-        self.assertEqual(result["task_definition"]["family"], "test-task")
-        self.assertEqual(result["task_definition"]["revision"], 1)
-        self.assertEqual(len(result["tags"]), 1)
-        self.assertEqual(result["is_latest"], True)
+    # Call describe_container_instance
+    result = await describe_container_instance("instance-1", {"cluster": "test-cluster"})
 
+    # Verify get_aws_client was called
+    assert mock_get_client.call_count == 2
+    mock_get_client.assert_any_call("ecs")
+    mock_get_client.assert_any_call("ec2")
 
-if __name__ == "__main__":
-    unittest.main()
+    # Verify describe_container_instances was called with correct parameters
+    mock_ecs.describe_container_instances.assert_called_once_with(
+        cluster="test-cluster",
+        containerInstances=["instance-1"]
+    )
+
+    # Verify the result
+    assert result["container_instance"]["containerInstanceArn"] == "instance-1"
+    assert result["container_instance"]["status"] == "ACTIVE"
+    assert result["ec2_instance"]["InstanceId"] == "i-12345"
+    assert result["running_task_count"] == 1

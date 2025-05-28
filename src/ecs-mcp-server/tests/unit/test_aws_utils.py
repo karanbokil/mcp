@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import boto3
 import pytest
+from botocore.exceptions import ClientError
 
 from awslabs.ecs_mcp_server.utils.aws import (
     create_ecr_repository,
@@ -20,7 +21,7 @@ from awslabs.ecs_mcp_server.utils.aws import (
 class TestAWSUtils(unittest.TestCase):
     """Tests for AWS utility functions."""
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("boto3.client")
     async def test_get_aws_client(self, mock_boto_client):
         """Test get_aws_client function."""
@@ -40,7 +41,7 @@ class TestAWSUtils(unittest.TestCase):
         # Verify the client was returned
         self.assertEqual(client, mock_client)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("awslabs.ecs_mcp_server.utils.aws.get_aws_client")
     async def test_get_aws_account_id(self, mock_get_client):
         """Test get_aws_account_id function."""
@@ -61,7 +62,7 @@ class TestAWSUtils(unittest.TestCase):
         # Verify the account ID was returned
         self.assertEqual(account_id, "123456789012")
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("awslabs.ecs_mcp_server.utils.aws.get_aws_client")
     async def test_get_default_vpc_and_subnets(self, mock_get_client):
         """Test get_default_vpc_and_subnets function."""
@@ -102,7 +103,7 @@ class TestAWSUtils(unittest.TestCase):
         self.assertIn("subnet-12345678", vpc_info["subnet_ids"])
         self.assertIn("subnet-87654321", vpc_info["subnet_ids"])
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("awslabs.ecs_mcp_server.utils.aws.get_aws_client")
     async def test_create_ecr_repository_existing(self, mock_get_client):
         """Test create_ecr_repository function with existing repository."""
@@ -132,13 +133,14 @@ class TestAWSUtils(unittest.TestCase):
         self.assertEqual(repo["repositoryName"], "test-repo")
         self.assertEqual(repo["repositoryUri"], "123456789012.dkr.ecr.us-east-1.amazonaws.com/test-repo")
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("awslabs.ecs_mcp_server.utils.aws.get_aws_client")
     async def test_create_ecr_repository_new(self, mock_get_client):
         """Test create_ecr_repository function with new repository."""
         # Mock get_aws_client
         mock_ecr = MagicMock()
-        mock_ecr.describe_repositories.side_effect = Exception("RepositoryNotFoundException")
+        error_response = {'Error': {'Code': 'RepositoryNotFoundException', 'Message': 'Repository not found'}}
+        mock_ecr.describe_repositories.side_effect = ClientError(error_response, 'DescribeRepositories')
         mock_ecr.create_repository.return_value = {
             "repository": {"repositoryName": "test-repo", "repositoryUri": "123456789012.dkr.ecr.us-east-1.amazonaws.com/test-repo"}
         }
@@ -165,7 +167,7 @@ class TestAWSUtils(unittest.TestCase):
         self.assertEqual(repo["repositoryName"], "test-repo")
         self.assertEqual(repo["repositoryUri"], "123456789012.dkr.ecr.us-east-1.amazonaws.com/test-repo")
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     @patch("awslabs.ecs_mcp_server.utils.aws.get_aws_client")
     @patch("base64.b64decode")
     async def test_get_ecr_login_password(self, mock_b64decode, mock_get_client):

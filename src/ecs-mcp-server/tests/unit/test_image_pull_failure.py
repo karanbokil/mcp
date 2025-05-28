@@ -13,6 +13,8 @@ import boto3
 import unittest
 from unittest.mock import patch, MagicMock
 
+import pytest
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from awslabs.ecs_mcp_server.api.troubleshooting_tools.detect_image_pull_failures import detect_image_pull_failures
@@ -26,8 +28,9 @@ from awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_gu
 class TestImagePullFailureDetection(unittest.TestCase):
     """Test the image pull failure detection functionality."""
 
+    @pytest.mark.anyio
     @patch('awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance.boto3.client')
-    def test_discover_resources(self, mock_boto3_client):
+    async def test_discover_resources(self, mock_boto3_client):
         """Test discovering related resources."""
         # Mock the ECS client
         mock_ecs = MagicMock()
@@ -84,15 +87,16 @@ class TestImagePullFailureDetection(unittest.TestCase):
         
         mock_boto3_client.side_effect = mock_client
         
-        result, _ = discover_resources('test-failure')
+        result, _ = await discover_resources('test-failure')
         
         # Verify the result
         self.assertIn('test-failure-cluster-prbqv', result['clusters'])
         self.assertIn('test-failure-task-def-prbqv:1', result['task_definitions'])
         self.assertIn('test-failure-lb-prbqv', result['load_balancers'])
         
+    @pytest.mark.anyio
     @patch('awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance.boto3.client')
-    def test_get_task_definitions(self, mock_boto3_client):
+    async def test_get_task_definitions(self, mock_boto3_client):
         """Test getting related task definitions."""
         # Mock the ECS client
         mock_ecs = MagicMock()
@@ -125,15 +129,16 @@ class TestImagePullFailureDetection(unittest.TestCase):
         mock_boto3_client.return_value = mock_ecs
         
         # Call the function
-        result = get_task_definitions('test-failure-prbqv')
+        result = await get_task_definitions('test-failure-prbqv')
 
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]['family'], 'test-failure-prbqv')
         self.assertEqual(result[0]['containerDefinitions'][0]['image'], 
                          'non-existent-repo/non-existent-image:latest')
         
+    @pytest.mark.anyio
     @patch('awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance.boto3.client')
-    def test_validate_container_images(self, mock_boto3_client):
+    async def test_validate_container_images(self, mock_boto3_client):
         """Test validating container images."""
         # Mock the ECR client
         mock_ecr = MagicMock()
@@ -167,7 +172,7 @@ class TestImagePullFailureDetection(unittest.TestCase):
         ]
         
         # Call the function
-        result = validate_container_images(task_defs)
+        result = await validate_container_images(task_defs)
         
         # Verify the result
         self.assertEqual(len(result), 1)
@@ -175,9 +180,10 @@ class TestImagePullFailureDetection(unittest.TestCase):
         self.assertEqual(result[0]['exists'], 'unknown')  # External images have unknown status
         self.assertEqual(result[0]['repository_type'], 'external')
         
+    @pytest.mark.anyio
     @patch('awslabs.ecs_mcp_server.api.troubleshooting_tools.detect_image_pull_failures.get_task_definitions')
     @patch('awslabs.ecs_mcp_server.api.troubleshooting_tools.detect_image_pull_failures.validate_container_images')
-    def test_detect_image_pull_failures(self, mock_validate_images, mock_find_task_defs):
+    async def test_detect_image_pull_failures(self, mock_validate_images, mock_find_task_defs):
         """Test the detect_image_pull_failures function."""
         # Mock the task definitions
         mock_find_task_defs.return_value = [
@@ -206,7 +212,7 @@ class TestImagePullFailureDetection(unittest.TestCase):
         ]
         
         # Call the function
-        result = detect_image_pull_failures('test-failure-prbqv')
+        result = await detect_image_pull_failures('test-failure-prbqv')
         
         # Verify the result
         self.assertTrue('success' in result['status'])

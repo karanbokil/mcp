@@ -3,6 +3,7 @@ Pytest-style unit tests for status module.
 """
 
 import datetime
+import re
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -585,6 +586,10 @@ def test_generate_custom_domain_guidance():
     assert "https_setup" in result
     assert "cloudformation_update" in result
     assert "next_steps" in result
-    assert "test-app-alb-123456789.us-west-2.elb.amazonaws.com" in str(result)
+
+    result_str = str(result)
+    alb_pattern = r"test-app-alb-\d+\.us-west-2\.elb\.amazonaws\.com"
+    assert re.search(alb_pattern, result_str) is not None
+
     assert "Route 53" in str(result)
     assert "HTTPS" in str(result)

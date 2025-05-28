@@ -24,10 +24,32 @@ from awslabs.ecs_mcp_server.utils.security import (
 )
 
 # Configure logging
+log_level = os.environ.get("FASTMCP_LOG_LEVEL", "INFO")
+log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+log_file = os.environ.get("FASTMCP_LOG_FILE")
+
+# Set up basic configuration
 logging.basicConfig(
-    level=os.environ.get("FASTMCP_LOG_LEVEL", "INFO"),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=log_level,
+    format=log_format,
 )
+
+# Add file handler if log file path is specified
+if log_file:
+    try:
+        # Create directory for log file if it doesn't exist
+        log_dir = os.path.dirname(log_file)
+        if log_dir and not os.path.exists(log_dir):
+            os.makedirs(log_dir, exist_ok=True)
+
+        # Add file handler
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setFormatter(logging.Formatter(log_format))
+        logging.getLogger().addHandler(file_handler)
+        logging.info(f"Logging to file: {log_file}")
+    except Exception as e:
+        logging.error(f"Failed to set up log file {log_file}: {e}")
+
 logger = logging.getLogger("ecs-mcp-server")
 
 # Load configuration

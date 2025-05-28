@@ -1,14 +1,11 @@
 """Tests for the simplified fetch_network_configuration function."""
 
 import unittest
-import pytest
 from unittest.mock import AsyncMock, patch
 
+import pytest
+
 from awslabs.ecs_mcp_server.api.troubleshooting_tools.fetch_network_configuration import (
-    discover_vpcs_from_cloudformation,
-    discover_vpcs_from_clusters,
-    discover_vpcs_from_loadbalancers,
-    fetch_network_configuration,
     get_associated_target_groups,
     get_ec2_resource,
     get_elb_resources,
@@ -27,9 +24,7 @@ class TestFetchNetworkConfiguration(unittest.IsolatedAsyncioTestCase):
         """Test that fetch_network_configuration handles exceptions properly."""
         pytest.skip("Skipping test due to patching issues with get_network_data")
 
-    @patch(
-        "awslabs.ecs_mcp_server.utils.aws.get_aws_client"
-    )
+    @patch("awslabs.ecs_mcp_server.utils.aws.get_aws_client")
     async def test_get_network_data_happy_path(self, mock_get_aws_client):
         """Test the happy path of get_network_data."""
         # Configure mocks for different AWS services
@@ -71,9 +66,7 @@ class TestFetchNetworkConfiguration(unittest.IsolatedAsyncioTestCase):
         # Verify VPC ID was used
         self.assertEqual(result["data"]["vpc_ids"], ["vpc-12345678"])
 
-    @patch(
-        "awslabs.ecs_mcp_server.utils.aws.get_aws_client"
-    )
+    @patch("awslabs.ecs_mcp_server.utils.aws.get_aws_client")
     async def test_get_network_data_no_vpc(self, mock_get_aws_client):
         """Test get_network_data when no VPC is found."""
         # Configure mocks for different AWS services

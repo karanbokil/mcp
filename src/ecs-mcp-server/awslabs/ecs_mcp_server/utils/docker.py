@@ -14,20 +14,32 @@ from awslabs.ecs_mcp_server.utils.aws import get_aws_account_id, get_aws_client
 logger = logging.getLogger(__name__)
 
 
-async def get_ecr_login_password() -> str:
+async def get_ecr_login_password(role_arn: Optional[str] = None) -> str:
     """
     Gets the ECR login password using the AWS SDK.
+
+    Args:
+        role_arn: Optional IAM role ARN to use for ECR authentication
 
     Returns:
         ECR login password
     """
     try:
         # Get ECR client
-        ecr_client = await get_aws_client("ecr")
+        if role_arn:
+            from awslabs.ecs_mcp_server.utils.aws import get_aws_client_with_role
+
+            ecr_client = await get_aws_client_with_role("ecr", role_arn)
+        else:
+            ecr_client = await get_aws_client("ecr")
 
         # Get authorization token
         try:
-            response = await ecr_client.get_authorization_token()
+            # Handle both async and non-async clients (for testing)
+            if hasattr(ecr_client.get_authorization_token, "__await__"):
+                response = await ecr_client.get_authorization_token()
+            else:
+                response = ecr_client.get_authorization_token()
 
             # Extract and decode the authorization token
             auth_token = response["authorizationData"][0]["authorizationToken"]
@@ -46,7 +58,7 @@ async def get_ecr_login_password() -> str:
 
 
 async def build_and_push_image(
-    app_path: str, repository_uri: str, tag: Optional[str] = None
+    app_path: str, repository_uri: str, tag: Optional[str] = None, role_arn: Optional[str] = None
 ) -> str:
     """
     Builds and pushes a Docker image to ECR.
@@ -55,10 +67,16 @@ async def build_and_push_image(
         app_path: Path to the application directory containing the Dockerfile
         repository_uri: ECR repository URI
         tag: Image tag (if None, uses epoch timestamp)
+        role_arn: IAM role ARN to use for ECR authentication
 
     Returns:
         Image tag
+
+    Raises:
+        ValueError: If role_arn is not provided
     """
+    if not role_arn:
+        raise ValueError("role_arn is required for ECR authentication")
     # Generate a timestamp-based tag if none provided
     if tag is None:
         tag = str(int(time.time()))
@@ -74,6 +92,8 @@ async def build_and_push_image(
         logger.info(f"Using AWS profile: {profile} and region: {region}")
         logger.info(f"Using AWS account ID: {account_id}")
         logger.info(f"Application path: {app_path}")
+        if role_arn:
+            logger.info(f"Using role ARN for authentication: {role_arn}")
 
         # Verify Dockerfile exists
         dockerfile_path = os.path.join(app_path, "Dockerfile")
@@ -83,22 +103,14 @@ async def build_and_push_image(
         # Login to ECR using AWS CLI directly instead of shell piping
         logger.info("Logging in to ECR...")
 
-        # Get ECR password using AWS CLI
-        ecr_password_cmd = ["aws", "ecr", "get-login-password", "--region", region]
-
-        # Add profile if specified
-        if profile and profile != "default":
-            ecr_password_cmd.extend(["--profile", profile])
-
-        ecr_password_result = subprocess.run(
-            ecr_password_cmd, capture_output=True, text=True, shell=False, check=False
-        )
-
-        if ecr_password_result.returncode != 0:
-            logger.error(f"Failed to get ECR login password: {ecr_password_result.stderr}")
-            raise RuntimeError(f"Failed to get ECR login password: {ecr_password_result.stderr}")
-
-        ecr_password = ecr_password_result.stdout.strip()
+        # Get ECR password using our utility function that supports role-based auth
+        try:
+            logger.info("Getting ECR login password...")
+            ecr_password = await get_ecr_login_password(role_arn)
+            logger.info("Successfully obtained ECR login password")
+        except Exception as e:
+            logger.error(f"Failed to get ECR login password: {str(e)}")
+            raise RuntimeError(f"Failed to get ECR login password: {str(e)}") from e
 
         # Login to Docker using the password
         registry_url = f"{account_id}.dkr.ecr.{region}.amazonaws.com"
@@ -213,9 +225,13 @@ async def build_and_push_image(
             region,
         ]
 
-        # Add profile if specified
-        if profile and profile != "default":
+        # Add profile if specified (when not using role)
+        if not role_arn and profile and profile != "default":
             verify_cmd.extend(["--profile", profile])
+
+        # Add role assumption if provided
+        if role_arn:
+            verify_cmd.extend(["--role-arn", role_arn])
 
         verify_result = subprocess.run(
             verify_cmd, capture_output=True, text=True, shell=False, check=False

@@ -194,8 +194,9 @@ async def create_infrastructure(
         app_name=app_name, template_content=template_files["ecr_template_content"]
     )
 
-    # Get the ECR repository URI
+    # Get the ECR repository URI and role ARN
     ecr_repo_uri = ecr_result["resources"]["ecr_repository_uri"]
+    ecr_role_arn = ecr_result["resources"]["ecr_push_pull_role_arn"]
 
     # Step 3: Build and push Docker image
     try:
@@ -203,7 +204,16 @@ async def create_infrastructure(
 
         logger.info(f"Building and pushing Docker image for {app_name} from {app_path}")
 
-        image_tag = await build_and_push_image(app_path=app_path, repository_uri=ecr_repo_uri)
+        if not ecr_role_arn:
+            raise ValueError(
+                "ECR push/pull role ARN is required but not found in CloudFormation outputs"
+            )
+
+        logger.info(f"Using ECR push/pull role ARN: {ecr_role_arn}")
+
+        image_tag = await build_and_push_image(
+            app_path=app_path, repository_uri=ecr_repo_uri, role_arn=ecr_role_arn
+        )
         logger.info(f"Image successfully built and pushed with tag: {image_tag}")
         image_uri = ecr_repo_uri
     except Exception as e:
@@ -219,6 +229,7 @@ async def create_infrastructure(
             "resources": {
                 "ecr_repository": f"{app_name}-repo",
                 "ecr_repository_uri": ecr_repo_uri,
+                "ecr_push_pull_role_arn": ecr_role_arn,
             },
             "message": f"Created ECR repository, but Docker image build failed: {str(e)}",
         }
@@ -262,6 +273,7 @@ async def create_infrastructure(
             "resources": {
                 "ecr_repository": f"{app_name}-repo",
                 "ecr_repository_uri": ecr_repo_uri,
+                "ecr_push_pull_role_arn": ecr_role_arn,
             },
             "message": f"Created ECR repository, but ECS infrastructure creation failed: {str(e)}",
         }
@@ -357,14 +369,20 @@ async def create_ecr_infrastructure(
     waiter.wait(StackName=stack_name)
     logger.info(f"ECR repository stack {stack_name} created successfully")
 
-    # Get the ECR repository URI
+    # Get the ECR repository URI and role ARN
     response = cloudformation.describe_stacks(StackName=stack_name)
     outputs = response["Stacks"][0]["Outputs"]
     ecr_repo_uri = None
+    ecr_role_arn = None
+
     for output in outputs:
         if output["OutputKey"] == "ECRRepositoryURI":
             ecr_repo_uri = output["OutputValue"]
-            break
+        elif output["OutputKey"] == "ECRPushPullRoleArn":
+            ecr_role_arn = output["OutputValue"]
+
+    logger.info(f"ECR repository URI: {ecr_repo_uri}")
+    logger.info(f"ECR push/pull role ARN: {ecr_role_arn}")
 
     return {
         "stack_name": stack_name,
@@ -373,6 +391,7 @@ async def create_ecr_infrastructure(
         "resources": {
             "ecr_repository": f"{app_name}-repo",
             "ecr_repository_uri": ecr_repo_uri,
+            "ecr_push_pull_role_arn": ecr_role_arn,
         },
     }
 

@@ -85,6 +85,7 @@ async def test_create_infrastructure_force_deploy(
         "resources": {
             "ecr_repository": "test-app-repo",
             "ecr_repository_uri": "123456789012.dkr.ecr.us-west-2.amazonaws.com/test-app",
+            "ecr_push_pull_role_arn": "arn:aws:iam::123456789012:role/test-app-ecr-pushpull-role",
         },
     }
 
@@ -119,10 +120,11 @@ async def test_create_infrastructure_force_deploy(
         app_name="test-app", template_content="ecr template content"
     )
 
-    # Verify build_and_push_image was called
+    # Verify build_and_push_image was called with the role ARN
     mock_build_and_push_image.assert_called_once_with(
         app_path="/path/to/app",
         repository_uri="123456789012.dkr.ecr.us-west-2.amazonaws.com/test-app",
+        role_arn="arn:aws:iam::123456789012:role/test-app-ecr-pushpull-role",
     )
 
     # Verify create_ecs_infrastructure was called
@@ -372,6 +374,7 @@ async def test_create_infrastructure_image_build_failure(
         "resources": {
             "ecr_repository": "test-app-repo",
             "ecr_repository_uri": "123456789012.dkr.ecr.us-west-2.amazonaws.com/test-app",
+            "ecr_push_pull_role_arn": "arn:aws:iam::123456789012:role/test-app-ecr-pushpull-role",
         },
     }
 
@@ -394,10 +397,11 @@ async def test_create_infrastructure_image_build_failure(
         app_name="test-app", template_content="ecr template content"
     )
 
-    # Verify build_and_push_image was called
+    # Verify build_and_push_image was called with the role ARN
     mock_build_and_push_image.assert_called_once_with(
         app_path="/path/to/app",
         repository_uri="123456789012.dkr.ecr.us-west-2.amazonaws.com/test-app",
+        role_arn="arn:aws:iam::123456789012:role/test-app-ecr-pushpull-role",
     )
 
     # Verify the result
@@ -440,6 +444,7 @@ async def test_create_infrastructure_ecs_failure(
         "resources": {
             "ecr_repository": "test-app-repo",
             "ecr_repository_uri": "123456789012.dkr.ecr.us-west-2.amazonaws.com/test-app",
+            "ecr_push_pull_role_arn": "arn:aws:iam::123456789012:role/test-app-ecr-pushpull-role",
         },
     }
 
@@ -465,10 +470,11 @@ async def test_create_infrastructure_ecs_failure(
         app_name="test-app", template_content="ecr template content"
     )
 
-    # Verify build_and_push_image was called
+    # Verify build_and_push_image was called with the role ARN
     mock_build_and_push_image.assert_called_once_with(
         app_path="/path/to/app",
         repository_uri="123456789012.dkr.ecr.us-west-2.amazonaws.com/test-app",
+        role_arn="arn:aws:iam::123456789012:role/test-app-ecr-pushpull-role",
     )
 
     # Verify create_ecs_infrastructure was called
@@ -502,7 +508,11 @@ async def test_create_ecr_infrastructure_update(mock_get_aws_client, mock_get_aw
                     {
                         "OutputKey": "ECRRepositoryURI",
                         "OutputValue": "123456789012.dkr.ecr.us-west-2.amazonaws.com/test-app",
-                    }
+                    },
+                    {
+                        "OutputKey": "ECRPushPullRoleArn",
+                        "OutputValue": "arn:aws:iam::123456789012:role/test-app-ecr-pushpull-role",
+                    },
                 ],
             }
         ]
@@ -554,7 +564,11 @@ async def test_create_ecr_infrastructure_no_update(mock_get_aws_client, mock_get
                     {
                         "OutputKey": "ECRRepositoryURI",
                         "OutputValue": "123456789012.dkr.ecr.us-west-2.amazonaws.com/test-app",
-                    }
+                    },
+                    {
+                        "OutputKey": "ECRPushPullRoleArn",
+                        "OutputValue": "arn:aws:iam::123456789012:role/test-app-ecr-pushpull-role",
+                    },
                 ],
             }
         ]

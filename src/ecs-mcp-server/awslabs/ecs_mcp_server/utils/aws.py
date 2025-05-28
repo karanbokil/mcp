@@ -95,10 +95,72 @@ async def create_ecr_repository(repository_name: str) -> Dict[str, Any]:
             raise
 
 
-async def get_ecr_login_password() -> str:
-    """Gets ECR login password for Docker authentication."""
-    ecr = await get_aws_client("ecr")
-    response = await ecr.get_authorization_token()
+async def assume_ecr_role(role_arn: str) -> Dict[str, Any]:
+    """
+    Assumes the ECR push/pull role.
+
+    Args:
+        role_arn: ARN of the ECR push/pull role to assume
+
+    Returns:
+        Dict containing temporary credentials
+    """
+    sts = await get_aws_client("sts")
+
+    logger.info(f"Assuming role: {role_arn}")
+    response = sts.assume_role(RoleArn=role_arn, RoleSessionName="ECSMCPServerECRSession")
+
+    return {
+        "aws_access_key_id": response["Credentials"]["AccessKeyId"],
+        "aws_secret_access_key": response["Credentials"]["SecretAccessKey"],
+        "aws_session_token": response["Credentials"]["SessionToken"],
+    }
+
+
+async def get_aws_client_with_role(service_name: str, role_arn: str):
+    """
+    Gets an AWS service client using a specific role.
+
+    Args:
+        service_name: AWS service name
+        role_arn: ARN of the role to assume
+
+    Returns:
+        AWS service client with role credentials
+    """
+    credentials = await assume_ecr_role(role_arn)
+    region = os.environ.get("AWS_REGION", "us-east-1")
+
+    logger.info(f"Creating {service_name} client with assumed role: {role_arn}")
+    return boto3.client(
+        service_name,
+        region_name=region,
+        aws_access_key_id=credentials["aws_access_key_id"],
+        aws_secret_access_key=credentials["aws_secret_access_key"],
+        aws_session_token=credentials["aws_session_token"],
+    )
+
+
+async def get_ecr_login_password(role_arn: str) -> str:
+    """
+    Gets ECR login password for Docker authentication.
+
+    Args:
+        role_arn: ARN of the ECR push/pull role to use
+
+    Returns:
+        ECR login password for Docker authentication
+
+    Raises:
+        ValueError: If role_arn is not provided
+    """
+    if not role_arn:
+        raise ValueError("role_arn is required for ECR authentication")
+
+    ecr = await get_aws_client_with_role("ecr", role_arn)
+    logger.info(f"Getting ECR login password using role: {role_arn}")
+
+    response = ecr.get_authorization_token()
 
     if not response["authorizationData"]:
         raise ValueError("Failed to get ECR authorization token")

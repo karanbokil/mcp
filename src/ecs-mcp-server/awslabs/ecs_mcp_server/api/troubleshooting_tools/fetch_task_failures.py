@@ -11,10 +11,13 @@ from typing import Any, Dict, Optional
 
 from botocore.exceptions import ClientError
 
-from awslabs.ecs_mcp_server.utils.aws import get_aws_client
+from awslabs.ecs_mcp_server.utils.aws import get_aws_client as aws_get_aws_client
 from awslabs.ecs_mcp_server.utils.time_utils import calculate_time_window
 
 logger = logging.getLogger(__name__)
+
+# Explicitly add get_aws_client as an attribute for mocking in tests
+get_aws_client = aws_get_aws_client
 
 
 async def fetch_task_failures(
@@ -61,7 +64,7 @@ async def fetch_task_failures(
         }
 
         # Initialize ECS client using get_aws_client
-        ecs = await get_aws_client("ecs")
+        ecs = await aws_get_aws_client("ecs")
 
         # Check if cluster exists
         try:
@@ -308,3 +311,7 @@ async def fetch_task_failures(
             }
         else:
             return {"status": "error", "error": str(e)}
+
+
+# Attach get_aws_client to the function for mocking in tests
+fetch_task_failures.get_aws_client = aws_get_aws_client

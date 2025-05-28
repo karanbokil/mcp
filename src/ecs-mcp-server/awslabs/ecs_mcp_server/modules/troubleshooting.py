@@ -9,7 +9,8 @@ from pydantic import Field
 
 from awslabs.ecs_mcp_server.api.ecs_troubleshooting import (
     ecs_troubleshooting_tool,
-    TROUBLESHOOTING_DOCS
+    TROUBLESHOOTING_DOCS,
+    TroubleshootingAction
 )
 
 
@@ -42,9 +43,7 @@ def register_module(mcp: FastMCP) -> None:
     
     @mcp.tool(
         name="ecs_troubleshooting_tool",
-        annotations={
-            "readOnlyHint": True,
-        },
+        annotations=None,
         description=TROUBLESHOOTING_DOCS # Dynamically generated documentation string
     )
     async def mcp_ecs_troubleshooting_tool(
@@ -52,7 +51,7 @@ def register_module(mcp: FastMCP) -> None:
             default=None,
             description="Application/stack name (required for most actions)",
         ),
-        action: str = Field(
+        action: TroubleshootingAction = Field(
             ...,
             description="Troubleshooting action to perform",
         ),

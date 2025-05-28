@@ -15,9 +15,7 @@ def register_module(mcp: FastMCP) -> None:
     
     @mcp.tool(
         name="containerize_app",
-        annotations={
-            "readOnlyHint": True,
-        })
+        annotations=None)
     async def mcp_containerize_app(
         app_path: str = Field(
             ...,

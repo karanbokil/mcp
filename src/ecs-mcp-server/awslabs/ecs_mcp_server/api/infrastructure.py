@@ -428,7 +428,11 @@ async def create_ecs_infrastructure(
     # Get route table IDs if not provided
     if not route_table_ids:
         from awslabs.ecs_mcp_server.utils.aws import get_route_tables_for_vpc
-        route_table_ids = await get_route_tables_for_vpc(vpc_id)
+        # Ensure vpc_id is not None before passing to get_route_tables_for_vpc
+        if vpc_id:
+            route_table_ids = await get_route_tables_for_vpc(vpc_id)
+        else:
+            route_table_ids = []
 
     # Deploy the CloudFormation stack
     cloudformation = await get_aws_client("cloudformation")
@@ -451,8 +455,8 @@ async def create_ecs_infrastructure(
                 Parameters=[
                     {"ParameterKey": "AppName", "ParameterValue": app_name},
                     {"ParameterKey": "VpcId", "ParameterValue": vpc_id},
-                    {"ParameterKey": "SubnetIds", "ParameterValue": ",".join(subnet_ids)},
-                    {"ParameterKey": "RouteTableIds", "ParameterValue": ",".join(route_table_ids)},
+                    {"ParameterKey": "SubnetIds", "ParameterValue": ",".join(subnet_ids) if subnet_ids else ""},
+                    {"ParameterKey": "RouteTableIds", "ParameterValue": ",".join(route_table_ids) if route_table_ids else ""},
                     {"ParameterKey": "TaskCpu", "ParameterValue": str(cpu)},
                     {"ParameterKey": "TaskMemory", "ParameterValue": str(memory)},
                     {"ParameterKey": "DesiredCount", "ParameterValue": str(desired_count)},
@@ -485,8 +489,8 @@ async def create_ecs_infrastructure(
             Parameters=[
                 {"ParameterKey": "AppName", "ParameterValue": app_name},
                 {"ParameterKey": "VpcId", "ParameterValue": vpc_id},
-                {"ParameterKey": "SubnetIds", "ParameterValue": ",".join(subnet_ids)},
-                {"ParameterKey": "RouteTableIds", "ParameterValue": ",".join(route_table_ids)},
+                {"ParameterKey": "SubnetIds", "ParameterValue": ",".join(subnet_ids) if subnet_ids else ""},
+                {"ParameterKey": "RouteTableIds", "ParameterValue": ",".join(route_table_ids) if route_table_ids else ""},
                 {"ParameterKey": "TaskCpu", "ParameterValue": str(cpu)},
                 {"ParameterKey": "TaskMemory", "ParameterValue": str(memory)},
                 {"ParameterKey": "DesiredCount", "ParameterValue": str(desired_count)},

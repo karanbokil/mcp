@@ -76,14 +76,14 @@ def parse_arn(arn: str) -> Optional[ParsedArn]:
 def is_ecs_task_definition(arn: str) -> bool:
     """Check if ARN is for an ECS task definition."""
     parsed = parse_arn(arn)
-    return (parsed and 
+    return bool(parsed and 
             parsed.service == 'ecs' and 
             parsed.resource_type == 'task-definition')
 
 def is_ecs_cluster(arn: str) -> bool:
     """Check if ARN is for an ECS cluster."""
     parsed = parse_arn(arn)
-    return (parsed and 
+    return bool(parsed and 
             parsed.service == 'ecs' and 
             parsed.resource_type == 'cluster')
             

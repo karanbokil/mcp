@@ -98,7 +98,12 @@ async def ecs_resource_management(
             
     else:
         raise ValueError(f"Unsupported resource type: {resource_type}")
-
+    
+    # Default return if no specific handler was called
+    return {
+        "error": f"No handler found for action '{action}' on resource type '{resource_type}'",
+        "status": "failed"
+    }
 
 # ============ CLUSTER OPERATIONS ============
 

@@ -7,14 +7,14 @@ import logging
 import os
 import subprocess
 import time
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from awslabs.ecs_mcp_server.utils.aws import get_aws_account_id, get_ecr_login_password
 
 logger = logging.getLogger(__name__)
 
 
-async def build_and_push_image(app_path: str, repository_uri: str, tag: str = None) -> str:
+async def build_and_push_image(app_path: str, repository_uri: str, tag: Optional[str] = None) -> str:
     """
     Builds and pushes a Docker image to ECR.
 

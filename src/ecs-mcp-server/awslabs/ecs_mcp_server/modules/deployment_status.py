@@ -15,9 +15,7 @@ def register_module(mcp: FastMCP) -> None:
     
     @mcp.tool(
         name="get_deployment_status",
-        annotations={
-            "readOnlyHint": True,
-        })
+        annotations=None)
     async def mcp_get_deployment_status(
         app_name: str = Field(
             ...,

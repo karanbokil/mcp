@@ -17,7 +17,7 @@ PERMISSION_SENSITIVE_DATA = "sensitive-data"
 PERMISSION_NONE = "none"
 
 # Define permission type
-PermissionType = Literal[PERMISSION_WRITE, PERMISSION_SENSITIVE_DATA, PERMISSION_NONE]
+PermissionType = Literal["write", "sensitive-data", "none"]
 
 
 class SecurityError(Exception):
@@ -272,7 +272,7 @@ class ResponseSanitizer:
         return response
 
 
-def secure_tool(config: Dict[str, Any], permission_type: PermissionType, tool_name: str = None):
+def secure_tool(config: Dict[str, Any], permission_type: PermissionType, tool_name: Optional[str] = None):
     """
     Decorator to secure a tool function with permission checks and response sanitization.
     

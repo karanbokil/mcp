@@ -15,9 +15,7 @@ def register_module(mcp: FastMCP) -> None:
     
     @mcp.tool(
         name="ecs_resource_management",
-        annotations={
-            "readOnlyHint": True,
-        }
+        annotations=None
     )
     async def mcp_ecs_resource_management(
         action: str = Field(

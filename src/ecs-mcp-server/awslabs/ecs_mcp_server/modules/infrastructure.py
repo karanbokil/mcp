@@ -2,6 +2,7 @@
 Infrastructure module for ECS MCP Server.
 This module provides tools and prompts for creating ECS infrastructure.
 """
+
 from typing import Any, Dict, List, Optional
 
 from mcp.server.fastmcp import FastMCP
@@ -12,7 +13,7 @@ from awslabs.ecs_mcp_server.api.infrastructure import create_infrastructure
 
 def register_module(mcp: FastMCP) -> None:
     """Register infrastructure module tools and prompts with the MCP server."""
-    
+
     @mcp.tool(name="create_ecs_infrastructure")
     async def mcp_create_ecs_infrastructure(
         app_name: str = Field(
@@ -25,20 +26,19 @@ def register_module(mcp: FastMCP) -> None:
         ),
         force_deploy: bool = Field(
             default=False,
-            description="Set to True ONLY if you have Docker installed and running, and you agree to let the server build and deploy your image to ECR, as well as deploy ECS infrastructure for you in CloudFormation. If False, template files will be generated locally for your review.",
+            description=(
+                "Set to True ONLY if you have Docker installed and running, and you agree "
+                "to let the server build and deploy your image to ECR, as well as deploy "
+                "ECS infrastructure for you in CloudFormation. If False, template files "
+                "will be generated locally for your review."
+            ),
         ),
         vpc_id: Optional[str] = Field(
             default=None,
             description="VPC ID for deployment (optional, will use default if not provided)",
         ),
-        subnet_ids: Optional[List[str]] = Field(
-            default=None,
-            description="List of subnet IDs for deployment, will use from default VPC if not provided",
-        ),
-        route_table_ids: Optional[List[str]] = Field(
-            default=None,
-            description="List of route table IDs for S3 Gateway endpoint association, will use main route table if not provided",
-        ),
+        subnet_ids: Optional[List[str]] = None,
+        route_table_ids: Optional[List[str]] = None,
         cpu: Optional[int] = Field(
             default=None,
             description="CPU units for the task (e.g., 256, 512, 1024)",
@@ -73,8 +73,10 @@ def register_module(mcp: FastMCP) -> None:
         2. Provide the path to your web application directory
         3. Decide whether to use force_deploy:
            - If False (default): Template files will be generated locally for your review
-           - If True: Docker image will be built and pushed to ECR, and CloudFormation stacks will be deployed
-           - ENSURE you get user permission to deploy and inform that this is only for non-production applications.
+           - If True: Docker image will be built and pushed to ECR, and CloudFormation stacks
+             will be deployed
+           - ENSURE you get user permission to deploy and inform that this is only for
+             non-production applications.
         4. Optionally specify VPC and subnet IDs if you want to use existing resources
         5. Configure CPU, memory, and scaling options as needed
 
@@ -106,14 +108,14 @@ def register_module(mcp: FastMCP) -> None:
             app_name=app_name,
             app_path=app_path,
             force_deploy=force_deploy,
-            vpc_id=vpc_id, 
+            vpc_id=vpc_id,
             subnet_ids=subnet_ids,
             route_table_ids=route_table_ids,
-            cpu=cpu, 
-            memory=memory, 
-            desired_count=desired_count, 
+            cpu=cpu,
+            memory=memory,
+            desired_count=desired_count,
             container_port=container_port,
-            health_check_path=health_check_path
+            health_check_path=health_check_path,
         )
 
     # Prompt patterns for deployment
@@ -181,7 +183,7 @@ def register_module(mcp: FastMCP) -> None:
     def deploy_django_prompt():
         """User wants to deploy a Django application"""
         return ["containerize_app", "create_ecs_infrastructure"]
-        
+
     @mcp.prompt("deploy react")
     def deploy_react_prompt():
         """User wants to deploy a React application"""
@@ -196,7 +198,7 @@ def register_module(mcp: FastMCP) -> None:
     def deploy_node_prompt():
         """User wants to deploy a Node.js application"""
         return ["containerize_app", "create_ecs_infrastructure"]
-        
+
     @mcp.prompt("push to prod")
     def push_to_prod_prompt():
         """User wants to deploy an application to production"""
@@ -211,7 +213,7 @@ def register_module(mcp: FastMCP) -> None:
     def make_this_public_prompt():
         """User wants to make an application publicly accessible"""
         return ["containerize_app", "create_ecs_infrastructure"]
-        
+
     @mcp.prompt("put this on aws")
     def put_this_on_aws_prompt():
         """User wants to deploy an application to AWS"""
@@ -226,7 +228,7 @@ def register_module(mcp: FastMCP) -> None:
     def how_do_i_share_this_app_prompt():
         """User wants to make an application accessible to others"""
         return ["containerize_app", "create_ecs_infrastructure"]
-        
+
     @mcp.prompt("make accessible online")
     def make_accessible_online_prompt():
         """User wants to make an application accessible online"""

@@ -32,12 +32,12 @@ list_scenarios() {
             scenario_num=$(basename "$dir" | cut -d'_' -f1)
             scenario_name=$(basename "$dir" | cut -d'_' -f2-)
             description=""
-            
+
             # Check for description file
             if [ -f "${dir}/description.txt" ]; then
                 description=$(cat "${dir}/description.txt" | head -n 1)
             fi
-            
+
             echo -e "  ${GREEN}$scenario_num${NC}: $scenario_name"
             if [ ! -z "$description" ]; then
                 echo -e "     └─ $description"
@@ -51,31 +51,31 @@ list_scenarios() {
 run_scenario() {
     local scenario_dir=$1
     local scenario_name=$(basename "$scenario_dir" | cut -d'_' -f2-)
-    
+
     echo -e "${YELLOW}Running scenario: ${GREEN}$scenario_name${NC}"
     echo -e "${YELLOW}=======================================================${NC}"
-    
+
     # Check if the scenario directory exists
     if [ ! -d "$scenario_dir" ]; then
         echo -e "${RED}Error: Scenario directory $scenario_dir does not exist.${NC}"
         return 1
     fi
-    
+
     # Check if all required scripts exist
     if [ ! -f "$scenario_dir/01_create.sh" ]; then
         echo -e "${RED}Error: Create script (01_create.sh) not found in $scenario_dir.${NC}"
         return 1
     fi
-    
+
     if [ ! -f "$scenario_dir/02_validate.sh" ]; then
         echo -e "${RED}Error: Validate script (02_validate.sh) not found in $scenario_dir.${NC}"
         return 1
     fi
-    
+
     if [ ! -f "$scenario_dir/05_cleanup.sh" ]; then
         echo -e "${RED}Warning: Cleanup script (05_cleanup.sh) not found in $scenario_dir.${NC}"
     fi
-    
+
     # Display scenario description if available
     if [ -f "$scenario_dir/description.txt" ]; then
         echo -e "${BLUE}Test description:${NC}"
@@ -90,11 +90,11 @@ run_scenario() {
         echo -e "${RED}Error: Create script failed.${NC}"
         return 1
     fi
-    
+
     # Wait for a moment to let resources be created
     echo -e "${BLUE}Waiting for resources to be created/updated...${NC}"
     sleep 10
-    
+
     # Run validate script
     echo -e "${BLUE}Running validate script...${NC}"
     "$scenario_dir/02_validate.sh"
@@ -104,7 +104,7 @@ run_scenario() {
     else
         echo -e "${GREEN}Scenario is ready for testing.${NC}"
     fi
-    
+
     # Display prompts
     if [ -f "$scenario_dir/03_prompts.txt" ]; then
         echo -e "${BLUE}Available test prompts:${NC}"
@@ -114,7 +114,7 @@ run_scenario() {
     else
         echo -e "${RED}Warning: No prompts file (03_prompts.txt) found.${NC}"
     fi
-    
+
     # Ask if user wants to run cleanup
     read -p "Do you want to run the cleanup script now? (y/n) " -n 1 -r
     echo ""
@@ -125,7 +125,7 @@ run_scenario() {
     else
         echo -e "${YELLOW}Skipping cleanup. Remember to manually run ${scenario_dir}/05_cleanup.sh when done testing.${NC}"
     fi
-    
+
     echo -e "${YELLOW}=======================================================${NC}"
     echo -e "${GREEN}Scenario execution completed.${NC}"
     echo ""
@@ -136,7 +136,7 @@ if [ -z "$1" ]; then
     # No specific scenario specified, list available scenarios
     list_scenarios
     read -p "Enter the scenario number to run (or 'all' for all scenarios): " scenario_choice
-    
+
     if [ "$scenario_choice" == "all" ]; then
         # Run all scenarios
         for dir in "$BASE_DIR"/scenarios/*/; do

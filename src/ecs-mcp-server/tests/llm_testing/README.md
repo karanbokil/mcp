@@ -16,7 +16,7 @@ tests/llm_testing/
 │   │   ├── 04_evaluation.md          # Evaluation criteria for Cline's responses
 │   │   └── 05_cleanup.sh             # Cleans up created resources
 │   │
-│   ├── 02_service_failure/          # Service-level image pull failure scenario 
+│   ├── 02_service_failure/          # Service-level image pull failure scenario
 │   │   ├── 01_create.sh              # Creates a failing ECS service
 │   │   ├── 02_validate.sh            # Validates the service has failed tasks
 │   │   ├── 03_prompts.txt            # Different prompts to test with Cline

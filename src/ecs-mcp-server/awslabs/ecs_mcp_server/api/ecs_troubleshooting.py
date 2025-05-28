@@ -5,12 +5,12 @@ This module provides a single entry point for all ECS troubleshooting operations
 that were previously available as separate tools.
 """
 
-import logging
 import inspect
-from typing import Dict, Any, Optional, Literal
+import logging
+from typing import Any, Dict, Literal, Optional
 
-from awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance import (
-    get_ecs_troubleshooting_guidance,
+from awslabs.ecs_mcp_server.api.troubleshooting_tools.detect_image_pull_failures import (
+    detect_image_pull_failures,
 )
 from awslabs.ecs_mcp_server.api.troubleshooting_tools.fetch_cloudformation_status import (
     fetch_cloudformation_status,
@@ -24,8 +24,8 @@ from awslabs.ecs_mcp_server.api.troubleshooting_tools.fetch_task_failures import
 from awslabs.ecs_mcp_server.api.troubleshooting_tools.fetch_task_logs import (
     fetch_task_logs,
 )
-from awslabs.ecs_mcp_server.api.troubleshooting_tools.detect_image_pull_failures import (
-    detect_image_pull_failures,
+from awslabs.ecs_mcp_server.api.troubleshooting_tools.get_ecs_troubleshooting_guidance import (
+    get_ecs_troubleshooting_guidance,
 )
 
 logger = logging.getLogger(__name__)
@@ -33,11 +33,11 @@ logger = logging.getLogger(__name__)
 # Type definitions
 TroubleshootingAction = Literal[
     "get_ecs_troubleshooting_guidance",
-    "fetch_cloudformation_status", 
+    "fetch_cloudformation_status",
     "fetch_service_events",
     "fetch_task_failures",
     "fetch_task_logs",
-    "detect_image_pull_failures"
+    "detect_image_pull_failures",
 ]
 
 # Combined actions configuration with inline parameter transformers and documentation
@@ -48,27 +48,26 @@ ACTIONS = {
         "optional_params": ["symptoms_description"],
         "transformer": lambda app_name, params: {
             "app_name": app_name,
-            "symptoms_description": params.get("symptoms_description")
+            "symptoms_description": params.get("symptoms_description"),
         },
         "description": "Initial assessment and data collection",
         "param_descriptions": {
             "app_name": "The name of the application/stack to troubleshoot",
-            "symptoms_description": "Description of symptoms experienced by the user"
+            "symptoms_description": "Description of symptoms experienced by the user",
         },
-        "example": 'action="get_ecs_troubleshooting_guidance", parameters={"symptoms_description": "ALB returning 503 errors"}'
+        "example": (
+            'action="get_ecs_troubleshooting_guidance", '
+            'parameters={"symptoms_description": "ALB returning 503 errors"}'
+        ),
     },
     "fetch_cloudformation_status": {
         "func": fetch_cloudformation_status,
         "required_params": ["stack_id"],
         "optional_params": [],
-        "transformer": lambda app_name, params: {
-            "stack_id": params.get("stack_id", app_name)
-        },
+        "transformer": lambda app_name, params: {"stack_id": params.get("stack_id", app_name)},
         "description": "Infrastructure-level diagnostics for CloudFormation stacks",
-        "param_descriptions": {
-            "stack_id": "The CloudFormation stack identifier to analyze"
-        },
-        "example": 'action="fetch_cloudformation_status", parameters={"stack_id": "my-app-stack"}'
+        "param_descriptions": {"stack_id": "The CloudFormation stack identifier to analyze"},
+        "example": 'action="fetch_cloudformation_status", parameters={"stack_id": "my-app-stack"}',
     },
     "fetch_service_events": {
         "func": fetch_service_events,
@@ -80,7 +79,7 @@ ACTIONS = {
             "service_name": params["service_name"],
             "time_window": params.get("time_window", 3600),
             "start_time": params.get("start_time"),
-            "end_time": params.get("end_time")
+            "end_time": params.get("end_time"),
         },
         "description": "Service-level diagnostics for ECS services",
         "param_descriptions": {
@@ -88,10 +87,20 @@ ACTIONS = {
             "cluster_name": "The name of the ECS cluster",
             "service_name": "The name of the ECS service to analyze",
             "time_window": "Time window in seconds to look back for events (default: 3600)",
-            "start_time": "Explicit start time for the analysis window (UTC, takes precedence over time_window if provided)",
-            "end_time": "Explicit end time for the analysis window (UTC, defaults to current time if not provided)"
+            "start_time": (
+                "Explicit start time for the analysis window "
+                "(UTC, takes precedence over time_window if provided)"
+            ),
+            "end_time": (
+                "Explicit end time for the analysis window "
+                "(UTC, defaults to current time if not provided)"
+            ),
         },
-        "example": 'action="fetch_service_events", parameters={"cluster_name": "my-cluster", "service_name": "my-service", "time_window": 7200}'
+        "example": (
+            'action="fetch_service_events", '
+            'parameters={"cluster_name": "my-cluster", "service_name": "my-service", '
+            '"time_window": 7200}'
+        ),
     },
     "fetch_task_failures": {
         "func": fetch_task_failures,
@@ -102,17 +111,26 @@ ACTIONS = {
             "cluster_name": params["cluster_name"],
             "time_window": params.get("time_window", 3600),
             "start_time": params.get("start_time"),
-            "end_time": params.get("end_time")
+            "end_time": params.get("end_time"),
         },
         "description": "Task-level diagnostics for ECS task failures",
         "param_descriptions": {
             "app_name": "The name of the application to analyze",
             "cluster_name": "The name of the ECS cluster",
             "time_window": "Time window in seconds to look back for failures (default: 3600)",
-            "start_time": "Explicit start time for the analysis window (UTC, takes precedence over time_window if provided)",
-            "end_time": "Explicit end time for the analysis window (UTC, defaults to current time if not provided)"
+            "start_time": (
+                "Explicit start time for the analysis window "
+                "(UTC, takes precedence over time_window if provided)"
+            ),
+            "end_time": (
+                "Explicit end time for the analysis window "
+                "(UTC, defaults to current time if not provided)"
+            ),
         },
-        "example": 'action="fetch_task_failures", parameters={"cluster_name": "my-cluster", "time_window": 3600}'
+        "example": (
+            'action="fetch_task_failures", '
+            'parameters={"cluster_name": "my-cluster", "time_window": 3600}'
+        ),
     },
     "fetch_task_logs": {
         "func": fetch_task_logs,
@@ -125,7 +143,7 @@ ACTIONS = {
             "time_window": params.get("time_window", 3600),
             "filter_pattern": params.get("filter_pattern"),
             "start_time": params.get("start_time"),
-            "end_time": params.get("end_time")
+            "end_time": params.get("end_time"),
         },
         "description": "Application-level diagnostics through CloudWatch logs",
         "param_descriptions": {
@@ -134,71 +152,78 @@ ACTIONS = {
             "task_id": "Specific task ID to retrieve logs for",
             "time_window": "Time window in seconds to look back for logs (default: 3600)",
             "filter_pattern": "CloudWatch logs filter pattern",
-            "start_time": "Explicit start time for the analysis window (UTC, takes precedence over time_window if provided)",
-            "end_time": "Explicit end time for the analysis window (UTC, defaults to current time if not provided)"
+            "start_time": (
+                "Explicit start time for the analysis window "
+                "(UTC, takes precedence over time_window if provided)"
+            ),
+            "end_time": (
+                "Explicit end time for the analysis window "
+                "(UTC, defaults to current time if not provided)"
+            ),
         },
-        "example": 'action="fetch_task_logs", parameters={"cluster_name": "my-cluster", "filter_pattern": "ERROR", "time_window": 1800}'
+        "example": (
+            'action="fetch_task_logs", '
+            'parameters={"cluster_name": "my-cluster", "filter_pattern": "ERROR", '
+            '"time_window": 1800}'
+        ),
     },
     "detect_image_pull_failures": {
         "func": detect_image_pull_failures,
         "required_params": ["app_name"],
         "optional_params": [],
-        "transformer": lambda app_name, params: {
-            "app_name": app_name
-        },
+        "transformer": lambda app_name, params: {"app_name": app_name},
         "description": "Specialized tool for detecting container image pull failures",
-        "param_descriptions": {
-            "app_name": "Application name to check for image pull failures"
-        },
-        "example": 'action="detect_image_pull_failures", parameters={}'
-    }
+        "param_descriptions": {"app_name": "Application name to check for image pull failures"},
+        "example": 'action="detect_image_pull_failures", parameters={}',
+    },
 }
 
 
 def generate_troubleshooting_docs():
     """Generate documentation for the troubleshooting tools based on the ACTIONS dictionary."""
-    
+
     # Generate the main body of the documentation
     actions_docs = []
     quick_usage_examples = []
-    
+
     for action_name, action_data in ACTIONS.items():
         # Build the action documentation
         action_doc = f"### {len(actions_docs) + 1}. {action_name}\n"
         action_doc += f"{action_data['description']}\n"
-        
+
         # Required parameters
-        action_doc += "- Required: " + ", ".join(action_data['required_params']) + "\n"
-        
+        action_doc += "- Required: " + ", ".join(action_data["required_params"]) + "\n"
+
         # Optional parameters if any
-        if action_data.get('optional_params'):
+        if action_data.get("optional_params"):
             optional_params_with_desc = []
-            for param in action_data.get('optional_params', []):
-                desc = action_data['param_descriptions'].get(param, "")
+            for param in action_data.get("optional_params", []):
+                desc = action_data["param_descriptions"].get(param, "")
                 optional_params_with_desc.append(f"{param} ({desc})")
             if optional_params_with_desc:
                 action_doc += "- Optional: " + ", ".join(optional_params_with_desc) + "\n"
-        
+
         # Example usage
         action_doc += f"- Example: {action_data['example']}\n"
-        
+
         actions_docs.append(action_doc)
-        
+
         # Build a quick usage example
         example = f"# {action_data['description']}\n"
         example += f'action: "{action_name}"\n'
-        
+
         # Extract parameters from the example string
         import re
-        params_match = re.search(r'parameters=\{(.*?)\}', action_data['example'])
+
+        params_match = re.search(r"parameters=\{(.*?)\}", action_data["example"])
         if params_match:
             params_str = params_match.group(1)
             example += f"parameters: {{{params_str}}}\n"
         else:
             example += "parameters: {}\n"
-            
+
         quick_usage_examples.append(example)
-    
+
     # Combine all documentation sections
     doc_header = """
 ECS troubleshooting tool with multiple diagnostic actions.
@@ -210,13 +235,13 @@ to perform.
 ## Available Actions and Parameters:
 
 """
-    
+
     doc_examples = """
 ## Quick Usage Examples:
 
 ```
 """
-    
+
     doc_footer = """```
 
 Parameters:
@@ -227,16 +252,16 @@ Parameters:
 Returns:
     Results from the selected troubleshooting action
 """
-    
+
     # Combine all the documentation parts
     full_doc = (
-        doc_header +
-        "\n".join(actions_docs) +
-        doc_examples +
-        "\n".join(quick_usage_examples) +
-        doc_footer
+        doc_header
+        + "\n".join(actions_docs)
+        + doc_examples
+        + "\n".join(quick_usage_examples)
+        + doc_footer
     )
-    
+
     return full_doc
 
 
@@ -250,11 +275,11 @@ def _validate_action(action: str) -> None:
 def _validate_parameters(action: str, app_name: Optional[str], parameters: Dict[str, Any]) -> None:
     """Validate required parameters for the given action."""
     required = ACTIONS[action]["required_params"]
-    
+
     # Check app_name if required
     if "app_name" in required and (not app_name or not app_name.strip()):
         raise ValueError(f"app_name is required for action '{action}'")
-    
+
     # Check other required parameters
     for param in required:
         if param != "app_name" and param not in parameters:
@@ -264,26 +289,27 @@ def _validate_parameters(action: str, app_name: Optional[str], parameters: Dict[
 # Pre-generate the documentation once to avoid regenerating it on each call
 TROUBLESHOOTING_DOCS = generate_troubleshooting_docs()
 
+
 async def ecs_troubleshooting_tool(
     app_name: Optional[str] = None,
     action: TroubleshootingAction = "get_ecs_troubleshooting_guidance",
-    parameters: Optional[Dict[str, Any]] = None
+    parameters: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     ECS troubleshooting tool.
-    
+
     This tool provides access to all ECS troubleshooting operations through a single
     interface. Use the 'action' parameter to specify which troubleshooting operation
     to perform.
-    
+
     Args:
         app_name: Application/stack name (required for most actions)
         action: The troubleshooting action to perform
         parameters: Action-specific parameters
-        
+
     Returns:
         Results from the selected troubleshooting action
-        
+
     Raises:
         ValueError: If action is invalid or required parameters are missing
     """
@@ -291,49 +317,46 @@ async def ecs_troubleshooting_tool(
     try:
         if parameters is None:
             parameters = {}
-        
+
         # Validate action
         _validate_action(action)
-        
+
         # Check security permissions for sensitive data actions
-        sensitive_data_actions = ['fetch_task_logs', 'fetch_service_events', 'fetch_task_failures']
+        sensitive_data_actions = ["fetch_task_logs", "fetch_service_events", "fetch_task_failures"]
         if action in sensitive_data_actions:
             # Import here to avoid circular imports
             from awslabs.ecs_mcp_server.utils.config import get_config
-            
+
             # Check if sensitive data access is allowed
             config = get_config()
             if not config.get("allow-sensitive-data", False):
                 return {
                     "status": "error",
-                    "error": f"Action {action} is not allowed without ALLOW_SENSITIVE_DATA=true in your environment due to potential exposure of sensitive information."
+                    "error": (
+                        f"Action {action} is not allowed without ALLOW_SENSITIVE_DATA=true "
+                        f"in your environment due to potential exposure of sensitive information."
+                    ),
                 }
-        
+
         # Validate parameters
         _validate_parameters(action, app_name, parameters)
-        
+
         # Get action configuration
         action_config = ACTIONS[action]
-        
+
         # Transform parameters using action-specific transformer
         func_params = action_config["transformer"](app_name, parameters)
-        
+
         # Call the function and await it if it's a coroutine
         result = action_config["func"](**func_params)
         if inspect.iscoroutine(result):
             result = await result
-        
+
         return result
-        
+
     except ValueError as e:
         logger.error(f"Parameter validation error: {str(e)}")
-        return {
-            "status": "error",
-            "error": str(e)
-        }
+        return {"status": "error", "error": str(e)}
     except Exception as e:
         logger.exception(f"Error in ecs_troubleshooting_tool: {str(e)}")
-        return {
-            "status": "error",
-            "error": f"Internal error: {str(e)}"
-        }
+        return {"status": "error", "error": f"Internal error: {str(e)}"}

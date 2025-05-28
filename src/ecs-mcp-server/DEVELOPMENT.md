@@ -202,5 +202,3 @@ To build the package:
 cd src/ecs-mcp-server
 python -m build
 ```
-
-

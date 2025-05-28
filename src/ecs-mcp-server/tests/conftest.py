@@ -21,10 +21,11 @@ def flask_app_dir(temp_dir: str) -> str:
     """Create a sample Flask application directory."""
     app_dir = os.path.join(temp_dir, "flask-app")
     os.makedirs(app_dir)
-    
+
     # Create app.py
     with open(os.path.join(app_dir, "app.py"), "w") as f:
-        f.write("""
+        f.write(
+            """
 from flask import Flask, jsonify
 
 app = Flask(__name__)
@@ -39,16 +40,17 @@ def health():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
-""")
-    
+"""
+        )
+
     # Create requirements.txt
     with open(os.path.join(app_dir, "requirements.txt"), "w") as f:
         f.write("flask==2.0.1\nWerkzeug==2.0.1\n")
-    
+
     # Create .env file
     with open(os.path.join(app_dir, ".env"), "w") as f:
         f.write("FLASK_ENV=development\nDEBUG=true\n")
-    
+
     return app_dir
 
 
@@ -57,10 +59,11 @@ def express_app_dir(temp_dir: str) -> str:
     """Create a sample Express.js application directory."""
     app_dir = os.path.join(temp_dir, "express-app")
     os.makedirs(app_dir)
-    
+
     # Create app.js
     with open(os.path.join(app_dir, "app.js"), "w") as f:
-        f.write("""
+        f.write(
+            """
 const express = require('express');
 const app = express();
 const port = process.env.PORT || 3000;
@@ -76,11 +79,13 @@ app.get('/health', (req, res) => {
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}`);
 });
-""")
-    
+"""
+        )
+
     # Create package.json
     with open(os.path.join(app_dir, "package.json"), "w") as f:
-        f.write("""
+        f.write(
+            """
 {
   "name": "express-app",
   "version": "1.0.0",
@@ -94,12 +99,13 @@ app.listen(port, () => {
     "express": "^4.17.1"
   }
 }
-""")
-    
+"""
+        )
+
     # Create .env file
     with open(os.path.join(app_dir, ".env"), "w") as f:
         f.write("NODE_ENV=development\nPORT=3000\n")
-    
+
     return app_dir
 
 
@@ -108,10 +114,11 @@ def react_app_dir(temp_dir: str) -> str:
     """Create a sample React application directory."""
     app_dir = os.path.join(temp_dir, "react-app")
     os.makedirs(os.path.join(app_dir, "src"))
-    
+
     # Create package.json
     with open(os.path.join(app_dir, "package.json"), "w") as f:
-        f.write("""
+        f.write(
+            """
 {
   "name": "react-app",
   "version": "0.1.0",
@@ -128,11 +135,13 @@ def react_app_dir(temp_dir: str) -> str:
     "eject": "react-scripts eject"
   }
 }
-""")
-    
+"""
+        )
+
     # Create App.jsx
     with open(os.path.join(app_dir, "src", "App.jsx"), "w") as f:
-        f.write("""
+        f.write(
+            """
 import React from 'react';
 
 function App() {
@@ -146,10 +155,11 @@ function App() {
 }
 
 export default App;
-""")
-    
+"""
+        )
+
     # Create .env file
     with open(os.path.join(app_dir, ".env"), "w") as f:
         f.write("REACT_APP_API_URL=http://localhost:3000/api\n")
-    
+
     return app_dir

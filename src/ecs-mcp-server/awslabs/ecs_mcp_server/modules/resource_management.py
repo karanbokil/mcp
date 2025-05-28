@@ -2,6 +2,7 @@
 Resource Management module for ECS MCP Server.
 This module provides tools and prompts for managing ECS resources.
 """
+
 from typing import Any, Dict, Optional
 
 from mcp.server.fastmcp import FastMCP
@@ -12,13 +13,8 @@ from awslabs.ecs_mcp_server.api.resource_management import ecs_resource_manageme
 
 def register_module(mcp: FastMCP) -> None:
     """Register resource management module tools and prompts with the MCP server."""
-    
-    @mcp.tool(
-        name="ecs_resource_management",
-        annotations={
-            "readOnlyHint": True,
-        }
-    )
+
+    @mcp.tool(name="ecs_resource_management", annotations=None)
     async def mcp_ecs_resource_management(
         action: str = Field(
             ...,
@@ -26,37 +22,40 @@ def register_module(mcp: FastMCP) -> None:
         ),
         resource_type: str = Field(
             ...,
-            description="Type of resource (cluster, service, task, task_definition, container_instance, capacity_provider)",
+            description=(
+                "Type of resource (cluster, service, task, task_definition, "
+                "container_instance, capacity_provider)"
+            ),
         ),
-        identifier: Optional[str] = Field(
-            default=None,
-            description="Resource identifier (name or ARN) for describe actions",
-        ),
-        filters: Optional[Dict[str, Any]] = Field(
-            default=None,
-            description="Filters for list operations (e.g., {\"cluster\": \"my-cluster\", \"status\": \"RUNNING\"})",
-        ),
+        identifier: Optional[str] = None,
+        filters: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Read-only tool for managing ECS resources.
-        
+
         This tool provides a consistent interface to list and describe various ECS resources.
-        
+
         USAGE EXAMPLES:
         - List all clusters: ecs_resource_management("list", "cluster")
         - Describe a cluster: ecs_resource_management("describe", "cluster", "my-cluster")
-        - List services in cluster: ecs_resource_management("list", "service", filters={"cluster": "my-cluster"})
-        - List tasks by status: ecs_resource_management("list", "task", filters={"cluster": "my-cluster", "status": "RUNNING"})
-        - Describe a task: ecs_resource_management("describe", "task", "task-id", filters={"cluster": "my-cluster"})
-        - List task definitions: ecs_resource_management("list", "task_definition", filters={"family": "nginx"})
-        - Describe a task definition: ecs_resource_management("describe", "task_definition", "family:revision")
-        
+        - List services in cluster: ecs_resource_management("list", "service",
+          filters={"cluster": "my-cluster"})
+        - List tasks by status: ecs_resource_management("list", "task",
+          filters={"cluster": "my-cluster", "status": "RUNNING"})
+        - Describe a task: ecs_resource_management("describe", "task", "task-id",
+          filters={"cluster": "my-cluster"})
+        - List task definitions: ecs_resource_management("list", "task_definition",
+          filters={"family": "nginx"})
+        - Describe a task definition: ecs_resource_management("describe", "task_definition",
+          "family:revision")
+
         Parameters:
             action: Action to perform (list, describe)
-            resource_type: Type of resource (cluster, service, task, task_definition, container_instance, capacity_provider)
+            resource_type: Type of resource (cluster, service, task, task_definition,
+                          container_instance, capacity_provider)
             identifier: Resource identifier (name or ARN) for describe actions (optional)
             filters: Filters for list operations (optional)
-            
+
         Returns:
             Dictionary containing the requested ECS resources
         """

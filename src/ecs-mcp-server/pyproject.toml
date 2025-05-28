@@ -29,6 +29,8 @@ dependencies = [
     "pyyaml>=6.0.0",
     "gevent>=25.5.1",
     "pytest-cov>=6.1.1",
+    "pyright>=1.1.401",
+    "ruff>=0.11.11",
 ]
 
 [project.optional-dependencies]
@@ -83,3 +85,4 @@ markers = [
 
 [tool.coverage.run]
 concurrency = ["gevent"]
+omit = ["tests/*"]

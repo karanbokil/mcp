@@ -6,25 +6,21 @@ AWS ECS MCP Server - Main entry point
 import logging
 import os
 import sys
-import functools
-from typing import Any, Dict
 
 from mcp.server.fastmcp import FastMCP
 
 from awslabs.ecs_mcp_server.modules import (
     containerize,
-    infrastructure,
-    deployment_status,
     delete,
+    deployment_status,
+    infrastructure,
     resource_management,
-    troubleshooting
+    troubleshooting,
 )
 from awslabs.ecs_mcp_server.utils.config import get_config
 from awslabs.ecs_mcp_server.utils.security import (
-    secure_tool,
     PERMISSION_WRITE,
-    PERMISSION_SENSITIVE_DATA,
-    PERMISSION_NONE
+    secure_tool,
 )
 
 # Configure logging
@@ -40,7 +36,9 @@ config = get_config()
 # Create the MCP server
 mcp = FastMCP(
     name="AWS ECS MCP Server",
-    description="A server for automating containerization and deployment of web applications to AWS ECS",
+    description=(
+        "A server for automating containerization and deployment of web applications to AWS ECS"
+    ),
     version="0.1.0",
     instructions="""Use this server to containerize and deploy web applications to AWS ECS.
 
@@ -72,8 +70,12 @@ IMPORTANT:
 
 # Apply security wrappers to API functions
 # Write operations
-infrastructure.create_infrastructure = secure_tool(config, PERMISSION_WRITE, "create_ecs_infrastructure")(infrastructure.create_infrastructure)
-delete.delete_infrastructure = secure_tool(config, PERMISSION_WRITE, "delete_ecs_infrastructure")(delete.delete_infrastructure)
+infrastructure.create_infrastructure = secure_tool(
+    config, PERMISSION_WRITE, "create_ecs_infrastructure"
+)(infrastructure.create_infrastructure)
+delete.delete_infrastructure = secure_tool(config, PERMISSION_WRITE, "delete_ecs_infrastructure")(
+    delete.delete_infrastructure
+)
 
 # Register all modules
 containerize.register_module(mcp)
@@ -82,6 +84,7 @@ deployment_status.register_module(mcp)
 resource_management.register_module(mcp)
 troubleshooting.register_module(mcp)
 delete.register_module(mcp)
+
 
 def main() -> None:
     """Main entry point for the ECS MCP Server."""

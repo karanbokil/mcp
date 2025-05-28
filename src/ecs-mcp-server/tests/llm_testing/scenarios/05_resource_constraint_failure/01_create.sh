@@ -40,7 +40,7 @@ SG_ID=$(aws ec2 describe-security-groups --filters "Name=vpc-id,Values=$VPC_ID" 
 echo "Using security group: $SG_ID"
 
 # Step 6: Register an extreme task definition with either:
-# - Memory requirements beyond Fargate maximum (120GB) 
+# - Memory requirements beyond Fargate maximum (120GB)
 # - CPU requirements beyond Fargate maximum (16 vCPU)
 # Choose one approach depending on your AWS account limits
 echo "Step 6: Registering task definition with excessive resource requirements..."

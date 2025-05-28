@@ -23,7 +23,8 @@ async def get_aws_client(service_name: str):
 async def get_aws_account_id() -> str:
     """Gets the AWS account ID."""
     sts = await get_aws_client("sts")
-    return sts.get_caller_identity()["Account"]
+    response = await sts.get_caller_identity()
+    return response["Account"]
 
 
 async def get_default_vpc_and_subnets() -> Dict[str, Any]:
@@ -31,7 +32,7 @@ async def get_default_vpc_and_subnets() -> Dict[str, Any]:
     ec2 = await get_aws_client("ec2")
 
     # Get default VPC
-    vpcs = ec2.describe_vpcs(Filters=[{"Name": "isDefault", "Values": ["true"]}])
+    vpcs = await ec2.describe_vpcs(Filters=[{"Name": "isDefault", "Values": ["true"]}])
 
     if not vpcs["Vpcs"]:
         raise ValueError("No default VPC found. Please specify a VPC ID.")
@@ -39,7 +40,7 @@ async def get_default_vpc_and_subnets() -> Dict[str, Any]:
     vpc_id = vpcs["Vpcs"][0]["VpcId"]
 
     # Get public subnets in the default VPC
-    subnets = ec2.describe_subnets(
+    subnets = await ec2.describe_subnets(
         Filters=[
             {"Name": "vpc-id", "Values": [vpc_id]},
             {"Name": "map-public-ip-on-launch", "Values": ["true"]},
@@ -48,33 +49,27 @@ async def get_default_vpc_and_subnets() -> Dict[str, Any]:
 
     if not subnets["Subnets"]:
         # Fallback to all subnets in the VPC
-        subnets = ec2.describe_subnets(Filters=[{"Name": "vpc-id", "Values": [vpc_id]}])
+        subnets = await ec2.describe_subnets(Filters=[{"Name": "vpc-id", "Values": [vpc_id]}])
 
     subnet_ids = [subnet["SubnetId"] for subnet in subnets["Subnets"]]
 
     # Get route tables for the VPC
-    route_tables = ec2.describe_route_tables(
-        Filters=[{"Name": "vpc-id", "Values": [vpc_id]}]
-    )
-    
+    route_tables = await ec2.describe_route_tables(Filters=[{"Name": "vpc-id", "Values": [vpc_id]}])
+
     # Find the main route table
     main_route_tables = [
-        rt["RouteTableId"] 
-        for rt in route_tables["RouteTables"] 
+        rt["RouteTableId"]
+        for rt in route_tables["RouteTables"]
         if any(assoc.get("Main", False) for assoc in rt.get("Associations", []))
     ]
-    
+
     # If no main route table is found, use all route tables
     if not main_route_tables:
         route_table_ids = [rt["RouteTableId"] for rt in route_tables["RouteTables"]]
     else:
         route_table_ids = main_route_tables
 
-    return {
-        "vpc_id": vpc_id, 
-        "subnet_ids": subnet_ids,
-        "route_table_ids": route_table_ids
-    }
+    return {"vpc_id": vpc_id, "subnet_ids": subnet_ids, "route_table_ids": route_table_ids}
 
 
 async def create_ecr_repository(repository_name: str) -> Dict[str, Any]:
@@ -83,13 +78,13 @@ async def create_ecr_repository(repository_name: str) -> Dict[str, Any]:
 
     try:
         # Check if repository exists
-        response = ecr.describe_repositories(repositoryNames=[repository_name])
+        response = await ecr.describe_repositories(repositoryNames=[repository_name])
         return response["repositories"][0]
     except ClientError as e:
         # Check if the error is RepositoryNotFoundException
-        if e.response['Error']['Code'] == 'RepositoryNotFoundException':
+        if e.response["Error"]["Code"] == "RepositoryNotFoundException":
             # Create repository if it doesn't exist
-            response = ecr.create_repository(
+            response = await ecr.create_repository(
                 repositoryName=repository_name,
                 imageScanningConfiguration={"scanOnPush": True},
                 encryptionConfiguration={"encryptionType": "AES256"},
@@ -103,7 +98,7 @@ async def create_ecr_repository(repository_name: str) -> Dict[str, Any]:
 async def get_ecr_login_password() -> str:
     """Gets ECR login password for Docker authentication."""
     ecr = await get_aws_client("ecr")
-    response = ecr.get_authorization_token()
+    response = await ecr.get_authorization_token()
 
     if not response["authorizationData"]:
         raise ValueError("Failed to get ECR authorization token")
@@ -118,26 +113,26 @@ async def get_ecr_login_password() -> str:
     username, password = decoded.split(":")
 
     return password
+
+
 async def get_route_tables_for_vpc(vpc_id: str) -> List[str]:
     """Gets route tables for a specific VPC."""
     ec2 = await get_aws_client("ec2")
-    
+
     # Get route tables for the VPC
-    route_tables = ec2.describe_route_tables(
-        Filters=[{"Name": "vpc-id", "Values": [vpc_id]}]
-    )
-    
+    route_tables = await ec2.describe_route_tables(Filters=[{"Name": "vpc-id", "Values": [vpc_id]}])
+
     # Find the main route table
     main_route_tables = [
-        rt["RouteTableId"] 
-        for rt in route_tables["RouteTables"] 
+        rt["RouteTableId"]
+        for rt in route_tables["RouteTables"]
         if any(assoc.get("Main", False) for assoc in rt.get("Associations", []))
     ]
-    
+
     # If no main route table is found, use all route tables
     if not main_route_tables:
         route_table_ids = [rt["RouteTableId"] for rt in route_tables["RouteTables"]]
     else:
         route_table_ids = main_route_tables
-        
+
     return route_table_ids

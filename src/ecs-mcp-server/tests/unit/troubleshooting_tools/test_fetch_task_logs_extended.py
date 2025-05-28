@@ -11,11 +11,11 @@ import pytest
 from botocore.exceptions import ClientError
 
 from awslabs.ecs_mcp_server.api.troubleshooting_tools.fetch_task_logs import fetch_task_logs
-from awslabs.ecs_mcp_server.utils.aws import get_aws_client
 
 
 @pytest.mark.anyio
-async def test_with_specific_task_id():
+@mock.patch("awslabs.ecs_mcp_server.utils.aws.get_aws_client")
+async def test_with_specific_task_id(mock_get_aws_client):
     """Test retrieving logs for a specific task ID."""
     # Skip this test for now as it requires more complex mocking
     pytest.skip("This test requires more complex mocking")
@@ -32,7 +32,7 @@ async def test_with_specific_task_id():
         "logGroups": [
             {
                 "logGroupName": "/ecs/test-cluster/test-app",
-                "creationTime": int(timestamp.timestamp()) * 1000
+                "creationTime": int(timestamp.timestamp()) * 1000,
             }
         ]
     }
@@ -42,12 +42,12 @@ async def test_with_specific_task_id():
         "logStreams": [
             {
                 "logStreamName": "ecs/test-app/abcdef1234567890",
-                "creationTime": int(timestamp.timestamp()) * 1000
+                "creationTime": int(timestamp.timestamp()) * 1000,
             },
             {
                 "logStreamName": "ecs/test-app/1234567890abcdef",
-                "creationTime": int(timestamp.timestamp()) * 1000
-            }
+                "creationTime": int(timestamp.timestamp()) * 1000,
+            },
         ]
     }
 
@@ -57,11 +57,11 @@ async def test_with_specific_task_id():
             {
                 "timestamp": int(timestamp.timestamp()) * 1000,
                 "message": "INFO: Task specific log",
-                "ingestionTime": int(timestamp.timestamp()) * 1000
+                "ingestionTime": int(timestamp.timestamp()) * 1000,
             }
         ],
         "nextForwardToken": "f/1234567890",
-        "nextBackwardToken": "b/1234567890"
+        "nextBackwardToken": "b/1234567890",
     }
 
     # Call the function with a specific task ID
@@ -71,18 +71,19 @@ async def test_with_specific_task_id():
     assert result["status"] == "success"
     assert len(result["log_entries"]) == 1
     assert result["log_entries"][0]["message"] == "INFO: Task specific log"
-    
+
     # Verify that describe_log_streams was called with the correct prefix
     mock_logs_client.describe_log_streams.assert_called_with(
         logGroupName="/ecs/test-cluster/test-app",
         logStreamNamePrefix="1234567890abcdef",
-        orderBy='LastEventTime',
-        descending=True
+        orderBy="LastEventTime",
+        descending=True,
     )
 
 
 @pytest.mark.anyio
-async def test_with_error_logs_and_pattern_summary():
+@mock.patch("awslabs.ecs_mcp_server.utils.aws.get_aws_client")
+async def test_with_error_logs_and_pattern_summary(mock_get_aws_client):
     """Test retrieving logs with errors and generating pattern summary."""
     # Skip this test for now as it requires more complex mocking
     pytest.skip("This test requires more complex mocking")
@@ -99,7 +100,7 @@ async def test_with_error_logs_and_pattern_summary():
         "logGroups": [
             {
                 "logGroupName": "/ecs/test-cluster/test-app",
-                "creationTime": int(timestamp.timestamp()) * 1000
+                "creationTime": int(timestamp.timestamp()) * 1000,
             }
         ]
     }
@@ -109,7 +110,7 @@ async def test_with_error_logs_and_pattern_summary():
         "logStreams": [
             {
                 "logStreamName": "ecs/test-app/1234567890abcdef",
-                "creationTime": int(timestamp.timestamp()) * 1000
+                "creationTime": int(timestamp.timestamp()) * 1000,
             }
         ]
     }
@@ -120,21 +121,23 @@ async def test_with_error_logs_and_pattern_summary():
             {
                 "timestamp": int(timestamp.timestamp()) * 1000,
                 "message": "ERROR: Database connection failed: timeout",
-                "ingestionTime": int(timestamp.timestamp()) * 1000
+                "ingestionTime": int(timestamp.timestamp()) * 1000,
             },
             {
                 "timestamp": int((timestamp + datetime.timedelta(seconds=1)).timestamp()) * 1000,
                 "message": "ERROR: Database connection failed: timeout",
-                "ingestionTime": int((timestamp + datetime.timedelta(seconds=1)).timestamp()) * 1000
+                "ingestionTime": int((timestamp + datetime.timedelta(seconds=1)).timestamp())
+                * 1000,
             },
             {
                 "timestamp": int((timestamp + datetime.timedelta(seconds=2)).timestamp()) * 1000,
                 "message": "ERROR: Invalid configuration parameter: max_connections",
-                "ingestionTime": int((timestamp + datetime.timedelta(seconds=2)).timestamp()) * 1000
-            }
+                "ingestionTime": int((timestamp + datetime.timedelta(seconds=2)).timestamp())
+                * 1000,
+            },
         ],
         "nextForwardToken": "f/1234567890",
-        "nextBackwardToken": "b/1234567890"
+        "nextBackwardToken": "b/1234567890",
     }
 
     # Call the function
@@ -146,7 +149,7 @@ async def test_with_error_logs_and_pattern_summary():
     assert result["error_count"] == 3
     assert result["warning_count"] == 0
     assert result["info_count"] == 0
-    
+
     # Verify pattern summary
     assert len(result["pattern_summary"]) > 0
     assert result["pattern_summary"][0]["count"] == 2  # Two identical error messages
@@ -154,7 +157,8 @@ async def test_with_error_logs_and_pattern_summary():
 
 
 @pytest.mark.anyio
-async def test_with_log_stream_error():
+@mock.patch("awslabs.ecs_mcp_server.utils.aws.get_aws_client")
+async def test_with_log_stream_error(mock_get_aws_client):
     """Test handling errors when getting log streams."""
     # Skip this test for now as it requires more complex mocking
     pytest.skip("This test requires more complex mocking")
@@ -171,7 +175,7 @@ async def test_with_log_stream_error():
         "logGroups": [
             {
                 "logGroupName": "/ecs/test-cluster/test-app",
-                "creationTime": int(timestamp.timestamp()) * 1000
+                "creationTime": int(timestamp.timestamp()) * 1000,
             }
         ]
     }
@@ -179,7 +183,7 @@ async def test_with_log_stream_error():
     # Mock describe_log_streams to raise an error
     mock_logs_client.describe_log_streams.side_effect = ClientError(
         {"Error": {"Code": "ResourceNotFoundException", "Message": "Log group not found"}},
-        "DescribeLogStreams"
+        "DescribeLogStreams",
     )
 
     # Call the function
@@ -193,7 +197,8 @@ async def test_with_log_stream_error():
 
 
 @pytest.mark.anyio
-async def test_with_log_events_error():
+@mock.patch("awslabs.ecs_mcp_server.utils.aws.get_aws_client")
+async def test_with_log_events_error(mock_get_aws_client):
     """Test handling errors when getting log events."""
     # Skip this test for now as it requires more complex mocking
     pytest.skip("This test requires more complex mocking")
@@ -210,7 +215,7 @@ async def test_with_log_events_error():
         "logGroups": [
             {
                 "logGroupName": "/ecs/test-cluster/test-app",
-                "creationTime": int(timestamp.timestamp()) * 1000
+                "creationTime": int(timestamp.timestamp()) * 1000,
             }
         ]
     }
@@ -220,7 +225,7 @@ async def test_with_log_events_error():
         "logStreams": [
             {
                 "logStreamName": "ecs/test-app/1234567890abcdef",
-                "creationTime": int(timestamp.timestamp()) * 1000
+                "creationTime": int(timestamp.timestamp()) * 1000,
             }
         ]
     }
@@ -228,7 +233,7 @@ async def test_with_log_events_error():
     # Mock get_log_events to raise an error
     mock_logs_client.get_log_events.side_effect = ClientError(
         {"Error": {"Code": "ResourceNotFoundException", "Message": "Log stream not found"}},
-        "GetLogEvents"
+        "GetLogEvents",
     )
 
     # Call the function
@@ -242,7 +247,8 @@ async def test_with_log_events_error():
 
 
 @pytest.mark.anyio
-async def test_with_different_log_severities():
+@mock.patch("awslabs.ecs_mcp_server.utils.aws.get_aws_client")
+async def test_with_different_log_severities(mock_get_aws_client):
     """Test detecting different log severities."""
     # Skip this test for now as it requires more complex mocking
     pytest.skip("This test requires more complex mocking")
@@ -259,7 +265,7 @@ async def test_with_different_log_severities():
         "logGroups": [
             {
                 "logGroupName": "/ecs/test-cluster/test-app",
-                "creationTime": int(timestamp.timestamp()) * 1000
+                "creationTime": int(timestamp.timestamp()) * 1000,
             }
         ]
     }
@@ -269,7 +275,7 @@ async def test_with_different_log_severities():
         "logStreams": [
             {
                 "logStreamName": "ecs/test-app/1234567890abcdef",
-                "creationTime": int(timestamp.timestamp()) * 1000
+                "creationTime": int(timestamp.timestamp()) * 1000,
             }
         ]
     }
@@ -280,31 +286,35 @@ async def test_with_different_log_severities():
             {
                 "timestamp": int(timestamp.timestamp()) * 1000,
                 "message": "This is a normal log message",
-                "ingestionTime": int(timestamp.timestamp()) * 1000
+                "ingestionTime": int(timestamp.timestamp()) * 1000,
             },
             {
                 "timestamp": int((timestamp + datetime.timedelta(seconds=1)).timestamp()) * 1000,
                 "message": "WARN: This is a warning message",
-                "ingestionTime": int((timestamp + datetime.timedelta(seconds=1)).timestamp()) * 1000
+                "ingestionTime": int((timestamp + datetime.timedelta(seconds=1)).timestamp())
+                * 1000,
             },
             {
                 "timestamp": int((timestamp + datetime.timedelta(seconds=2)).timestamp()) * 1000,
                 "message": "ERROR: This is an error message",
-                "ingestionTime": int((timestamp + datetime.timedelta(seconds=2)).timestamp()) * 1000
+                "ingestionTime": int((timestamp + datetime.timedelta(seconds=2)).timestamp())
+                * 1000,
             },
             {
                 "timestamp": int((timestamp + datetime.timedelta(seconds=3)).timestamp()) * 1000,
                 "message": "EXCEPTION: This is an exception",
-                "ingestionTime": int((timestamp + datetime.timedelta(seconds=3)).timestamp()) * 1000
+                "ingestionTime": int((timestamp + datetime.timedelta(seconds=3)).timestamp())
+                * 1000,
             },
             {
                 "timestamp": int((timestamp + datetime.timedelta(seconds=4)).timestamp()) * 1000,
                 "message": "Task FAILED with exit code 1",
-                "ingestionTime": int((timestamp + datetime.timedelta(seconds=4)).timestamp()) * 1000
-            }
+                "ingestionTime": int((timestamp + datetime.timedelta(seconds=4)).timestamp())
+                * 1000,
+            },
         ],
         "nextForwardToken": "f/1234567890",
-        "nextBackwardToken": "b/1234567890"
+        "nextBackwardToken": "b/1234567890",
     }
 
     # Call the function
@@ -316,7 +326,7 @@ async def test_with_different_log_severities():
     assert result["error_count"] == 3  # ERROR, EXCEPTION, FAILED
     assert result["warning_count"] == 1  # WARN
     assert result["info_count"] == 1  # normal message
-    
+
     # Verify severities
     severities = [entry["severity"] for entry in result["log_entries"]]
     assert severities.count("ERROR") == 3
@@ -325,7 +335,8 @@ async def test_with_different_log_severities():
 
 
 @pytest.mark.anyio
-async def test_no_log_entries():
+@mock.patch("awslabs.ecs_mcp_server.utils.aws.get_aws_client")
+async def test_no_log_entries(mock_get_aws_client):
     """Test when no log entries are found."""
     # Skip this test for now as it requires more complex mocking
     pytest.skip("This test requires more complex mocking")
@@ -342,7 +353,7 @@ async def test_no_log_entries():
         "logGroups": [
             {
                 "logGroupName": "/ecs/test-cluster/test-app",
-                "creationTime": int(timestamp.timestamp()) * 1000
+                "creationTime": int(timestamp.timestamp()) * 1000,
             }
         ]
     }
@@ -352,7 +363,7 @@ async def test_no_log_entries():
         "logStreams": [
             {
                 "logStreamName": "ecs/test-app/1234567890abcdef",
-                "creationTime": int(timestamp.timestamp()) * 1000
+                "creationTime": int(timestamp.timestamp()) * 1000,
             }
         ]
     }
@@ -361,7 +372,7 @@ async def test_no_log_entries():
     mock_logs_client.get_log_events.return_value = {
         "events": [],
         "nextForwardToken": "f/1234567890",
-        "nextBackwardToken": "b/1234567890"
+        "nextBackwardToken": "b/1234567890",
     }
 
     # Call the function
@@ -377,7 +388,8 @@ async def test_no_log_entries():
 
 
 @pytest.mark.anyio
-async def test_client_error():
+@mock.patch("awslabs.ecs_mcp_server.utils.aws.get_aws_client")
+async def test_client_error(mock_get_aws_client):
     """Test handling ClientError at the top level."""
     # Skip this test for now as it requires more complex mocking
     pytest.skip("This test requires more complex mocking")
@@ -385,7 +397,7 @@ async def test_client_error():
     # Mock get_aws_client to raise ClientError
     mock_get_aws_client.side_effect = ClientError(
         {"Error": {"Code": "AccessDeniedException", "Message": "Access denied"}},
-        "DescribeLogGroups"
+        "DescribeLogGroups",
     )
 
     # Call the function
@@ -398,7 +410,8 @@ async def test_client_error():
 
 
 @pytest.mark.anyio
-async def test_general_exception():
+@mock.patch("awslabs.ecs_mcp_server.utils.aws.get_aws_client")
+async def test_general_exception(mock_get_aws_client):
     """Test handling general exceptions."""
     # Skip this test for now as it requires more complex mocking
     pytest.skip("This test requires more complex mocking")

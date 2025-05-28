@@ -13,23 +13,23 @@ if [ -z "$1" ]; then
     # Find all test failure stacks
     STACKS=$(aws cloudformation list-stacks --stack-status-filter CREATE_FAILED ROLLBACK_COMPLETE ROLLBACK_FAILED DELETE_FAILED \
         --query "StackSummaries[?contains(StackName, 'scenario-01-stack')].StackName" --output text)
-    
+
     if [ -z "$STACKS" ]; then
         echo "No scenario-01-stack stacks found to clean up."
         exit 0
     fi
-    
+
     echo "Found the following test stacks to clean up:"
     echo "$STACKS"
     echo ""
-    
+
     # Delete all found stacks
     for STACK_NAME in $STACKS; do
         echo "Deleting CloudFormation stack $STACK_NAME..."
         aws cloudformation delete-stack --stack-name "$STACK_NAME"
         echo "Deletion initiated for $STACK_NAME"
     done
-    
+
     exit 0
 else
     STACK_NAME=$1

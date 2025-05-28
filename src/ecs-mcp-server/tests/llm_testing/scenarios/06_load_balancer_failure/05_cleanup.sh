@@ -11,7 +11,7 @@ source "$BASE_DIR/utils/aws_helpers.sh"
 # If no cluster name is provided, look for the most recently created cluster matching our pattern
 if [ -z "$1" ]; then
     CLUSTERS=$(aws ecs list-clusters --query 'clusterArns[*]' --output text)
-    
+
     # Loop through clusters to find one matching our pattern
     for CLUSTER_ARN in $CLUSTERS; do
         CLUSTER_NAME=$(echo "$CLUSTER_ARN" | awk -F/ '{print $2}')
@@ -20,7 +20,7 @@ if [ -z "$1" ]; then
             break
         fi
     done
-    
+
     if [ -z "$CLUSTER_NAME" ] || [[ "$CLUSTER_NAME" != *"scenario-06-cluster"* ]]; then
         echo "Could not find a recent scenario-06-cluster. Please provide a cluster name."
         exit 1
@@ -32,7 +32,7 @@ fi
 # If no service name is provided, look for services in the cluster
 if [ -z "$2" ]; then
     SERVICES=$(aws ecs list-services --cluster $CLUSTER_NAME --query 'serviceArns[*]' --output text)
-    
+
     # Loop through services to find one matching our pattern
     for SERVICE_ARN in $SERVICES; do
         SERVICE_NAME=$(echo "$SERVICE_ARN" | awk -F/ '{print $3}')
@@ -41,7 +41,7 @@ if [ -z "$2" ]; then
             break
         fi
     done
-    
+
     if [ -z "$SERVICE_NAME" ]; then
         echo "No service found in cluster $CLUSTER_NAME. Proceeding with cleanup of other resources."
     fi
@@ -59,10 +59,10 @@ if [ -n "$SERVICE_NAME" ]; then
     SERVICE_DETAILS=$(aws ecs describe-services --cluster $CLUSTER_NAME --services $SERVICE_NAME 2>/dev/null)
     if [ $? -eq 0 ]; then
         TARGET_GROUP_ARN=$(echo $SERVICE_DETAILS | jq -r '.services[0].loadBalancers[0].targetGroupArn')
-        
+
         if [ -n "$TARGET_GROUP_ARN" ] && [ "$TARGET_GROUP_ARN" != "null" ]; then
             echo "Found target group: $TARGET_GROUP_ARN"
-            
+
             # Get the load balancer ARN from the target group
             TARGET_GROUP_DETAILS=$(aws elbv2 describe-target-groups --target-group-arns $TARGET_GROUP_ARN 2>/dev/null)
             if [ $? -eq 0 ]; then
@@ -82,7 +82,7 @@ if [ -z "$TARGET_GROUP_ARN" ] || [ "$TARGET_GROUP_ARN" == "null" ]; then
     if [ -n "$TARGET_GROUPS" ]; then
         TARGET_GROUP_ARN=$(echo $TARGET_GROUPS | tr '\t' '\n' | head -1)
         echo "Found target group: $TARGET_GROUP_ARN"
-        
+
         # Get the load balancer ARN from the target group
         TARGET_GROUP_DETAILS=$(aws elbv2 describe-target-groups --target-group-arns $TARGET_GROUP_ARN 2>/dev/null)
         if [ $? -eq 0 ]; then
@@ -160,11 +160,11 @@ SG_LIST=$(aws ec2 describe-security-groups --query 'SecurityGroups[*].[GroupId,G
 SG_ID=$(echo $SG_LIST | jq -r '.[] | select(.[1] | contains("scenario-06-sg")) | .[0]' | head -1)
 if [ -n "$SG_ID" ]; then
     echo "Found security group: $SG_ID"
-    
+
     # In case the security group is still in use, we'll retry a few times
     MAX_RETRIES=5
     RETRY_COUNT=0
-    
+
     while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
         aws ec2 delete-security-group --group-id $SG_ID > /dev/null 2>&1
         if [ $? -eq 0 ]; then
@@ -176,7 +176,7 @@ if [ -n "$SG_ID" ]; then
             RETRY_COUNT=$((RETRY_COUNT + 1))
         fi
     done
-    
+
     if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
         echo "Could not delete security group after $MAX_RETRIES attempts. It may still be in use by other resources."
         echo "You may need to delete it manually later: aws ec2 delete-security-group --group-id $SG_ID"

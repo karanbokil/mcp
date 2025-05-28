@@ -6,7 +6,6 @@ import datetime
 import unittest
 from unittest import mock
 
-import pytest
 from botocore.exceptions import ClientError
 
 from awslabs.ecs_mcp_server.api import status
@@ -18,16 +17,17 @@ class TestDeploymentStatus(unittest.TestCase):
     @mock.patch("awslabs.ecs_mcp_server.api.status._find_cloudformation_stack")
     @mock.patch("awslabs.ecs_mcp_server.api.status._get_alb_url")
     @mock.patch("awslabs.ecs_mcp_server.api.status.get_aws_client")
-    async def test_get_deployment_status_success(self, mock_get_aws_client, mock_get_alb_url, mock_find_cloudformation_stack):
+    async def test_get_deployment_status_success(
+        self, mock_get_aws_client, mock_get_alb_url, mock_find_cloudformation_stack
+    ):
         """Test successful deployment status retrieval."""
         # Setup mock responses
-        mock_find_cloudformation_stack.return_value = ("test-app-ecs-infrastructure", {
-            "status": "CREATE_COMPLETE",
-            "outputs": {},
-            "recent_events": []
-        })
+        mock_find_cloudformation_stack.return_value = (
+            "test-app-ecs-infrastructure",
+            {"status": "CREATE_COMPLETE", "outputs": {}, "recent_events": []},
+        )
         mock_get_alb_url.return_value = "http://test-app-123.us-west-2.elb.amazonaws.com"
-        
+
         mock_ecs_client = mock.MagicMock()
         mock_ecs_client.describe_services.return_value = {
             "services": [
@@ -48,7 +48,9 @@ class TestDeploymentStatus(unittest.TestCase):
                 }
             ]
         }
-        mock_ecs_client.list_tasks.return_value = {"taskArns": ["arn:aws:ecs:us-west-2:123456789012:task/test-cluster/abcdef"]}
+        mock_ecs_client.list_tasks.return_value = {
+            "taskArns": ["arn:aws:ecs:us-west-2:123456789012:task/test-cluster/abcdef"]
+        }
         mock_ecs_client.describe_tasks.return_value = {
             "tasks": [
                 {
@@ -59,12 +61,12 @@ class TestDeploymentStatus(unittest.TestCase):
                 }
             ]
         }
-        
+
         mock_get_aws_client.return_value = mock_ecs_client
-        
+
         # Call the function
         result = await status.get_deployment_status("test-app")
-        
+
         # Verify the result
         assert result["status"] == "COMPLETE"
         assert result["app_name"] == "test-app"
@@ -74,7 +76,7 @@ class TestDeploymentStatus(unittest.TestCase):
         assert result["running_count"] == 2
         assert result["desired_count"] == 2
         assert "custom_domain_guidance" in result
-        
+
         # Verify the function calls
         mock_find_cloudformation_stack.assert_called_once_with("test-app", None)
         mock_get_alb_url.assert_called_once_with("test-app", "test-app-ecs-infrastructure")
@@ -83,22 +85,24 @@ class TestDeploymentStatus(unittest.TestCase):
     @mock.patch("awslabs.ecs_mcp_server.api.status._find_cloudformation_stack")
     @mock.patch("awslabs.ecs_mcp_server.api.status._get_alb_url")
     @mock.patch("awslabs.ecs_mcp_server.api.status.get_aws_client")
-    async def test_get_deployment_status_stack_not_found(self, mock_get_aws_client, mock_get_alb_url, mock_find_cloudformation_stack):
+    async def test_get_deployment_status_stack_not_found(
+        self, mock_get_aws_client, mock_get_alb_url, mock_find_cloudformation_stack
+    ):
         """Test when CloudFormation stack is not found."""
         # Setup mock responses
-        mock_find_cloudformation_stack.return_value = (None, {
-            "status": "NOT_FOUND",
-            "details": "No stack found with any naming pattern"
-        })
-        
+        mock_find_cloudformation_stack.return_value = (
+            None,
+            {"status": "NOT_FOUND", "details": "No stack found with any naming pattern"},
+        )
+
         # Call the function
         result = await status.get_deployment_status("test-app")
-        
+
         # Verify the result
         assert result["status"] == "INFRASTRUCTURE_UNAVAILABLE"
         assert result["app_name"] == "test-app"
         assert result["alb_url"] is None
-        
+
         # Verify the function calls
         mock_find_cloudformation_stack.assert_called_once_with("test-app", None)
         mock_get_alb_url.assert_not_called()
@@ -107,36 +111,37 @@ class TestDeploymentStatus(unittest.TestCase):
     @mock.patch("awslabs.ecs_mcp_server.api.status._find_cloudformation_stack")
     @mock.patch("awslabs.ecs_mcp_server.api.status._get_alb_url")
     @mock.patch("awslabs.ecs_mcp_server.api.status.get_aws_client")
-    async def test_get_deployment_status_service_not_found(self, mock_get_aws_client, mock_get_alb_url, mock_find_cloudformation_stack):
+    async def test_get_deployment_status_service_not_found(
+        self, mock_get_aws_client, mock_get_alb_url, mock_find_cloudformation_stack
+    ):
         """Test when ECS service is not found."""
         # Setup mock responses
-        mock_find_cloudformation_stack.return_value = ("test-app-ecs", {
-            "status": "CREATE_COMPLETE",
-            "outputs": {},
-            "recent_events": []
-        })
+        mock_find_cloudformation_stack.return_value = (
+            "test-app-ecs",
+            {"status": "CREATE_COMPLETE", "outputs": {}, "recent_events": []},
+        )
         mock_get_alb_url.return_value = "http://test-app-123.us-west-2.elb.amazonaws.com"
-        
+
         mock_ecs_client = mock.MagicMock()
         mock_ecs_client.describe_services.return_value = {
             "services": [],
             "failures": [
                 {
                     "arn": "arn:aws:ecs:us-west-2:123456789012:service/test-app/test-app-service",
-                    "reason": "MISSING"
+                    "reason": "MISSING",
                 }
-            ]
+            ],
         }
         mock_get_aws_client.return_value = mock_ecs_client
-        
+
         # Call the function
         result = await status.get_deployment_status("test-app")
-        
+
         # Verify the result
         assert result["status"] == "NOT_FOUND"
         assert result["app_name"] == "test-app"
         assert result["alb_url"] is None
-        
+
         # Verify the function calls
         mock_find_cloudformation_stack.assert_called_once_with("test-app", None)
         mock_get_alb_url.assert_called_once_with("test-app", "test-app-ecs")
@@ -145,16 +150,17 @@ class TestDeploymentStatus(unittest.TestCase):
     @mock.patch("awslabs.ecs_mcp_server.api.status._find_cloudformation_stack")
     @mock.patch("awslabs.ecs_mcp_server.api.status._get_alb_url")
     @mock.patch("awslabs.ecs_mcp_server.api.status.get_aws_client")
-    async def test_get_deployment_status_with_custom_params(self, mock_get_aws_client, mock_get_alb_url, mock_find_cloudformation_stack):
+    async def test_get_deployment_status_with_custom_params(
+        self, mock_get_aws_client, mock_get_alb_url, mock_find_cloudformation_stack
+    ):
         """Test deployment status retrieval with custom parameters."""
         # Setup mock responses
-        mock_find_cloudformation_stack.return_value = ("custom-stack", {
-            "status": "CREATE_COMPLETE",
-            "outputs": {},
-            "recent_events": []
-        })
+        mock_find_cloudformation_stack.return_value = (
+            "custom-stack",
+            {"status": "CREATE_COMPLETE", "outputs": {}, "recent_events": []},
+        )
         mock_get_alb_url.return_value = "http://custom-alb.us-west-2.elb.amazonaws.com"
-        
+
         mock_ecs_client = mock.MagicMock()
         mock_ecs_client.describe_services.return_value = {
             "services": [
@@ -175,7 +181,9 @@ class TestDeploymentStatus(unittest.TestCase):
                 }
             ]
         }
-        mock_ecs_client.list_tasks.return_value = {"taskArns": ["arn:aws:ecs:us-west-2:123456789012:task/custom-cluster/abcdef"]}
+        mock_ecs_client.list_tasks.return_value = {
+            "taskArns": ["arn:aws:ecs:us-west-2:123456789012:task/custom-cluster/abcdef"]
+        }
         mock_ecs_client.describe_tasks.return_value = {
             "tasks": [
                 {
@@ -186,60 +194,63 @@ class TestDeploymentStatus(unittest.TestCase):
                 }
             ]
         }
-        
+
         mock_get_aws_client.return_value = mock_ecs_client
-        
+
         # Call the function with custom parameters
         result = await status.get_deployment_status(
-            "test-app", 
-            cluster_name="custom-cluster", 
-            stack_name="custom-stack", 
-            service_name="custom-service"
+            "test-app",
+            cluster_name="custom-cluster",
+            stack_name="custom-stack",
+            service_name="custom-service",
         )
-        
+
         # Verify the result
         assert result["status"] == "COMPLETE"
         assert result["app_name"] == "test-app"
         assert result["cluster"] == "custom-cluster"
         assert result["alb_url"] == "http://custom-alb.us-west-2.elb.amazonaws.com"
         assert result["service_status"] == "ACTIVE"
-        
+
         # Verify the function calls
         mock_find_cloudformation_stack.assert_called_once_with("test-app", "custom-stack")
         mock_get_alb_url.assert_called_once_with("test-app", "custom-stack")
         mock_get_aws_client.assert_called_once_with("ecs")
-        mock_ecs_client.describe_services.assert_called_once_with(cluster="custom-cluster", services=["custom-service"])
+        mock_ecs_client.describe_services.assert_called_once_with(
+            cluster="custom-cluster", services=["custom-service"]
+        )
 
     @mock.patch("awslabs.ecs_mcp_server.api.status._find_cloudformation_stack")
     @mock.patch("awslabs.ecs_mcp_server.api.status._get_alb_url")
     @mock.patch("awslabs.ecs_mcp_server.api.status.get_aws_client")
-    async def test_get_deployment_status_exception_handling(self, mock_get_aws_client, mock_get_alb_url, mock_find_cloudformation_stack):
+    async def test_get_deployment_status_exception_handling(
+        self, mock_get_aws_client, mock_get_alb_url, mock_find_cloudformation_stack
+    ):
         """Test exception handling in deployment status retrieval."""
         # Setup mock responses
-        mock_find_cloudformation_stack.return_value = ("test-app-ecs", {
-            "status": "CREATE_COMPLETE",
-            "outputs": {},
-            "recent_events": []
-        })
+        mock_find_cloudformation_stack.return_value = (
+            "test-app-ecs",
+            {"status": "CREATE_COMPLETE", "outputs": {}, "recent_events": []},
+        )
         mock_get_alb_url.return_value = "http://test-app-123.us-west-2.elb.amazonaws.com"
-        
+
         # Simulate an exception in describe_services
         mock_ecs_client = mock.MagicMock()
         mock_ecs_client.describe_services.side_effect = ClientError(
             {"Error": {"Code": "ClusterNotFoundException", "Message": "Cluster not found"}},
-            "DescribeServices"
+            "DescribeServices",
         )
         mock_get_aws_client.return_value = mock_ecs_client
-        
+
         # Call the function
         result = await status.get_deployment_status("test-app")
-        
+
         # Verify the result
         assert result["status"] == "ERROR"
         assert result["app_name"] == "test-app"
         assert result["alb_url"] == "http://test-app-123.us-west-2.elb.amazonaws.com"
         assert "ClusterNotFoundException" in result["message"]
-        
+
         # Verify the function calls
         mock_find_cloudformation_stack.assert_called_once_with("test-app", None)
         mock_get_alb_url.assert_called_once_with("test-app", "test-app-ecs")
@@ -267,7 +278,9 @@ class TestDeploymentStatus(unittest.TestCase):
         mock_cfn_client.describe_stack_events.return_value = {
             "StackEvents": [
                 {
-                    "StackId": "arn:aws:cloudformation:us-west-2:123456789012:stack/test-stack/abcdef",
+                    "StackId": (
+                        "arn:aws:cloudformation:us-west-2:123456789012:stack/test-stack/abcdef"
+                    ),
                     "EventId": "event1",
                     "StackName": "test-stack",
                     "LogicalResourceId": "resource1",
@@ -277,7 +290,9 @@ class TestDeploymentStatus(unittest.TestCase):
                     "ResourceStatusReason": "Resource creation complete",
                 },
                 {
-                    "StackId": "arn:aws:cloudformation:us-west-2:123456789012:stack/test-stack/abcdef",
+                    "StackId": (
+                        "arn:aws:cloudformation:us-west-2:123456789012:stack/test-stack/abcdef"
+                    ),
                     "EventId": "event2",
                     "StackName": "test-stack",
                     "LogicalResourceId": "resource2",
@@ -287,12 +302,12 @@ class TestDeploymentStatus(unittest.TestCase):
                 },
             ]
         }
-        
+
         mock_get_aws_client.return_value = mock_cfn_client
-        
+
         # Call the function
         result = await status._get_cfn_stack_status("test-stack")
-        
+
         # Verify the result
         assert result["status"] == "CREATE_COMPLETE"
         assert "creation_time" in result
@@ -303,7 +318,7 @@ class TestDeploymentStatus(unittest.TestCase):
         assert result["recent_events"][0]["resource_type"] == "AWS::ECS::Service"
         assert result["recent_events"][0]["status"] == "CREATE_COMPLETE"
         assert result["recent_events"][0]["reason"] == "Resource creation complete"
-        
+
         # Verify the function calls
         mock_get_aws_client.assert_called_once_with("cloudformation")
         mock_cfn_client.describe_stacks.assert_called_once_with(StackName="test-stack")
@@ -315,41 +330,50 @@ class TestDeploymentStatus(unittest.TestCase):
         # Setup mock response
         mock_cfn_client = mock.MagicMock()
         mock_cfn_client.describe_stacks.side_effect = ClientError(
-            {"Error": {"Code": "ValidationError", "Message": "Stack with id test-stack does not exist"}},
-            "DescribeStacks"
+            {
+                "Error": {
+                    "Code": "ValidationError",
+                    "Message": "Stack with id test-stack does not exist",
+                }
+            },
+            "DescribeStacks",
         )
-        
+
         mock_get_aws_client.return_value = mock_cfn_client
-        
+
         # Call the function
         result = await status._get_cfn_stack_status("test-stack")
-        
+
         # Verify the result
         assert result["status"] == "NOT_FOUND"
         assert "details" in result
         assert "test-stack not found" in result["details"]
-        
+
         # Verify the function calls
         mock_get_aws_client.assert_called_once_with("cloudformation")
         mock_cfn_client.describe_stacks.assert_called_once_with(StackName="test-stack")
 
     @mock.patch("awslabs.ecs_mcp_server.api.status._get_cfn_stack_status")
-    async def test_find_cloudformation_stack_with_explicit_stack_name(self, mock_get_cfn_stack_status):
+    async def test_find_cloudformation_stack_with_explicit_stack_name(
+        self, mock_get_cfn_stack_status
+    ):
         """Test finding a CloudFormation stack with an explicitly provided name."""
         # Setup mock response
         mock_get_cfn_stack_status.return_value = {
             "status": "CREATE_COMPLETE",
             "outputs": {},
-            "recent_events": []
+            "recent_events": [],
         }
-        
+
         # Call the function with explicit stack name
-        stack_name, stack_status = await status._find_cloudformation_stack("test-app", "explicit-stack")
-        
+        stack_name, stack_status = await status._find_cloudformation_stack(
+            "test-app", "explicit-stack"
+        )
+
         # Verify the result
         assert stack_name == "explicit-stack"
         assert stack_status["status"] == "CREATE_COMPLETE"
-        
+
         # Verify the function calls
         mock_get_cfn_stack_status.assert_called_once_with("explicit-stack")
 
@@ -358,23 +382,29 @@ class TestDeploymentStatus(unittest.TestCase):
         """Test finding a CloudFormation stack using patterns."""
         # Setup mock responses for different stack name patterns
         mock_get_cfn_stack_status.side_effect = [
-            {"status": "NOT_FOUND", "details": "Stack test-app-ecs-infrastructure not found"},  # First pattern fails
-            {"status": "CREATE_COMPLETE", "outputs": {}, "recent_events": []}  # Second pattern succeeds
+            {
+                "status": "NOT_FOUND",
+                "details": "Stack test-app-ecs-infrastructure not found",
+            },  # First pattern fails
+            {
+                "status": "CREATE_COMPLETE",
+                "outputs": {},
+                "recent_events": [],
+            },  # Second pattern succeeds
         ]
-        
+
         # Call the function without explicit stack name
         stack_name, stack_status = await status._find_cloudformation_stack("test-app")
-        
+
         # Verify the result
         assert stack_name == "test-app-ecs"  # Should find the second pattern
         assert stack_status["status"] == "CREATE_COMPLETE"
-        
+
         # Verify the function calls
         assert mock_get_cfn_stack_status.call_count == 2
-        mock_get_cfn_stack_status.assert_has_calls([
-            mock.call("test-app-ecs-infrastructure"),
-            mock.call("test-app-ecs")
-        ])
+        mock_get_cfn_stack_status.assert_has_calls(
+            [mock.call("test-app-ecs-infrastructure"), mock.call("test-app-ecs")]
+        )
 
     @mock.patch("awslabs.ecs_mcp_server.api.status._get_cfn_stack_status")
     async def test_find_cloudformation_stack_not_found(self, mock_get_cfn_stack_status):
@@ -382,23 +412,22 @@ class TestDeploymentStatus(unittest.TestCase):
         # Setup mock responses for all patterns to fail
         mock_get_cfn_stack_status.side_effect = [
             {"status": "NOT_FOUND", "details": "Stack test-app-ecs-infrastructure not found"},
-            {"status": "NOT_FOUND", "details": "Stack test-app-ecs not found"}
+            {"status": "NOT_FOUND", "details": "Stack test-app-ecs not found"},
         ]
-        
+
         # Call the function
         stack_name, stack_status = await status._find_cloudformation_stack("test-app")
-        
+
         # Verify the result
         assert stack_name is None
         assert stack_status["status"] == "NOT_FOUND"
         assert "No stack found with any naming pattern" in stack_status["details"]
-        
+
         # Verify the function calls
         assert mock_get_cfn_stack_status.call_count == 2
-        mock_get_cfn_stack_status.assert_has_calls([
-            mock.call("test-app-ecs-infrastructure"),
-            mock.call("test-app-ecs")
-        ])
+        mock_get_cfn_stack_status.assert_has_calls(
+            [mock.call("test-app-ecs-infrastructure"), mock.call("test-app-ecs")]
+        )
 
     @mock.patch("awslabs.ecs_mcp_server.api.status.get_aws_client")
     async def test_get_alb_url_with_known_stack(self, mock_get_aws_client):
@@ -409,19 +438,22 @@ class TestDeploymentStatus(unittest.TestCase):
             "Stacks": [
                 {
                     "Outputs": [
-                        {"OutputKey": "LoadBalancerDNS", "OutputValue": "test-alb-123.us-west-2.elb.amazonaws.com"}
+                        {
+                            "OutputKey": "LoadBalancerDNS",
+                            "OutputValue": "test-alb-123.us-west-2.elb.amazonaws.com",
+                        }
                     ]
                 }
             ]
         }
         mock_get_aws_client.return_value = mock_cfn_client
-        
+
         # Call the function with known stack name
         result = await status._get_alb_url("test-app", "known-stack")
-        
+
         # Verify the result
         assert result == "http://test-alb-123.us-west-2.elb.amazonaws.com"
-        
+
         # Verify the function calls
         mock_get_aws_client.assert_called_once_with("cloudformation")
         mock_cfn_client.describe_stacks.assert_called_once_with(StackName="known-stack")
@@ -435,19 +467,22 @@ class TestDeploymentStatus(unittest.TestCase):
             "Stacks": [
                 {
                     "Outputs": [
-                        {"OutputKey": "LoadBalancerUrl", "OutputValue": "http://test-alb-123.us-west-2.elb.amazonaws.com"}
+                        {
+                            "OutputKey": "LoadBalancerUrl",
+                            "OutputValue": "http://test-alb-123.us-west-2.elb.amazonaws.com",
+                        }
                     ]
                 }
             ]
         }
         mock_get_aws_client.return_value = mock_cfn_client
-        
+
         # Call the function
         result = await status._get_alb_url("test-app", "test-stack")
-        
+
         # Verify the result - should not add another http:// prefix
         assert result == "http://test-alb-123.us-west-2.elb.amazonaws.com"
-        
+
         # Verify the function calls
         mock_get_aws_client.assert_called_once_with("cloudformation")
         mock_cfn_client.describe_stacks.assert_called_once_with(StackName="test-stack")
@@ -462,25 +497,32 @@ class TestDeploymentStatus(unittest.TestCase):
             {"Stacks": [{"Outputs": [{"OutputKey": "OtherOutput", "OutputValue": "value"}]}]},
             # Second stack call raises an exception
             ClientError(
-                {"Error": {"Code": "ValidationError", "Message": "Stack with id test-app-ecs does not exist"}},
-                "DescribeStacks"
-            )
+                {
+                    "Error": {
+                        "Code": "ValidationError",
+                        "Message": "Stack with id test-app-ecs does not exist",
+                    }
+                },
+                "DescribeStacks",
+            ),
         ]
         mock_get_aws_client.return_value = mock_cfn_client
-        
+
         # Call the function without known stack name
         result = await status._get_alb_url("test-app")
-        
+
         # Verify the result
         assert result is None
-        
+
         # Verify the function calls
         mock_get_aws_client.assert_called_once_with("cloudformation")
         assert mock_cfn_client.describe_stacks.call_count == 2
-        mock_cfn_client.describe_stacks.assert_has_calls([
-            mock.call(StackName="test-app-ecs-infrastructure"),
-            mock.call(StackName="test-app-ecs")
-        ])
+        mock_cfn_client.describe_stacks.assert_has_calls(
+            [
+                mock.call(StackName="test-app-ecs-infrastructure"),
+                mock.call(StackName="test-app-ecs"),
+            ]
+        )
 
     def test_get_stack_names_to_try(self):
         """Test stack name generation function."""
@@ -489,31 +531,33 @@ class TestDeploymentStatus(unittest.TestCase):
         assert len(stack_names) == 2
         assert "test-app-ecs-infrastructure" == stack_names[0]
         assert "test-app-ecs" == stack_names[1]
-        
+
         # Test with provided stack name
         stack_names = status._get_stack_names_to_try("test-app", "custom-stack")
         assert len(stack_names) == 3
         assert "custom-stack" == stack_names[0]
         assert "test-app-ecs-infrastructure" == stack_names[1]
         assert "test-app-ecs" == stack_names[2]
-        
+
         # Test duplicate avoidance (if provided stack name matches a pattern)
         stack_names = status._get_stack_names_to_try("test-app", "test-app-ecs")
         assert len(stack_names) == 2
         assert "test-app-ecs" == stack_names[0]
         assert "test-app-ecs-infrastructure" == stack_names[1]
-    
+
     def test_generate_custom_domain_guidance(self):
         """Test custom domain guidance generation."""
         # Call the function
-        result = status._generate_custom_domain_guidance("test-app", "http://test-alb-123.us-west-2.elb.amazonaws.com")
-        
+        result = status._generate_custom_domain_guidance(
+            "test-app", "http://test-alb-123.us-west-2.elb.amazonaws.com"
+        )
+
         # Verify the result contains all required sections
         assert "custom_domain" in result
         assert "https_setup" in result
         assert "cloudformation_update" in result
         assert "next_steps" in result
-        
+
         # Verify the custom domain section
         custom_domain = result["custom_domain"]
         assert "title" in custom_domain
@@ -521,7 +565,7 @@ class TestDeploymentStatus(unittest.TestCase):
         assert "steps" in custom_domain
         assert "route53_commands" in custom_domain
         assert len(custom_domain["steps"]) >= 3
-        
+
         # Verify the HTTPS setup section
         https_setup = result["https_setup"]
         assert "title" in https_setup
@@ -529,14 +573,14 @@ class TestDeploymentStatus(unittest.TestCase):
         assert "steps" in https_setup
         assert "acm_commands" in https_setup
         assert len(https_setup["steps"]) >= 3
-        
+
         # Verify the CloudFormation update section
         cf_update = result["cloudformation_update"]
         assert "title" in cf_update
         assert "description" in cf_update
         assert "steps" in cf_update
         assert "commands" in cf_update
-        
+
         # Verify the ALB hostname is correctly extracted
         alb_hostname = "test-alb-123.us-west-2.elb.amazonaws.com"
         route53_commands = "\n".join(custom_domain["route53_commands"])

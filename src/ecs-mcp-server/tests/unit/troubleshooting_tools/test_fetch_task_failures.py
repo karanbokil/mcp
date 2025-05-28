@@ -13,7 +13,7 @@ from awslabs.ecs_mcp_server.utils.aws import get_aws_client
 
 
 @pytest.mark.anyio
-@mock.patch("awslabs.ecs_mcp_server.utils.aws.get_aws_client")
+@mock.patch("awslabs.ecs_mcp_server.api.troubleshooting_tools.fetch_task_failures.get_aws_client")
 async def test_failed_tasks_found(mock_get_aws_client):
     """Test when failed tasks are found."""
     # Mock ECS client
@@ -122,7 +122,7 @@ async def test_failed_tasks_found(mock_get_aws_client):
 
 
 @pytest.mark.anyio
-@mock.patch("awslabs.ecs_mcp_server.utils.aws.get_aws_client")
+@mock.patch("awslabs.ecs_mcp_server.api.troubleshooting_tools.fetch_task_failures.get_aws_client")
 async def test_cluster_not_found(mock_get_aws_client):
     """Test when cluster is not found."""
     # Mock ECS client
@@ -164,7 +164,7 @@ async def test_cluster_not_found(mock_get_aws_client):
 
 
 @pytest.mark.anyio
-@mock.patch("awslabs.ecs_mcp_server.utils.aws.get_aws_client")
+@mock.patch("awslabs.ecs_mcp_server.api.troubleshooting_tools.fetch_task_failures.get_aws_client")
 async def test_out_of_memory_failure(mock_get_aws_client):
     """Test detection of out-of-memory failures."""
     # Mock ECS client
@@ -273,7 +273,7 @@ async def test_out_of_memory_failure(mock_get_aws_client):
 
 
 @pytest.mark.anyio
-@mock.patch("awslabs.ecs_mcp_server.utils.aws.get_aws_client")
+@mock.patch("awslabs.ecs_mcp_server.api.troubleshooting_tools.fetch_task_failures.get_aws_client")
 async def test_with_explicit_start_time(mock_get_aws_client):
     """Test with explicit start_time parameter."""
     # Mock ECS client
@@ -327,7 +327,7 @@ async def test_with_explicit_start_time(mock_get_aws_client):
 
 
 @pytest.mark.anyio
-@mock.patch("awslabs.ecs_mcp_server.utils.aws.get_aws_client")
+@mock.patch("awslabs.ecs_mcp_server.api.troubleshooting_tools.fetch_task_failures.get_aws_client")
 async def test_with_explicit_end_time(mock_get_aws_client):
     """Test with explicit end_time parameter."""
     # Mock ECS client
@@ -381,7 +381,7 @@ async def test_with_explicit_end_time(mock_get_aws_client):
 
 
 @pytest.mark.anyio
-@mock.patch("awslabs.ecs_mcp_server.utils.aws.get_aws_client")
+@mock.patch("awslabs.ecs_mcp_server.api.troubleshooting_tools.fetch_task_failures.get_aws_client")
 async def test_with_start_and_end_time(mock_get_aws_client):
     """Test with both start_time and end_time parameters."""
     # Mock ECS client

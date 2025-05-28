@@ -16,7 +16,8 @@ from awslabs.ecs_mcp_server.utils.docker import (
 @patch("awslabs.ecs_mcp_server.utils.docker.subprocess.run")
 @patch("awslabs.ecs_mcp_server.utils.docker.os.path.exists")
 @patch("awslabs.ecs_mcp_server.utils.docker.get_aws_account_id")
-async def test_build_and_push_image_success(mock_get_aws_account_id, mock_exists, mock_run):
+@patch("awslabs.ecs_mcp_server.utils.docker.get_ecr_login_password")
+async def test_build_and_push_image_success(mock_get_ecr_login_password, mock_get_aws_account_id, mock_exists, mock_run):
     """Test build_and_push_image with successful build and push."""
     # Mock os.path.exists
     mock_exists.return_value = True
@@ -24,9 +25,11 @@ async def test_build_and_push_image_success(mock_get_aws_account_id, mock_exists
     # Mock get_aws_account_id
     mock_get_aws_account_id.return_value = "123456789012"
     
+    # Mock get_ecr_login_password
+    mock_get_ecr_login_password.return_value = "password"
+    
     # Mock subprocess.run with different return values for different commands
     mock_run.side_effect = [
-        MagicMock(returncode=0, stdout="password"),  # ecr get-login-password
         MagicMock(returncode=0),  # docker login
         MagicMock(returncode=0),  # docker buildx build
         MagicMock(returncode=0),  # docker push
@@ -37,14 +40,15 @@ async def test_build_and_push_image_success(mock_get_aws_account_id, mock_exists
     tag = await build_and_push_image(
         app_path="/path/to/app",
         repository_uri="123456789012.dkr.ecr.us-west-2.amazonaws.com/test-app",
-        tag="latest"
+        tag="latest",
+        role_arn="arn:aws:iam::123456789012:role/test-ecr-push-pull-role"
     )
     
     # Verify os.path.exists was called
     mock_exists.assert_called_once_with("/path/to/app/Dockerfile")
     
     # Verify subprocess.run was called multiple times
-    assert mock_run.call_count == 5
+    assert mock_run.call_count == 4
     
     # Verify the result
     assert tag == "latest"
@@ -67,7 +71,8 @@ async def test_build_and_push_image_dockerfile_not_found(mock_get_aws_account_id
         await build_and_push_image(
             app_path="/path/to/app",
             repository_uri="123456789012.dkr.ecr.us-west-2.amazonaws.com/test-app",
-            tag="latest"
+            tag="latest",
+            role_arn="arn:aws:iam::123456789012:role/test-ecr-push-pull-role"
         )
     
     # Verify the error message
@@ -81,7 +86,8 @@ async def test_build_and_push_image_dockerfile_not_found(mock_get_aws_account_id
 @patch("awslabs.ecs_mcp_server.utils.docker.subprocess.run")
 @patch("awslabs.ecs_mcp_server.utils.docker.os.path.exists")
 @patch("awslabs.ecs_mcp_server.utils.docker.get_aws_account_id")
-async def test_build_and_push_image_build_error(mock_get_aws_account_id, mock_exists, mock_run):
+@patch("awslabs.ecs_mcp_server.utils.docker.get_ecr_login_password")
+async def test_build_and_push_image_build_error(mock_get_ecr_login_password, mock_get_aws_account_id, mock_exists, mock_run):
     """Test build_and_push_image with build error."""
     # Mock os.path.exists
     mock_exists.return_value = True
@@ -89,9 +95,11 @@ async def test_build_and_push_image_build_error(mock_get_aws_account_id, mock_ex
     # Mock get_aws_account_id
     mock_get_aws_account_id.return_value = "123456789012"
     
+    # Mock get_ecr_login_password
+    mock_get_ecr_login_password.return_value = "password"
+    
     # Mock subprocess.run for each command
     mock_run.side_effect = [
-        MagicMock(returncode=0, stdout="password"),  # ecr get-login-password
         MagicMock(returncode=0),  # docker login
         MagicMock(returncode=1, stderr="Error: failed to build image"),  # docker buildx build
         MagicMock(returncode=1, stderr="Error: failed to build image")   # regular docker build (fallback)
@@ -102,7 +110,8 @@ async def test_build_and_push_image_build_error(mock_get_aws_account_id, mock_ex
         await build_and_push_image(
             app_path="/path/to/app",
             repository_uri="123456789012.dkr.ecr.us-west-2.amazonaws.com/test-app",
-            tag="latest"
+            tag="latest",
+            role_arn="arn:aws:iam::123456789012:role/test-ecr-push-pull-role"
         )
     
     # Verify the error message
@@ -113,7 +122,8 @@ async def test_build_and_push_image_build_error(mock_get_aws_account_id, mock_ex
 @patch("awslabs.ecs_mcp_server.utils.docker.subprocess.run")
 @patch("awslabs.ecs_mcp_server.utils.docker.os.path.exists")
 @patch("awslabs.ecs_mcp_server.utils.docker.get_aws_account_id")
-async def test_build_and_push_image_push_error(mock_get_aws_account_id, mock_exists, mock_run):
+@patch("awslabs.ecs_mcp_server.utils.docker.get_ecr_login_password")
+async def test_build_and_push_image_push_error(mock_get_ecr_login_password, mock_get_aws_account_id, mock_exists, mock_run):
     """Test build_and_push_image with push error."""
     # Mock os.path.exists
     mock_exists.return_value = True
@@ -121,9 +131,11 @@ async def test_build_and_push_image_push_error(mock_get_aws_account_id, mock_exi
     # Mock get_aws_account_id
     mock_get_aws_account_id.return_value = "123456789012"
     
+    # Mock get_ecr_login_password
+    mock_get_ecr_login_password.return_value = "password"
+    
     # Mock subprocess.run for each command
     mock_run.side_effect = [
-        MagicMock(returncode=0, stdout="password"),  # ecr get-login-password
         MagicMock(returncode=0),  # docker login
         MagicMock(returncode=0),  # docker buildx build
         MagicMock(returncode=1, stderr="Error: failed to push image")  # docker push
@@ -134,7 +146,8 @@ async def test_build_and_push_image_push_error(mock_get_aws_account_id, mock_exi
         await build_and_push_image(
             app_path="/path/to/app",
             repository_uri="123456789012.dkr.ecr.us-west-2.amazonaws.com/test-app",
-            tag="latest"
+            tag="latest",
+            role_arn="arn:aws:iam::123456789012:role/test-ecr-push-pull-role"
         )
     
     # Verify the error message
@@ -142,10 +155,10 @@ async def test_build_and_push_image_push_error(mock_get_aws_account_id, mock_exi
 
 
 @pytest.mark.anyio
-@patch("awslabs.ecs_mcp_server.utils.aws.get_aws_client")
-async def test_get_ecr_login_password_success(mock_get_aws_client):
+@patch("awslabs.ecs_mcp_server.utils.aws.get_aws_client_with_role")
+async def test_get_ecr_login_password_success(mock_get_aws_client_with_role):
     """Test get_ecr_login_password with successful login."""
-    # Mock get_aws_client
+    # Mock get_aws_client_with_role
     mock_ecr = MagicMock()
     mock_ecr.get_authorization_token.return_value = {
         "authorizationData": [
@@ -155,13 +168,13 @@ async def test_get_ecr_login_password_success(mock_get_aws_client):
             }
         ]
     }
-    mock_get_aws_client.return_value = mock_ecr
+    mock_get_aws_client_with_role.return_value = mock_ecr
     
     # Call get_ecr_login_password
-    result = await get_ecr_login_password()
+    result = await get_ecr_login_password("arn:aws:iam::123456789012:role/test-ecr-push-pull-role")
     
-    # Verify get_aws_client was called
-    mock_get_aws_client.assert_called_once_with("ecr")
+    # Verify get_aws_client_with_role was called
+    mock_get_aws_client_with_role.assert_called_once_with("ecr", "arn:aws:iam::123456789012:role/test-ecr-push-pull-role")
     
     # Verify get_authorization_token was called
     mock_ecr.get_authorization_token.assert_called_once()
@@ -171,17 +184,17 @@ async def test_get_ecr_login_password_success(mock_get_aws_client):
 
 
 @pytest.mark.anyio
-@patch("awslabs.ecs_mcp_server.utils.aws.get_aws_client")
-async def test_get_ecr_login_password_error(mock_get_aws_client):
+@patch("awslabs.ecs_mcp_server.utils.aws.get_aws_client_with_role")
+async def test_get_ecr_login_password_error(mock_get_aws_client_with_role):
     """Test get_ecr_login_password with error."""
-    # Mock get_aws_client
+    # Mock get_aws_client_with_role
     mock_ecr = MagicMock()
     mock_ecr.get_authorization_token.side_effect = Exception("Error getting authorization token")
-    mock_get_aws_client.return_value = mock_ecr
+    mock_get_aws_client_with_role.return_value = mock_ecr
     
     # Call get_ecr_login_password
     with pytest.raises(Exception) as excinfo:
-        await get_ecr_login_password()
+        await get_ecr_login_password("arn:aws:iam::123456789012:role/test-ecr-push-pull-role")
     
     # Verify the error message
     assert "Error getting authorization token" in str(excinfo.value)

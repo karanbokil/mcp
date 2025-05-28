@@ -42,6 +42,20 @@ git clone https://github.com/awslabs/ecs-mcp-server.git
 uv --directory /path/to/ecs-mcp-server/src/ecs-mcp-server/awslabs/ecs_mcp_server run main.py
 ```
 
+## Usage Environments
+
+The ECS MCP Server is currently in development and is designed for the following environments:
+
+- **Development and Prototyping**: Ideal for local application development, testing containerization approaches, and rapidly iterating on deployment configurations.
+- **Learning and Exploration**: Excellent for users who want to learn about containerization, ECS, and AWS infrastructure.
+- **Testing and Staging**: Suitable for integration testing and pre-production validation in non-critical environments.
+
+**Not Recommended For**:
+- **Production Workloads**: As this tool is still in active development, it is not suited for production deployments or business-critical applications.
+- **Regulated or Sensitive Workloads**: Not suitable for applications handling sensitive data or subject to regulatory compliance requirements.
+
+**Important Note on Troubleshooting Tools**: Even the troubleshooting tools should be used with caution in production environments. Always set `ALLOW_SENSITIVE_DATA=false` and `ALLOW_WRITE=false` flags when connecting to production accounts to prevent accidental exposure of sensitive information or unintended infrastructure modifications.
+
 ## Configuration
 
 Add the ECS MCP Server to your MCP client configuration:
@@ -56,6 +70,7 @@ Add the ECS MCP Server to your MCP client configuration:
         "AWS_PROFILE": "your-aws-profile", // Optional - uses your local AWS configuration if not specified
         "AWS_REGION": "your-aws-region", // Optional - uses your local AWS configuration if not specified
         "FASTMCP_LOG_LEVEL": "ERROR",
+        "FASTMCP_LOG_FILE": "/path/to/ecs-mcp-server.log", 
         "ALLOW_WRITE": "false",
         "ALLOW_SENSITIVE_DATA": "false"
       }
@@ -81,6 +96,7 @@ If running from a local repository, configure the MCP client like this:
         "AWS_PROFILE": "your-aws-profile",
         "AWS_REGION": "your-aws-region",
         "FASTMCP_LOG_LEVEL": "DEBUG",
+        "FASTMCP_LOG_FILE": "/path/to/ecs-mcp-server.log",
         "ALLOW_WRITE": "false",
         "ALLOW_SENSITIVE_DATA": "false"
       }
@@ -115,6 +131,21 @@ Controls whether tools that return logs and detailed resource information are al
 
 # Disable access to sensitive data (default)
 "ALLOW_SENSITIVE_DATA": "false"
+```
+
+### IAM Best Practices
+
+We strongly recommend creating dedicated IAM roles with least-privilege permissions when using the ECS MCP Server:
+
+1. **Create a dedicated IAM role** specifically for ECS MCP Server operations
+2. **Apply least-privilege permissions** by attaching only the necessary policies:
+   - `AmazonECR-FullAccess` (for container registry operations)
+   - `AmazonECS-FullAccess` (for ECS operations)
+   - `AmazonCloudFormationFullAccess` (for stack creation/updates)
+   - `AmazonS3ReadOnlyAccess` (for accessing artifacts)
+   - Custom policy for VPC operations (if needed)
+3. **Use scoped-down resource policies** whenever possible
+4. **Apply a permission boundary** to limit the maximum permissions
 ```
 
 

@@ -90,12 +90,24 @@ Add the ECS MCP Server to your MCP client configuration:
       "env": {
         "AWS_PROFILE": "your-aws-profile",
         "AWS_REGION": "your-aws-region",
-        "FASTMCP_LOG_LEVEL": "DEBUG"
+        "FASTMCP_LOG_LEVEL": "DEBUG",
+        "FASTMCP_LOG_FILE": "/path/to/logs/ecs-mcp-server.log"
       }
     }
   }
 }
 ```
+
+### Accessing Server Logs
+
+The ECS MCP Server supports both console logging and file logging. During development, you can:
+
+1. **View console logs**: By default, logs are printed to the console with level determined by `FASTMCP_LOG_LEVEL`
+2. **Enable file logging**: Add the `FASTMCP_LOG_FILE` environment variable to write logs to a file
+3. **View log files**: Access the log file at the specified path for debugging server issues
+4. **Analyze crash logs**: In case of server crashes, the log file will contain details to help diagnose the problem
+
+To adjust log verbosity, set `FASTMCP_LOG_LEVEL` to one of: `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`.
 
 ## Testing
 
@@ -202,5 +214,3 @@ To build the package:
 cd src/ecs-mcp-server
 python -m build
 ```
-
-

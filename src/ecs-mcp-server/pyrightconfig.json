@@ -1,12 +1,12 @@
 {
-  "include": [
-    "awslabs"
-  ],
   "exclude": [
     "tests"
   ],
-  "typeCheckingMode": "basic",
-  "useLibraryCodeForTypes": true,
+  "include": [
+    "awslabs"
+  ],
   "reportMissingImports": true,
-  "reportMissingTypeStubs": false
+  "reportMissingTypeStubs": false,
+  "typeCheckingMode": "basic",
+  "useLibraryCodeForTypes": true
 }

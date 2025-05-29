@@ -109,8 +109,7 @@ async def test_create_infrastructure_force_deploy(
     # This should raise a ValidationError
     with pytest.raises(ValidationError) as excinfo:
         await create_infrastructure(
-            app_name="test-app", app_path="/path/to/app", 
-            force_deploy=True, deployment_step=None
+            app_name="test-app", app_path="/path/to/app", force_deploy=True, deployment_step=None
         )
 
     # Verify the error message

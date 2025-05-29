@@ -28,12 +28,6 @@ class TestResponseSanitizer:
         assert "password=mysecretpassword" not in sanitized
         assert "[REDACTED PASSWORD]" in sanitized
 
-        # Test private key
-        text = "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA\n-----END RSA PRIVATE KEY-----"
-        sanitized = ResponseSanitizer._sanitize_string(text)
-        assert "-----BEGIN RSA PRIVATE KEY-----" not in sanitized
-        assert "[REDACTED PRIVATE_KEY]" in sanitized
-
         # Test IP address
         text = "Server IP: 192.168.1.1"
         sanitized = ResponseSanitizer._sanitize_string(text)

@@ -145,7 +145,7 @@
           }
         },
         "ImageScanningConfiguration": {
-          "scanOnPush": true
+          "ScanOnPush": true
         },
         "ImageTagMutability": "IMMUTABLE",
         "LifecyclePolicy": {

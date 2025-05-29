@@ -116,7 +116,8 @@ async def create_infrastructure(
         app_name: Name of the application
         app_path: Path to the application directory
         force_deploy: Whether to build and deploy the infrastructure or just generate templates
-        deployment_step: Which deployment step to execute (1, 2, or 3). Required when force_deploy is True
+        deployment_step: Which deployment step to execute (1, 2, or 3).
+        Required when force_deploy is True
         vpc_id: VPC ID for deployment, (optional, default: default vpc)
         subnet_ids: List of subnet IDs for deployment (optional, default: default vpc subnets)
         cpu: CPU units for the task (optional, default: 256)

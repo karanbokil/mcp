@@ -16,13 +16,11 @@ logger = logging.getLogger(__name__)
 def get_aws_config() -> Config:
     """
     Gets AWS config with user-agent tag.
-    
+
     Returns:
         Config object with user-agent tag
     """
-    return Config(
-        user_agent_extra="awslabs/mcp/ecs-mcp-server/0.1.0"
-    )
+    return Config(user_agent_extra="awslabs/mcp/ecs-mcp-server/0.1.0")
 
 
 async def get_aws_client(service_name: str):

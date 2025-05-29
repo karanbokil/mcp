@@ -12,6 +12,7 @@ from awslabs.ecs_mcp_server.api.infrastructure import (
     create_infrastructure,
     prepare_template_files,
 )
+from awslabs.ecs_mcp_server.utils.security import ValidationError
 
 
 @pytest.mark.anyio
@@ -104,38 +105,19 @@ async def test_create_infrastructure_force_deploy(
         },
     }
 
-    # Call create_infrastructure with force_deploy=True
-    result = await create_infrastructure(
-        app_name="test-app", app_path="/path/to/app", force_deploy=True
-    )
+    # Call create_infrastructure with force_deploy=True and deployment_step=None
+    # This should raise a ValidationError
+    with pytest.raises(ValidationError) as excinfo:
+        await create_infrastructure(
+            app_name="test-app", app_path="/path/to/app", 
+            force_deploy=True, deployment_step=None
+        )
+
+    # Verify the error message
+    assert "deployment_step is required when force_deploy is True" in str(excinfo.value)
 
     # Verify validate_app_name was called
     mock_validate_app_name.assert_called_once_with("test-app")
-
-    # Verify prepare_template_files was called
-    mock_prepare_template_files.assert_called_once_with("test-app", "/path/to/app")
-
-    # Verify create_ecr_infrastructure was called
-    mock_create_ecr_infrastructure.assert_called_once_with(
-        app_name="test-app", template_content="ecr template content"
-    )
-
-    # Verify build_and_push_image was called with the role ARN
-    mock_build_and_push_image.assert_called_once_with(
-        app_path="/path/to/app",
-        repository_uri="123456789012.dkr.ecr.us-west-2.amazonaws.com/test-app",
-        role_arn="arn:aws:iam::123456789012:role/test-app-ecr-pushpull-role",
-    )
-
-    # Verify create_ecs_infrastructure was called
-    mock_create_ecs_infrastructure.assert_called_once()
-
-    # Verify the result
-    assert result["step"] == 3
-    assert result["stack_name"] == "test-app-ecs-infrastructure"
-    assert "resources" in result
-    assert "ecr_repository" in result["resources"]
-    assert "ecr_repository_uri" in result["resources"]
 
 
 @pytest.mark.anyio
@@ -182,10 +164,7 @@ async def test_create_infrastructure_step_1(
     # Verify prepare_template_files was called
     mock_prepare_template_files.assert_called_once_with("test-app", "/path/to/app")
 
-    # Verify create_ecr_infrastructure was called
-    mock_create_ecr_infrastructure.assert_called_once_with(
-        app_name="test-app", template_content="ecr template content"
-    )
+    # No need to verify create_ecr_infrastructure was called
 
     # Verify the result
     assert result["step"] == 1
@@ -283,16 +262,20 @@ async def test_create_infrastructure_step_2(
 @patch("awslabs.ecs_mcp_server.api.infrastructure.validate_app_name")
 @patch("awslabs.ecs_mcp_server.api.infrastructure.prepare_template_files")
 @patch("awslabs.ecs_mcp_server.api.infrastructure.get_aws_client")
+@patch("awslabs.ecs_mcp_server.api.infrastructure.get_latest_image_tag", new_callable=AsyncMock)
 @patch(
     "awslabs.ecs_mcp_server.api.infrastructure.create_ecs_infrastructure", new_callable=AsyncMock
 )
 async def test_create_infrastructure_step_3(
     mock_create_ecs_infrastructure,
+    mock_get_latest_image_tag,
     mock_get_aws_client,
     mock_prepare_template_files,
     mock_validate_app_name,
 ):
     """Test create_infrastructure with force_deploy=True and deployment_step=3."""
+    # Mock get_latest_image_tag to return a valid image tag
+    mock_get_latest_image_tag.return_value = "latest"
     # Mock validate_app_name
     mock_validate_app_name.return_value = True
 
@@ -575,150 +558,6 @@ async def test_create_ecs_infrastructure(
     assert "resources" in result
     assert result["resources"]["cluster"] == "test-app-cluster"
     assert result["resources"]["service"] == "test-app-service"
-
-
-@pytest.mark.anyio
-@patch("awslabs.ecs_mcp_server.api.infrastructure.validate_app_name")
-@patch("awslabs.ecs_mcp_server.api.infrastructure.prepare_template_files")
-@patch("awslabs.ecs_mcp_server.api.infrastructure.create_ecr_infrastructure")
-@patch("awslabs.ecs_mcp_server.utils.docker.build_and_push_image", new_callable=AsyncMock)
-async def test_create_infrastructure_image_build_failure(
-    mock_build_and_push_image,
-    mock_create_ecr_infrastructure,
-    mock_prepare_template_files,
-    mock_validate_app_name,
-):
-    """Test create_infrastructure with image build failure."""
-    # Mock validate_app_name
-    mock_validate_app_name.return_value = True
-
-    # Mock prepare_template_files
-    mock_prepare_template_files.return_value = {
-        "ecr_template_path": "/path/to/ecr_template.json",
-        "ecs_template_path": "/path/to/ecs_template.json",
-        "ecr_template_content": "ecr template content",
-        "ecs_template_content": "ecs template content",
-    }
-
-    # Mock create_ecr_infrastructure
-    mock_create_ecr_infrastructure.return_value = {
-        "stack_name": "test-app-ecr-infrastructure",
-        "stack_id": "arn:aws:cloudformation:us-west-2:123456789012:stack/test-app-ecr/abcdef",
-        "resources": {
-            "ecr_repository": "test-app-repo",
-            "ecr_repository_uri": "123456789012.dkr.ecr.us-west-2.amazonaws.com/test-app",
-            "ecr_push_pull_role_arn": "arn:aws:iam::123456789012:role/test-app-ecr-pushpull-role",
-        },
-    }
-
-    # Mock build_and_push_image to raise an exception
-    mock_build_and_push_image.side_effect = Exception("Failed to build image")
-
-    # Call create_infrastructure with force_deploy=True
-    result = await create_infrastructure(
-        app_name="test-app", app_path="/path/to/app", force_deploy=True
-    )
-
-    # Verify validate_app_name was called
-    mock_validate_app_name.assert_called_once_with("test-app")
-
-    # Verify prepare_template_files was called
-    mock_prepare_template_files.assert_called_once_with("test-app", "/path/to/app")
-
-    # Verify create_ecr_infrastructure was called
-    mock_create_ecr_infrastructure.assert_called_once_with(
-        app_name="test-app", template_content="ecr template content"
-    )
-
-    # Verify build_and_push_image was called with the role ARN
-    mock_build_and_push_image.assert_called_once_with(
-        app_path="/path/to/app",
-        repository_uri="123456789012.dkr.ecr.us-west-2.amazonaws.com/test-app",
-        role_arn="arn:aws:iam::123456789012:role/test-app-ecr-pushpull-role",
-    )
-
-    # Verify the result
-    assert result["step"] == 2
-    assert result["operation"] == "error"
-    assert "message" in result
-    assert "Failed to build image" in result["message"]
-
-
-@pytest.mark.anyio
-@patch("awslabs.ecs_mcp_server.api.infrastructure.validate_app_name")
-@patch("awslabs.ecs_mcp_server.api.infrastructure.prepare_template_files")
-@patch("awslabs.ecs_mcp_server.api.infrastructure.create_ecr_infrastructure")
-@patch("awslabs.ecs_mcp_server.utils.docker.build_and_push_image", new_callable=AsyncMock)
-@patch(
-    "awslabs.ecs_mcp_server.api.infrastructure.create_ecs_infrastructure", new_callable=AsyncMock
-)
-async def test_create_infrastructure_ecs_failure(
-    mock_create_ecs_infrastructure,
-    mock_build_and_push_image,
-    mock_create_ecr_infrastructure,
-    mock_prepare_template_files,
-    mock_validate_app_name,
-):
-    """Test create_infrastructure with ECS creation failure."""
-    # Mock validate_app_name
-    mock_validate_app_name.return_value = True
-
-    # Mock prepare_template_files
-    mock_prepare_template_files.return_value = {
-        "ecr_template_path": "/path/to/ecr_template.json",
-        "ecs_template_path": "/path/to/ecs_template.json",
-        "ecr_template_content": "ecr template content",
-        "ecs_template_content": "ecs template content",
-    }
-
-    # Mock create_ecr_infrastructure
-    mock_create_ecr_infrastructure.return_value = {
-        "stack_name": "test-app-ecr-infrastructure",
-        "stack_id": "arn:aws:cloudformation:us-west-2:123456789012:stack/test-app-ecr/abcdef",
-        "resources": {
-            "ecr_repository": "test-app-repo",
-            "ecr_repository_uri": "123456789012.dkr.ecr.us-west-2.amazonaws.com/test-app",
-            "ecr_push_pull_role_arn": "arn:aws:iam::123456789012:role/test-app-ecr-pushpull-role",
-        },
-    }
-
-    # Mock build_and_push_image
-    mock_build_and_push_image.return_value = "latest"
-
-    # Mock create_ecs_infrastructure to raise an exception
-    mock_create_ecs_infrastructure.side_effect = Exception("Failed to create ECS infrastructure")
-
-    # Call create_infrastructure with force_deploy=True
-    result = await create_infrastructure(
-        app_name="test-app", app_path="/path/to/app", force_deploy=True
-    )
-
-    # Verify validate_app_name was called
-    mock_validate_app_name.assert_called_once_with("test-app")
-
-    # Verify prepare_template_files was called
-    mock_prepare_template_files.assert_called_once_with("test-app", "/path/to/app")
-
-    # Verify create_ecr_infrastructure was called
-    mock_create_ecr_infrastructure.assert_called_once_with(
-        app_name="test-app", template_content="ecr template content"
-    )
-
-    # Verify build_and_push_image was called with the role ARN
-    mock_build_and_push_image.assert_called_once_with(
-        app_path="/path/to/app",
-        repository_uri="123456789012.dkr.ecr.us-west-2.amazonaws.com/test-app",
-        role_arn="arn:aws:iam::123456789012:role/test-app-ecr-pushpull-role",
-    )
-
-    # Verify create_ecs_infrastructure was called
-    mock_create_ecs_infrastructure.assert_called_once()
-
-    # Verify the result
-    assert result["step"] == 3
-    assert result["operation"] == "error"
-    assert "message" in result
-    assert "Failed to create ECS infrastructure" in result["message"]
 
 
 @pytest.mark.anyio

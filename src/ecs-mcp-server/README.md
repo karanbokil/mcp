@@ -112,7 +112,7 @@ Add the ECS MCP Server to your MCP client configuration:
         "AWS_PROFILE": "your-aws-profile", // Optional - uses your local AWS configuration if not specified
         "AWS_REGION": "your-aws-region", // Optional - uses your local AWS configuration if not specified
         "FASTMCP_LOG_LEVEL": "ERROR",
-        "FASTMCP_LOG_FILE": "/path/to/ecs-mcp-server.log", 
+        "FASTMCP_LOG_FILE": "/path/to/ecs-mcp-server.log",
         "ALLOW_WRITE": "false",
         "ALLOW_SENSITIVE_DATA": "false"
       }

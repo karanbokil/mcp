@@ -127,6 +127,12 @@
             }
           ]
         },
+        "LoggingConfiguration": {
+          "DestinationBucketName": {
+            "Ref": "ALBAccessLogsBucket"
+          },
+          "LogFilePrefix": "s3-access-logs/"
+        },
         "PublicAccessBlockConfiguration": {
           "BlockPublicAcls": true,
           "BlockPublicPolicy": true,
@@ -184,6 +190,21 @@
               },
               "Resource": {
                 "Fn::Sub": "arn:aws:s3:::${AppName}-alb-access-logs-${AWS::AccountId}-${AWS::Region}/AWSLogs/${AWS::AccountId}/*"
+              }
+            },
+            {
+              "Action": "s3:PutObject",
+              "Condition": {
+                "StringEquals": {
+                  "s3:x-amz-acl": "bucket-owner-full-control"
+                }
+              },
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "logging.s3.amazonaws.com"
+              },
+              "Resource": {
+                "Fn::Sub": "arn:aws:s3:::${AppName}-alb-access-logs-${AWS::AccountId}-${AWS::Region}/s3-access-logs/*"
               }
             }
           ],

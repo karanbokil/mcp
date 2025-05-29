@@ -2,7 +2,7 @@
 Pytest-style unit tests for docker utils module.
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -221,8 +221,7 @@ async def test_get_ecr_login_password_error(mock_get_aws_client_with_role):
 async def test_get_aws_account_id(mock_get_aws_client):
     """Test get_aws_account_id."""
     # Mock get_aws_client
-    mock_sts = AsyncMock()
-    mock_sts.get_caller_identity = AsyncMock()
+    mock_sts = MagicMock()
     mock_sts.get_caller_identity.return_value = {"Account": "123456789012"}
     mock_get_aws_client.return_value = mock_sts
 
@@ -244,8 +243,7 @@ async def test_get_aws_account_id(mock_get_aws_client):
 async def test_get_aws_account_id_error(mock_get_aws_client):
     """Test get_aws_account_id with error."""
     # Mock get_aws_client
-    mock_sts = AsyncMock()
-    mock_sts.get_caller_identity = AsyncMock()
+    mock_sts = MagicMock()
     mock_sts.get_caller_identity.side_effect = Exception("Error getting caller identity")
     mock_get_aws_client.return_value = mock_sts
 

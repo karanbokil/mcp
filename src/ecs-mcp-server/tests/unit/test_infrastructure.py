@@ -131,8 +131,241 @@ async def test_create_infrastructure_force_deploy(
     mock_create_ecs_infrastructure.assert_called_once()
 
     # Verify the result
+    assert result["step"] == 3
     assert result["stack_name"] == "test-app-ecs-infrastructure"
     assert "resources" in result
+    assert "ecr_repository" in result["resources"]
+    assert "ecr_repository_uri" in result["resources"]
+
+
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.infrastructure.validate_app_name")
+@patch("awslabs.ecs_mcp_server.api.infrastructure.prepare_template_files")
+@patch("awslabs.ecs_mcp_server.api.infrastructure.create_ecr_infrastructure")
+async def test_create_infrastructure_step_1(
+    mock_create_ecr_infrastructure,
+    mock_prepare_template_files,
+    mock_validate_app_name,
+):
+    """Test create_infrastructure with force_deploy=True and deployment_step=1."""
+    # Mock validate_app_name
+    mock_validate_app_name.return_value = True
+
+    # Mock prepare_template_files
+    mock_prepare_template_files.return_value = {
+        "ecr_template_path": "/path/to/ecr_template.json",
+        "ecs_template_path": "/path/to/ecs_template.json",
+        "ecr_template_content": "ecr template content",
+        "ecs_template_content": "ecs template content",
+    }
+
+    # Mock create_ecr_infrastructure
+    mock_create_ecr_infrastructure.return_value = {
+        "stack_name": "test-app-ecr-infrastructure",
+        "stack_id": "arn:aws:cloudformation:us-west-2:123456789012:stack/test-app-ecr/abcdef",
+        "operation": "create",
+        "resources": {
+            "ecr_repository": "test-app-repo",
+            "ecr_repository_uri": "123456789012.dkr.ecr.us-west-2.amazonaws.com/test-app",
+            "ecr_push_pull_role_arn": "arn:aws:iam::123456789012:role/test-app-ecr-pushpull-role",
+        },
+    }
+
+    # Call create_infrastructure with force_deploy=True and deployment_step=1
+    result = await create_infrastructure(
+        app_name="test-app", app_path="/path/to/app", force_deploy=True, deployment_step=1
+    )
+
+    # Verify validate_app_name was called
+    mock_validate_app_name.assert_called_once_with("test-app")
+
+    # Verify prepare_template_files was called
+    mock_prepare_template_files.assert_called_once_with("test-app", "/path/to/app")
+
+    # Verify create_ecr_infrastructure was called
+    mock_create_ecr_infrastructure.assert_called_once_with(
+        app_name="test-app", template_content="ecr template content"
+    )
+
+    # Verify the result
+    assert result["step"] == 1
+    assert result["stack_name"] == "test-app-ecr-infrastructure"
+    assert result["operation"] == "create"
+    assert "resources" in result
+    assert "ecr_repository" in result["resources"]
+    assert "ecr_repository_uri" in result["resources"]
+    assert "ecr_push_pull_role_arn" in result["resources"]
+    assert result["next_step"] == 2
+
+
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.infrastructure.validate_app_name")
+@patch("awslabs.ecs_mcp_server.api.infrastructure.prepare_template_files")
+@patch("awslabs.ecs_mcp_server.api.infrastructure.get_aws_client")
+@patch("awslabs.ecs_mcp_server.utils.docker.build_and_push_image", new_callable=AsyncMock)
+async def test_create_infrastructure_step_2(
+    mock_build_and_push_image,
+    mock_get_aws_client,
+    mock_prepare_template_files,
+    mock_validate_app_name,
+):
+    """Test create_infrastructure with force_deploy=True and deployment_step=2."""
+    # Mock validate_app_name
+    mock_validate_app_name.return_value = True
+
+    # Mock prepare_template_files
+    mock_prepare_template_files.return_value = {
+        "ecr_template_path": "/path/to/ecr_template.json",
+        "ecs_template_path": "/path/to/ecs_template.json",
+        "ecr_template_content": "ecr template content",
+        "ecs_template_content": "ecs template content",
+    }
+
+    # Mock CloudFormation client
+    mock_cfn = MagicMock()
+    mock_cfn.describe_stacks.return_value = {
+        "Stacks": [
+            {
+                "Outputs": [
+                    {
+                        "OutputKey": "ECRRepositoryURI",
+                        "OutputValue": "123456789012.dkr.ecr.us-west-2.amazonaws.com/test-app",
+                    },
+                    {
+                        "OutputKey": "ECRPushPullRoleArn",
+                        "OutputValue": "arn:aws:iam::123456789012:role/test-app-ecr-pushpull-role",
+                    },
+                ]
+            }
+        ]
+    }
+    mock_get_aws_client.return_value = mock_cfn
+
+    # Mock build_and_push_image
+    mock_build_and_push_image.return_value = "latest"
+
+    # Call create_infrastructure with force_deploy=True and deployment_step=2
+    result = await create_infrastructure(
+        app_name="test-app", app_path="/path/to/app", force_deploy=True, deployment_step=2
+    )
+
+    # Verify validate_app_name was called
+    mock_validate_app_name.assert_called_once_with("test-app")
+
+    # Verify prepare_template_files was called
+    mock_prepare_template_files.assert_called_once_with("test-app", "/path/to/app")
+
+    # Verify get_aws_client was called
+    mock_get_aws_client.assert_called_once_with("cloudformation")
+
+    # Verify describe_stacks was called
+    mock_cfn.describe_stacks.assert_called_once_with(StackName="test-app-ecr-infrastructure")
+
+    # Verify build_and_push_image was called with the role ARN
+    mock_build_and_push_image.assert_called_once_with(
+        app_path="/path/to/app",
+        repository_uri="123456789012.dkr.ecr.us-west-2.amazonaws.com/test-app",
+        role_arn="arn:aws:iam::123456789012:role/test-app-ecr-pushpull-role",
+    )
+
+    # Verify the result
+    assert result["step"] == 2
+    assert result["operation"] == "build_and_push"
+    assert "resources" in result
+    assert "ecr_repository" in result["resources"]
+    assert "ecr_repository_uri" in result["resources"]
+    assert "image_tag" in result["resources"]
+    assert result["resources"]["image_tag"] == "latest"
+    assert result["next_step"] == 3
+
+
+@pytest.mark.anyio
+@patch("awslabs.ecs_mcp_server.api.infrastructure.validate_app_name")
+@patch("awslabs.ecs_mcp_server.api.infrastructure.prepare_template_files")
+@patch("awslabs.ecs_mcp_server.api.infrastructure.get_aws_client")
+@patch(
+    "awslabs.ecs_mcp_server.api.infrastructure.create_ecs_infrastructure", new_callable=AsyncMock
+)
+async def test_create_infrastructure_step_3(
+    mock_create_ecs_infrastructure,
+    mock_get_aws_client,
+    mock_prepare_template_files,
+    mock_validate_app_name,
+):
+    """Test create_infrastructure with force_deploy=True and deployment_step=3."""
+    # Mock validate_app_name
+    mock_validate_app_name.return_value = True
+
+    # Mock prepare_template_files
+    mock_prepare_template_files.return_value = {
+        "ecr_template_path": "/path/to/ecr_template.json",
+        "ecs_template_path": "/path/to/ecs_template.json",
+        "ecr_template_content": "ecr template content",
+        "ecs_template_content": "ecs template content",
+    }
+
+    # Mock CloudFormation client
+    mock_cfn = MagicMock()
+    mock_cfn.describe_stacks.return_value = {
+        "Stacks": [
+            {
+                "Outputs": [
+                    {
+                        "OutputKey": "ECRRepositoryURI",
+                        "OutputValue": "123456789012.dkr.ecr.us-west-2.amazonaws.com/test-app",
+                    },
+                    {
+                        "OutputKey": "ECRPushPullRoleArn",
+                        "OutputValue": "arn:aws:iam::123456789012:role/test-app-ecr-pushpull-role",
+                    },
+                ]
+            }
+        ]
+    }
+    mock_get_aws_client.return_value = mock_cfn
+
+    # Mock create_ecs_infrastructure
+    mock_create_ecs_infrastructure.return_value = {
+        "stack_name": "test-app-ecs-infrastructure",
+        "stack_id": "arn:aws:cloudformation:us-west-2:123456789012:stack/test-app-ecs/ghijkl",
+        "operation": "create",
+        "resources": {
+            "cluster": "test-app-cluster",
+            "service": "test-app-service",
+            "task_definition": "test-app-task",
+            "load_balancer": "test-app-alb",
+        },
+    }
+
+    # Call create_infrastructure with force_deploy=True and deployment_step=3
+    result = await create_infrastructure(
+        app_name="test-app", app_path="/path/to/app", force_deploy=True, deployment_step=3
+    )
+
+    # Verify validate_app_name was called
+    mock_validate_app_name.assert_called_once_with("test-app")
+
+    # Verify prepare_template_files was called
+    mock_prepare_template_files.assert_called_once_with("test-app", "/path/to/app")
+
+    # Verify get_aws_client was called
+    mock_get_aws_client.assert_called_once_with("cloudformation")
+
+    # Verify describe_stacks was called
+    mock_cfn.describe_stacks.assert_called_once_with(StackName="test-app-ecr-infrastructure")
+
+    # Verify create_ecs_infrastructure was called
+    mock_create_ecs_infrastructure.assert_called_once()
+
+    # Verify the result
+    assert result["step"] == 3
+    assert result["stack_name"] == "test-app-ecs-infrastructure"
+    assert result["operation"] == "create"
+    assert "resources" in result
+    assert "cluster" in result["resources"]
+    assert "service" in result["resources"]
+    assert "task_definition" in result["resources"]
+    assert "load_balancer" in result["resources"]
     assert "ecr_repository" in result["resources"]
     assert "ecr_repository_uri" in result["resources"]
 
@@ -405,7 +638,8 @@ async def test_create_infrastructure_image_build_failure(
     )
 
     # Verify the result
-    assert result["stack_name"] == "test-app-ecr-infrastructure"
+    assert result["step"] == 2
+    assert result["operation"] == "error"
     assert "message" in result
     assert "Failed to build image" in result["message"]
 
@@ -481,7 +715,8 @@ async def test_create_infrastructure_ecs_failure(
     mock_create_ecs_infrastructure.assert_called_once()
 
     # Verify the result
-    assert result["stack_name"] == "test-app-ecr-infrastructure"
+    assert result["step"] == 3
+    assert result["operation"] == "error"
     assert "message" in result
     assert "Failed to create ECS infrastructure" in result["message"]
 

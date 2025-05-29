@@ -263,7 +263,7 @@ def _generate_containerization_guidance(
                 "8. Use the create_ecs_infrastructure tool to deploy your application to AWS ECS "
                 "with forceDeploy=False if you want to review the architecture first, or "
                 "forceDeploy=True if you are prototyping and have your AWS profile set up in the "
-                "ECS MCP Server",
+                "ECS MCP Server. forceDeploy=True must be done sequentially: steps 1,2,3.",
             ],
         },
     }

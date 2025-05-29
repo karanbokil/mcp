@@ -35,11 +35,8 @@ async def get_ecr_login_password(role_arn: Optional[str] = None) -> str:
 
         # Get authorization token
         try:
-            # Handle both async and non-async clients (for testing)
-            if hasattr(ecr_client.get_authorization_token, "__await__"):
-                response = await ecr_client.get_authorization_token()
-            else:
-                response = ecr_client.get_authorization_token()
+            # No need to await here since boto3 methods are not coroutines
+            response = ecr_client.get_authorization_token()
 
             # Extract and decode the authorization token
             auth_token = response["authorizationData"][0]["authorizationToken"]

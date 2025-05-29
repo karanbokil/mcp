@@ -4,6 +4,9 @@ Resources:
     Type: AWS::ECS::Cluster
     Properties:
       ClusterName: scenario-01-cluster
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
 
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition

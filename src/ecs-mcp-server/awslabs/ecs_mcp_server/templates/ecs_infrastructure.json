@@ -118,7 +118,8 @@
             "IpProtocol": "tcp",
             "FromPort": 80,
             "ToPort": 80,
-            "CidrIp": "0.0.0.0/0"
+            "CidrIp": "0.0.0.0/0",
+            "Description": "Allow HTTP traffic from the internet"
           }
         ]
       }
@@ -133,7 +134,8 @@
             "IpProtocol": "tcp",
             "FromPort": {"Ref": "ContainerPort"},
             "ToPort": {"Ref": "ContainerPort"},
-            "SourceSecurityGroupId": {"Ref": "ALBSecurityGroup"}
+            "SourceSecurityGroupId": {"Ref": "ALBSecurityGroup"},
+            "Description": "Allow traffic from ALB to container port"
           }
         ],
         "SecurityGroupEgress": [
@@ -154,6 +156,14 @@
           {
             "Key": "idle_timeout.timeout_seconds",
             "Value": "60"
+          },
+          {
+            "Key": "routing.http.drop_invalid_header_fields.enabled",
+            "Value": "true"
+          },
+          {
+            "Key": "deletion_protection.enabled",
+            "Value": "false"
           }
         ],
         "Subnets": {"Ref": "SubnetIds"},
@@ -236,11 +246,61 @@
         ]
       }
     },
+    "LogsKMSKey": {
+      "Type": "AWS::KMS::Key",
+      "Properties": {
+        "Description": "KMS key for encrypting CloudWatch Logs",
+        "EnableKeyRotation": true,
+        "KeyPolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "Enable IAM User Permissions",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": {"Fn::Sub": "arn:aws:iam::${AWS::AccountId}:root"}
+              },
+              "Action": "kms:*",
+              "Resource": "*"
+            },
+            {
+              "Sid": "Allow CloudWatch Logs to use the key",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "logs.amazonaws.com"
+              },
+              "Action": [
+                "kms:Encrypt*",
+                "kms:Decrypt*",
+                "kms:ReEncrypt*",
+                "kms:GenerateDataKey*",
+                "kms:Describe*"
+              ],
+              "Resource": "*"
+            }
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {"Fn::Sub": "${AppName}-logs-kms-key"}
+          }
+        ]
+      }
+    },
+    "LogsKMSKeyAlias": {
+      "Type": "AWS::KMS::Alias",
+      "Properties": {
+        "AliasName": {"Fn::Sub": "alias/${AppName}-logs-kms-key"},
+        "TargetKeyId": {"Ref": "LogsKMSKey"}
+      }
+    },
     "CloudWatchLogsGroup": {
       "Type": "AWS::Logs::LogGroup",
       "Properties": {
         "LogGroupName": {"Fn::Sub": "/ecs/${AppName}"},
-        "RetentionInDays": 14
+        "RetentionInDays": 14,
+        "KmsKeyId": {"Fn::GetAtt": ["LogsKMSKey", "Arn"]}
       }
     },
     "VPCEndpointSecurityGroup": {
@@ -253,7 +313,8 @@
             "IpProtocol": "tcp",
             "FromPort": 443,
             "ToPort": 443,
-            "SourceSecurityGroupId": {"Ref": "ECSSecurityGroup"}
+            "SourceSecurityGroupId": {"Ref": "ECSSecurityGroup"},
+            "Description": "Allow HTTPS traffic from ECS tasks to VPC endpoints"
           }
         ]
       }

@@ -7,9 +7,22 @@ import os
 from typing import Any, Dict, List
 
 import boto3
+from botocore.config import Config
 from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
+
+
+def get_aws_config() -> Config:
+    """
+    Gets AWS config with user-agent tag.
+    
+    Returns:
+        Config object with user-agent tag
+    """
+    return Config(
+        user_agent_extra="awslabs/mcp/ecs-mcp-server/0.1.0"
+    )
 
 
 async def get_aws_client(service_name: str):
@@ -17,13 +30,13 @@ async def get_aws_client(service_name: str):
     region = os.environ.get("AWS_REGION", "us-east-1")
     profile = os.environ.get("AWS_PROFILE", "default")
     logger.info(f"Using AWS profile: {profile} and region: {region}")
-    return boto3.client(service_name, region_name=region)
+    return boto3.client(service_name, region_name=region, config=get_aws_config())
 
 
 async def get_aws_account_id() -> str:
     """Gets the AWS account ID."""
     sts = await get_aws_client("sts")
-    response = await sts.get_caller_identity()
+    response = sts.get_caller_identity()  # Removed await since boto3 methods are not coroutines
     return response["Account"]
 
 
@@ -32,7 +45,7 @@ async def get_default_vpc_and_subnets() -> Dict[str, Any]:
     ec2 = await get_aws_client("ec2")
 
     # Get default VPC
-    vpcs = await ec2.describe_vpcs(Filters=[{"Name": "isDefault", "Values": ["true"]}])
+    vpcs = ec2.describe_vpcs(Filters=[{"Name": "isDefault", "Values": ["true"]}])  # Removed await
 
     if not vpcs["Vpcs"]:
         raise ValueError("No default VPC found. Please specify a VPC ID.")
@@ -40,7 +53,7 @@ async def get_default_vpc_and_subnets() -> Dict[str, Any]:
     vpc_id = vpcs["Vpcs"][0]["VpcId"]
 
     # Get public subnets in the default VPC
-    subnets = await ec2.describe_subnets(
+    subnets = ec2.describe_subnets(  # Removed await
         Filters=[
             {"Name": "vpc-id", "Values": [vpc_id]},
             {"Name": "map-public-ip-on-launch", "Values": ["true"]},
@@ -49,12 +62,16 @@ async def get_default_vpc_and_subnets() -> Dict[str, Any]:
 
     if not subnets["Subnets"]:
         # Fallback to all subnets in the VPC
-        subnets = await ec2.describe_subnets(Filters=[{"Name": "vpc-id", "Values": [vpc_id]}])
+        subnets = ec2.describe_subnets(
+            Filters=[{"Name": "vpc-id", "Values": [vpc_id]}]
+        )  # Removed await
 
     subnet_ids = [subnet["SubnetId"] for subnet in subnets["Subnets"]]
 
     # Get route tables for the VPC
-    route_tables = await ec2.describe_route_tables(Filters=[{"Name": "vpc-id", "Values": [vpc_id]}])
+    route_tables = ec2.describe_route_tables(
+        Filters=[{"Name": "vpc-id", "Values": [vpc_id]}]
+    )  # Removed await
 
     # Find the main route table
     main_route_tables = [
@@ -78,13 +95,13 @@ async def create_ecr_repository(repository_name: str) -> Dict[str, Any]:
 
     try:
         # Check if repository exists
-        response = await ecr.describe_repositories(repositoryNames=[repository_name])
+        response = ecr.describe_repositories(repositoryNames=[repository_name])  # Removed await
         return response["repositories"][0]
     except ClientError as e:
         # Check if the error is RepositoryNotFoundException
         if e.response["Error"]["Code"] == "RepositoryNotFoundException":
             # Create repository if it doesn't exist
-            response = await ecr.create_repository(
+            response = ecr.create_repository(  # Removed await
                 repositoryName=repository_name,
                 imageScanningConfiguration={"scanOnPush": True},
                 encryptionConfiguration={"encryptionType": "AES256"},
@@ -138,6 +155,7 @@ async def get_aws_client_with_role(service_name: str, role_arn: str):
         aws_access_key_id=credentials["aws_access_key_id"],
         aws_secret_access_key=credentials["aws_secret_access_key"],
         aws_session_token=credentials["aws_session_token"],
+        config=get_aws_config(),
     )
 
 
@@ -160,7 +178,7 @@ async def get_ecr_login_password(role_arn: str) -> str:
     ecr = await get_aws_client_with_role("ecr", role_arn)
     logger.info(f"Getting ECR login password using role: {role_arn}")
 
-    response = ecr.get_authorization_token()
+    response = ecr.get_authorization_token()  # Removed await
 
     if not response["authorizationData"]:
         raise ValueError("Failed to get ECR authorization token")
@@ -182,7 +200,9 @@ async def get_route_tables_for_vpc(vpc_id: str) -> List[str]:
     ec2 = await get_aws_client("ec2")
 
     # Get route tables for the VPC
-    route_tables = await ec2.describe_route_tables(Filters=[{"Name": "vpc-id", "Values": [vpc_id]}])
+    route_tables = ec2.describe_route_tables(
+        Filters=[{"Name": "vpc-id", "Values": [vpc_id]}]
+    )  # Removed await
 
     # Find the main route table
     main_route_tables = [

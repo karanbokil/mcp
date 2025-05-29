@@ -33,6 +33,17 @@ def register_module(mcp: FastMCP) -> None:
                 "will be generated locally for your review."
             ),
         ),
+        deployment_step: Optional[int] = Field(
+            default=None,
+            description=(
+                "Which deployment step to execute (1, 2, or 3) when force_deploy is True. "
+                "1: Create CFN files and deploy ECR to CFN, "
+                "2: Build and deploy Docker image, "
+                "3: Deploy ECS to CFN. "
+                "You must specify to use force-deploy and it must be done sequentially "
+                "to prevent timeouts."
+            ),
+        ),
         vpc_id: Optional[str] = Field(
             default=None,
             description="VPC ID for deployment (optional, will use default if not provided)",
@@ -77,8 +88,13 @@ def register_module(mcp: FastMCP) -> None:
              will be deployed
            - ENSURE you get user permission to deploy and inform that this is only for
              non-production applications.
-        4. Optionally specify VPC and subnet IDs if you want to use existing resources
-        5. Configure CPU, memory, and scaling options as needed
+        4. If force_deploy is True, you can optionally specify a deployment_step:
+           - Step 1: Create CFN files and deploy ECR to CloudFormation
+           - Step 2: Build and deploy Docker image to ECR
+           - Step 3: Deploy ECS infrastructure to CloudFormation
+           - If no step is specified, all steps will be executed in sequence
+        5. Optionally specify VPC and subnet IDs if you want to use existing resources
+        6. Configure CPU, memory, and scaling options as needed
 
         The created infrastructure includes:
         - Security groups
@@ -92,6 +108,7 @@ def register_module(mcp: FastMCP) -> None:
             app_name: Name of the application
             app_path: Path to the web application directory
             force_deploy: Whether to build and deploy the infrastructure or just generate templates
+            deployment_step: Which deployment step to execute (1, 2, or 3) when force_deploy is True
             vpc_id: VPC ID for deployment
             subnet_ids: List of subnet IDs for deployment
             route_table_ids: List of route table IDs for S3 Gateway endpoint association
@@ -108,6 +125,7 @@ def register_module(mcp: FastMCP) -> None:
             app_name=app_name,
             app_path=app_path,
             force_deploy=force_deploy,
+            deployment_step=deployment_step,
             vpc_id=vpc_id,
             subnet_ids=subnet_ids,
             route_table_ids=route_table_ids,

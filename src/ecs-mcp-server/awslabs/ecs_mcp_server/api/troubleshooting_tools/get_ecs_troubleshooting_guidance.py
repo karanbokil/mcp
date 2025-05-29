@@ -210,28 +210,28 @@ async def discover_resources(app_name: str) -> Tuple[Dict[str, Any], List[Dict[s
 def is_ecr_image(image_uri: str) -> bool:
     """Determine if an image is from ECR."""
     import re
-    
+
     try:
         if not (image_uri.startswith("http://") or image_uri.startswith("https://")):
             parse_uri = urlparse(f"https://{image_uri}")
         else:
             parse_uri = urlparse(image_uri)
-            
-        hostname = parse_uri.netloc.lower()  
-        
+
+        hostname = parse_uri.netloc.lower()
+
         # Check for malformed hostnames (double dots, etc.)
         if ".." in hostname or hostname.startswith(".") or hostname.endswith("."):
             return False
-            
+
         # Ensure the hostname ends with amazonaws.com (proper domain validation)
         if not hostname.endswith(".amazonaws.com"):
             return False
-            
+
         # Check for proper ECR hostname structure: account-id.dkr.ecr.region.amazonaws.com
-        ecr_pattern = r'^\d{12}\.dkr\.ecr\.[a-z0-9-]+\.amazonaws\.com$'
-        
+        ecr_pattern = r"^\d{12}\.dkr\.ecr\.[a-z0-9-]+\.amazonaws\.com$"
+
         return bool(re.match(ecr_pattern, hostname))
-        
+
     except Exception:
         return False
 

@@ -8,6 +8,55 @@
     }
   },
   "Resources": {
+    "ECREncryptionKey": {
+      "Type": "AWS::KMS::Key",
+      "Properties": {
+        "Description": "KMS key for ECR repository encryption",
+        "EnableKeyRotation": true,
+        "KeyPolicy": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "Enable IAM User Permissions",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": {"Fn::Sub": "arn:aws:iam::${AWS::AccountId}:root"}
+              },
+              "Action": "kms:*",
+              "Resource": "*"
+            },
+            {
+              "Sid": "Allow ECR to use the key",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ecr.amazonaws.com"
+              },
+              "Action": [
+                "kms:Encrypt",
+                "kms:Decrypt",
+                "kms:ReEncrypt*",
+                "kms:GenerateDataKey*",
+                "kms:DescribeKey"
+              ],
+              "Resource": "*"
+            }
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {"Fn::Sub": "${AppName}-ecr-kms-key"}
+          }
+        ]
+      }
+    },
+    "ECREncryptionKeyAlias": {
+      "Type": "AWS::KMS::Alias",
+      "Properties": {
+        "AliasName": {"Fn::Sub": "alias/${AppName}-ecr-kms-key"},
+        "TargetKeyId": {"Ref": "ECREncryptionKey"}
+      }
+    },
     "ECRPushPullRole": {
       "Type": "AWS::IAM::Role",
       "Properties": {
@@ -32,14 +81,37 @@
         },
         "RoleName": {"Fn::Sub": "${AppName}-ecr-role"},
         "ManagedPolicyArns": [],
-        "Path": "/"
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyName": "ECRAuthPolicy",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "ecr:GetAuthorizationToken",
+                  "Resource": "*"
+                }
+              ]
+            }
+          }
+        ]
       }
     },
     "ECRRepository": {
       "Type": "AWS::ECR::Repository",
       "Properties": {
         "RepositoryName": {"Fn::Sub": "${AppName}-repo"},
+        "ImageTagMutability": "IMMUTABLE",
         "EmptyOnDelete": true,
+        "EncryptionConfiguration": {
+          "EncryptionType": "KMS",
+          "KmsKey": {"Ref": "ECREncryptionKey"}
+        },
+        "ImageScanningConfiguration": {
+          "scanOnPush": true
+        },
         "LifecyclePolicy": {
           "LifecyclePolicyText": "{\"rules\":[{\"rulePriority\":1,\"description\":\"Keep only the latest 5 images\",\"selection\":{\"tagStatus\":\"any\",\"countType\":\"imageCountMoreThan\",\"countNumber\":5},\"action\":{\"type\":\"expire\"}}]}"
         },
@@ -59,7 +131,8 @@
                 "ecr:PutImage",
                 "ecr:InitiateLayerUpload",
                 "ecr:UploadLayerPart",
-                "ecr:CompleteLayerUpload"
+                "ecr:CompleteLayerUpload",
+                "ecr:ListImages"
               ]
             }
           ]

@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 from awslabs.ecs_mcp_server.utils.aws import (
     get_aws_account_id,
     get_aws_client,
+    get_aws_client_with_role,
     get_default_vpc_and_subnets,
 )
 from awslabs.ecs_mcp_server.utils.security import (
@@ -47,12 +48,11 @@ def prepare_template_files(app_name: str, app_path: str) -> Dict[str, str]:
         validate_file_path(app_path)
     except ValidationError as e:
         # If the path doesn't exist, we'll create it
-        if "does not exist" in str(e):
-            # We'll create the directory later with the templates directory
-            pass
-        else:
+        if "does not exist" not in str(e):
             # Some other validation error occurred
-            raise
+            raise ValidationError(str(e)) from e
+        # Otherwise, we'll continue and create the directory later
+        logger.debug(f"Path {app_path} does not exist, will create it")
 
     # Create templates directory (this will create app_path if it doesn't exist)
     templates_dir = os.path.join(app_path, "cloudformation-templates")
@@ -93,6 +93,7 @@ async def create_infrastructure(
     app_name: str,
     app_path: str,
     force_deploy: bool = False,
+    deployment_step: Optional[int] = None,
     vpc_id: Optional[str] = None,
     subnet_ids: Optional[List[str]] = None,
     route_table_ids: Optional[List[str]] = None,
@@ -105,19 +106,22 @@ async def create_infrastructure(
     """
     Creates complete ECS infrastructure using CloudFormation.
     This method combines the creation of ECR and ECS infrastructure.
-    If force_deploy is True, it will also build and push the Docker image.
-    Otherwise, it will only generate the template files.
+    If force_deploy is True, it will execute the specified deployment step:
+    1. Create CFN files and deploy ECR to CFN
+    2. Build and deploy Docker image
+    3. Deploy ECS to CFN
+    If force_deploy is False, it will only generate the template files.
 
     Args:
         app_name: Name of the application
         app_path: Path to the application directory
         force_deploy: Whether to build and deploy the infrastructure or just generate templates
+        deployment_step: Which deployment step to execute (1, 2, or 3). Required when force_deploy is True
         vpc_id: VPC ID for deployment, (optional, default: default vpc)
         subnet_ids: List of subnet IDs for deployment (optional, default: default vpc subnets)
         cpu: CPU units for the task (optional, default: 256)
         memory: Memory (MB) for the task (optional, default: 512)
         desired_count: Desired number of tasks (optional, default: 1)
-        enable_auto_scaling: Enable auto-scaling for the service (optional, default: False)
         container_port: Port the container listens on (optional, default: 80)
         health_check_path: Path for ALB health checks (optional, default: "/")
 
@@ -131,6 +135,10 @@ async def create_infrastructure(
 
     # Validate app_name
     validate_app_name(app_name)
+
+    # Validate deployment_step is provided when force_deploy is True
+    if force_deploy and deployment_step is None:
+        raise ValidationError("deployment_step is required when force_deploy is True")
 
     # Step 1: Prepare template files
     template_files = prepare_template_files(app_name, app_path)
@@ -179,122 +187,288 @@ async def create_infrastructure(
             },
         }
 
-    # Step 2: Validate and create ECR infrastructure
-    # Validate the ECR template if it exists (skip in tests with mock paths)
-    try:
-        validate_cloudformation_template(ecr_template_path)
-    except ValidationError:
-        # In tests, we might use mock paths that don't exist
-        if not os.path.exists(ecr_template_path) and "/path/to/" in ecr_template_path:
-            logger.debug(f"Skipping validation for test path: {ecr_template_path}")
-        else:
-            raise
-
-    ecr_result = await create_ecr_infrastructure(
-        app_name=app_name, template_content=template_files["ecr_template_content"]
-    )
-
-    # Get the ECR repository URI and role ARN
-    ecr_repo_uri = ecr_result["resources"]["ecr_repository_uri"]
-    ecr_role_arn = ecr_result["resources"]["ecr_push_pull_role_arn"]
-
-    # Step 3: Build and push Docker image
-    try:
-        from awslabs.ecs_mcp_server.utils.docker import build_and_push_image
-
-        logger.info(f"Building and pushing Docker image for {app_name} from {app_path}")
-
-        if not ecr_role_arn:
-            raise ValueError(
-                "ECR push/pull role ARN is required but not found in CloudFormation outputs"
-            )
-
-        logger.info(f"Using ECR push/pull role ARN: {ecr_role_arn}")
-
-        image_tag = await build_and_push_image(
-            app_path=app_path, repository_uri=ecr_repo_uri, role_arn=ecr_role_arn
-        )
-        logger.info(f"Image successfully built and pushed with tag: {image_tag}")
-        image_uri = ecr_repo_uri
-    except Exception as e:
-        logger.error(f"Error building and pushing Docker image: {e}")
-        # Return partial result with just ECR info if image build fails
-        return {
-            "stack_name": f"{app_name}-ecr-infrastructure",
-            "operation": "create",
-            "template_paths": {
-                "ecr_template": ecr_template_path,
-                "ecs_template": ecs_template_path,
-            },
-            "resources": {
-                "ecr_repository": f"{app_name}-repo",
-                "ecr_repository_uri": ecr_repo_uri,
-                "ecr_push_pull_role_arn": ecr_role_arn,
-            },
-            "message": f"Created ECR repository, but Docker image build failed: {str(e)}",
-        }
-
-    # Step 4: Validate and create ECS infrastructure with the image URI
-    try:
-        # Validate the ECS template if it exists (skip in tests with mock paths)
+    # Multi-step deployment when force_deploy is True
+    # Step 1: Create CFN files and deploy ECR to CFN
+    if deployment_step is None or deployment_step == 1:
+        # Validate the ECR template if it exists (skip in tests with mock paths)
         try:
-            validate_cloudformation_template(ecs_template_path)
+            validate_cloudformation_template(ecr_template_path)
         except ValidationError:
             # In tests, we might use mock paths that don't exist
-            if not os.path.exists(ecs_template_path) and "/path/to/" in ecs_template_path:
-                logger.debug(f"Skipping validation for test path: {ecs_template_path}")
+            if not os.path.exists(ecr_template_path) and "/path/to/" in ecr_template_path:
+                logger.debug(f"Skipping validation for test path: {ecr_template_path}")
             else:
                 raise
 
-        ecs_result = await create_ecs_infrastructure(
-            app_name=app_name,
-            image_uri=image_uri,
-            image_tag=image_tag,
-            vpc_id=vpc_id,
-            subnet_ids=subnet_ids,
-            route_table_ids=route_table_ids,
-            cpu=cpu,
-            memory=memory,
-            desired_count=desired_count,
-            container_port=container_port,
-            health_check_path=health_check_path if health_check_path else "/",
-            template_content=template_files["ecs_template_content"],
+        ecr_result = await create_ecr_infrastructure(
+            app_name=app_name, template_content=template_files["ecr_template_content"]
         )
-    except Exception as e:
-        logger.error(f"Error creating ECS infrastructure: {e}")
-        # Return partial result with just ECR info if ECS creation fails
-        return {
-            "stack_name": f"{app_name}-ecr-infrastructure",
-            "operation": "create",
-            "template_paths": {
-                "ecr_template": ecr_template_path,
-                "ecs_template": ecs_template_path,
-            },
-            "resources": {
-                "ecr_repository": f"{app_name}-repo",
-                "ecr_repository_uri": ecr_repo_uri,
-                "ecr_push_pull_role_arn": ecr_role_arn,
-            },
-            "message": f"Created ECR repository, but ECS infrastructure creation failed: {str(e)}",
-        }
 
-    # Combine results
-    combined_result = {
-        "stack_name": ecs_result.get("stack_name", f"{app_name}-ecs-infrastructure"),
-        "stack_id": ecs_result.get("stack_id"),
-        "operation": ecs_result.get("operation", "create"),
-        "template_paths": {"ecr_template": ecr_template_path, "ecs_template": ecs_template_path},
-        "vpc_id": ecs_result.get("vpc_id", vpc_id),
-        "subnet_ids": ecs_result.get("subnet_ids", subnet_ids),
-        "resources": {
-            **(ecs_result.get("resources", {})),
-            "ecr_repository": ecr_result["resources"]["ecr_repository"],
-            "ecr_repository_uri": ecr_repo_uri,
-        },
-        "image_uri": image_uri,
+        # Return result after step 1
+        if deployment_step == 1:
+            return {
+                "step": 1,
+                "stack_name": f"{app_name}-ecr-infrastructure",
+                "operation": ecr_result.get("operation", "create"),
+                "template_paths": {
+                    "ecr_template": ecr_template_path,
+                    "ecs_template": ecs_template_path,
+                },
+                "resources": {
+                    "ecr_repository": ecr_result["resources"]["ecr_repository"],
+                    "ecr_repository_uri": ecr_result["resources"]["ecr_repository_uri"],
+                    "ecr_push_pull_role_arn": ecr_result["resources"]["ecr_push_pull_role_arn"],
+                },
+                "next_step": 2,
+                "message": (
+                    "ECR infrastructure deployed successfully. "
+                    "Proceed to step 2 to build and deploy the Docker image."
+                ),
+            }
+    else:
+        # For steps 2 and 3, we need to get the ECR info from a previous run
+        try:
+            # Get CloudFormation client
+            cloudformation = await get_aws_client("cloudformation")
+
+            # Get ECR stack info
+            stack_name = f"{app_name}-ecr-infrastructure"
+            response = cloudformation.describe_stacks(StackName=stack_name)
+
+            # Extract ECR repository URI and role ARN from outputs
+            outputs = response["Stacks"][0]["Outputs"]
+            ecr_repo_uri = None
+            ecr_role_arn = None
+
+            for output in outputs:
+                if output["OutputKey"] == "ECRRepositoryURI":
+                    ecr_repo_uri = output["OutputValue"]
+                elif output["OutputKey"] == "ECRPushPullRoleArn":
+                    ecr_role_arn = output["OutputValue"]
+
+            if not ecr_repo_uri or not ecr_role_arn:
+                raise ValueError(
+                    "Could not find ECR repository URI or role ARN in CloudFormation outputs"
+                )
+
+            # Create a mock ECR result for later use
+            ecr_result = {
+                "resources": {
+                    "ecr_repository": f"{app_name}-repo",
+                    "ecr_repository_uri": ecr_repo_uri,
+                    "ecr_push_pull_role_arn": ecr_role_arn,
+                }
+            }
+
+        except Exception as e:
+            logger.error(f"Error retrieving ECR infrastructure information: {e}")
+            return {
+                "step": deployment_step,
+                "operation": "error",
+                "message": (
+                    f"Failed to retrieve ECR infrastructure information. "
+                    f"Please run step 1 first: {str(e)}"
+                ),
+            }
+
+    # Step 2: Build and deploy Docker image
+    image_tag = None
+    if deployment_step is None or deployment_step == 2:
+        try:
+            from awslabs.ecs_mcp_server.utils.docker import build_and_push_image
+
+            # Get the ECR repository URI and role ARN
+            ecr_repo_uri = ecr_result["resources"]["ecr_repository_uri"]
+            ecr_role_arn = ecr_result["resources"]["ecr_push_pull_role_arn"]
+
+            logger.info(f"Building and pushing Docker image for {app_name} from {app_path}")
+
+            if not ecr_role_arn:
+                raise ValueError(
+                    "ECR push/pull role ARN is required but not found in CloudFormation outputs"
+                )
+
+            logger.info(f"Using ECR push/pull role ARN: {ecr_role_arn}")
+
+            image_tag = await build_and_push_image(
+                app_path=app_path, repository_uri=ecr_repo_uri, role_arn=ecr_role_arn
+            )
+            logger.info(f"Image successfully built and pushed with tag: {image_tag}")
+
+            # Return result after step 2
+            if deployment_step == 2:
+                return {
+                    "step": 2,
+                    "operation": "build_and_push",
+                    "template_paths": {
+                        "ecr_template": ecr_template_path,
+                        "ecs_template": ecs_template_path,
+                    },
+                    "resources": {
+                        "ecr_repository": ecr_result["resources"]["ecr_repository"],
+                        "ecr_repository_uri": ecr_repo_uri,
+                        "image_tag": image_tag,
+                    },
+                    "next_step": 3,
+                    "message": (
+                        "Docker image built and pushed successfully. "
+                        "Proceed to step 3 to deploy ECS infrastructure."
+                    ),
+                }
+        except Exception as e:
+            logger.error(f"Error building and pushing Docker image: {e}")
+            return {
+                "step": 2,
+                "operation": "error",
+                "template_paths": {
+                    "ecr_template": ecr_template_path,
+                    "ecs_template": ecs_template_path,
+                },
+                "resources": {
+                    "ecr_repository": ecr_result["resources"]["ecr_repository"],
+                    "ecr_repository_uri": ecr_result["resources"]["ecr_repository_uri"],
+                },
+                "message": f"Docker image build failed: {str(e)}",
+            }
+    else:
+        # For step 3, we need to get the image tag from a previous run or
+        # query ECR for the latest tag
+        ecr_repo_uri = ecr_result["resources"]["ecr_repository_uri"]
+        ecr_role_arn = ecr_result["resources"]["ecr_push_pull_role_arn"]
+
+        # Get the latest image tag from ECR
+        image_tag = await get_latest_image_tag(app_name, ecr_role_arn)
+        logger.info(f"Using latest image tag from ECR: {image_tag}")
+
+    # Step 3: Deploy ECS infrastructure
+    if deployment_step is None or deployment_step == 3:
+        try:
+            # Validate the ECS template if it exists (skip in tests with mock paths)
+            try:
+                validate_cloudformation_template(ecs_template_path)
+            except ValidationError:
+                # In tests, we might use mock paths that don't exist
+                if not os.path.exists(ecs_template_path) and "/path/to/" in ecs_template_path:
+                    logger.debug(f"Skipping validation for test path: {ecs_template_path}")
+                else:
+                    raise
+
+            ecs_result = await create_ecs_infrastructure(
+                app_name=app_name,
+                image_uri=ecr_repo_uri,
+                image_tag=image_tag,
+                vpc_id=vpc_id,
+                subnet_ids=subnet_ids,
+                route_table_ids=route_table_ids,
+                cpu=cpu,
+                memory=memory,
+                desired_count=desired_count,
+                container_port=container_port,
+                health_check_path=health_check_path if health_check_path else "/",
+                template_content=template_files["ecs_template_content"],
+            )
+
+            # Combine results for the final step or when running all steps at once
+            combined_result = {
+                "step": 3,
+                "stack_name": ecs_result.get("stack_name", f"{app_name}-ecs-infrastructure"),
+                "stack_id": ecs_result.get("stack_id"),
+                "operation": ecs_result.get("operation", "create"),
+                "template_paths": {
+                    "ecr_template": ecr_template_path,
+                    "ecs_template": ecs_template_path,
+                },
+                "vpc_id": ecs_result.get("vpc_id", vpc_id),
+                "subnet_ids": ecs_result.get("subnet_ids", subnet_ids),
+                "resources": {
+                    **(ecs_result.get("resources", {})),
+                    "ecr_repository": ecr_result["resources"]["ecr_repository"],
+                    "ecr_repository_uri": ecr_repo_uri,
+                },
+                "image_uri": ecr_repo_uri,
+                "image_tag": image_tag,
+                "message": "ECS infrastructure deployed successfully. The deployment is complete.",
+            }
+
+            return combined_result
+
+        except Exception as e:
+            logger.error(f"Error creating ECS infrastructure: {e}")
+            return {
+                "step": 3,
+                "operation": "error",
+                "template_paths": {
+                    "ecr_template": ecr_template_path,
+                    "ecs_template": ecs_template_path,
+                },
+                "resources": {
+                    "ecr_repository": ecr_result["resources"]["ecr_repository"],
+                    "ecr_repository_uri": ecr_repo_uri,
+                },
+                "image_tag": image_tag,
+                "message": f"ECS infrastructure creation failed: {str(e)}",
+            }
+
+    # If we somehow get here without returning, return an error
+    # This ensures all code paths return a Dict[str, Any] as declared
+    return {
+        "operation": "error",
+        "message": f"Unexpected error: Invalid deployment step {deployment_step}",
     }
 
-    return combined_result
+
+async def get_latest_image_tag(app_name: str, role_arn: str) -> str:
+    """
+    Gets the latest image tag from ECR for the given repository.
+
+    Args:
+        app_name: Name of the application
+        role_arn: ARN of the ECR push/pull role to use
+
+    Returns:
+        Latest image tag
+
+    Raises:
+        ValueError: If no images or no tagged images are found in the repository
+    """
+    logger.info(f"Getting latest image tag for repository {app_name}-repo")
+
+    try:
+        # Get ECR client with the provided role
+        ecr = await get_aws_client_with_role("ecr", role_arn)
+
+        # List images in the repository
+        response = ecr.list_images(repositoryName=f"{app_name}-repo")
+
+        # If no images are found, raise an exception
+        if not response.get("imageIds", []):
+            error_msg = f"No images found in repository {app_name}-repo"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        # Filter out images without tags
+        tagged_images = [img for img in response["imageIds"] if "imageTag" in img]
+
+        # If no tagged images are found, raise an exception
+        if not tagged_images:
+            error_msg = f"No tagged images found in repository {app_name}-repo"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        # Sort images by tag (assuming numeric timestamp tags)
+        # This will work for timestamp-based tags generated by build_and_push_image
+        sorted_images = sorted(
+            tagged_images,
+            key=lambda x: int(x["imageTag"]) if x["imageTag"].isdigit() else 0,
+            reverse=True,
+        )
+        latest_tag = sorted_images[0]["imageTag"]
+        logger.info(f"Latest image tag found: {latest_tag}")
+        return latest_tag
+
+    except Exception as e:
+        logger.error(f"Error getting latest image tag: {e}", exc_info=True)
+        raise
 
 
 async def create_ecr_infrastructure(

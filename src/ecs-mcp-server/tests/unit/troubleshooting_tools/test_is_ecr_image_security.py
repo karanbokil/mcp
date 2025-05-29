@@ -25,7 +25,7 @@ class TestIsEcrImageSecurity:
             "https://123456789012.dkr.ecr.us-east-1.amazonaws.com/test-repo",
             "http://123456789012.dkr.ecr.us-east-1.amazonaws.com/test-repo",
         ]
-        
+
         for url in valid_ecr_urls:
             assert is_ecr_image(url) is True, f"Expected True for valid ECR URL: {url}"
 
@@ -40,7 +40,7 @@ class TestIsEcrImageSecurity:
             "fake-amazonaws.com/ecr",
             "amazonhttps://fake.amazonaws.com.evil.com/ecr",
         ]
-        
+
         for url in malicious_urls:
             assert is_ecr_image(url) is False, f"Expected False for malicious URL: {url}"
 
@@ -49,12 +49,12 @@ class TestIsEcrImageSecurity:
         non_ecr_urls = [
             "s3.amazonaws.com/bucket",
             "ec2.amazonaws.com/instance",
-            "lambda.amazonaws.com/function", 
+            "lambda.amazonaws.com/function",
             "123456789012.dkr.amazonaws.com/repo",  # Missing .ecr.
             "ecr.amazonaws.com",  # Wrong structure, should be account.dkr.ecr.region.amazonaws.com
             "amazonaws.com/ecr",  # Missing proper subdomain structure
         ]
-        
+
         for url in non_ecr_urls:
             assert is_ecr_image(url) is False, f"Expected False for non-ECR AWS URL: {url}"
 
@@ -69,7 +69,7 @@ class TestIsEcrImageSecurity:
             "registry.hub.docker.com/library/ubuntu",
             "localhost:5000/local-image",
         ]
-        
+
         for url in other_registries:
             assert is_ecr_image(url) is False, f"Expected False for non-ECR registry: {url}"
 
@@ -87,7 +87,7 @@ class TestIsEcrImageSecurity:
             "https://",  # Incomplete URL
             "://amazonaws.com/ecr",  # Malformed scheme
         ]
-        
+
         for case in edge_cases:
             result = is_ecr_image(case)
             assert result is False, f"Expected False for edge case: {case}"
@@ -96,10 +96,10 @@ class TestIsEcrImageSecurity:
         """Test that the function handles case variations appropriately."""
         case_variations = [
             "123456789012.dkr.ECR.us-east-1.AMAZONAWS.COM/repo",
-            "123456789012.dkr.Ecr.us-east-1.Amazonaws.Com/repo", 
+            "123456789012.dkr.Ecr.us-east-1.Amazonaws.Com/repo",
             "123456789012.DKR.ECR.US-EAST-1.AMAZONAWS.COM/REPO",
         ]
-        
+
         # These should still be valid ECR URLs despite case differences
         for url in case_variations:
             assert is_ecr_image(url) is True, f"Expected True for case variation: {url}"
@@ -111,7 +111,7 @@ class TestIsEcrImageSecurity:
             "123456789012.dkr.ecr.us-east-1.amazonaws.com/repo#fragment",
             "123456789012.dkr.ecr.us-east-1.amazonaws.com/repo:tag?version=latest",
         ]
-        
+
         for url in urls_with_extras:
             assert is_ecr_image(url) is True, f"Expected True for URL with extras: {url}"
 
@@ -125,7 +125,7 @@ class TestIsEcrImageSecurity:
             "123456789012.ecr.amazonaws.com/repo",  # Missing dkr
             "fake.ecr.amazonaws.com/repo",  # Invalid account ID format
         ]
-        
+
         for url in invalid_subdomains:
             assert is_ecr_image(url) is False, f"Expected False for invalid subdomain: {url}"
 
@@ -142,9 +142,11 @@ class TestIsEcrImageSecurity:
             "amazonaws&#46;com/ecr",  # HTML encoded '.'
             "amazonaws\x2ecom/ecr",  # Hex encoded '.'
         ]
-        
+
         for attempt in injection_attempts:
-            assert is_ecr_image(attempt) is False, f"Expected False for injection attempt: {attempt}"
+            assert is_ecr_image(attempt) is False, (
+                f"Expected False for injection attempt: {attempt}"
+            )
 
     def test_performance_with_long_strings(self):
         """Test that the function performs reasonably with very long strings."""
@@ -154,7 +156,7 @@ class TestIsEcrImageSecurity:
             f"amazonaws.com/{long_prefix}/ecr",
             f"evil.com/{long_prefix}/amazonaws.com/ecr",
         ]
-        
+
         for url in long_urls:
             # Should handle long strings without crashing
             try:
@@ -166,12 +168,12 @@ class TestIsEcrImageSecurity:
     def test_account_id_validation(self):
         """Test that proper 12-digit account IDs are required."""
         invalid_account_ids = [
-            "12345.dkr.ecr.us-east-1.amazonaws.com/repo", # Too short
-            "1234567890123.dkr.ecr.us-east-1.amazonaws.com/repo", # Too long  
-            "abcdefghijk.dkr.ecr.us-east-1.amazonaws.com/repo", # Non-numeric
-            "123456789.dkr.ecr.us-east-1.amazonaws.com/repo", # Too short
+            "12345.dkr.ecr.us-east-1.amazonaws.com/repo",  # Too short
+            "1234567890123.dkr.ecr.us-east-1.amazonaws.com/repo",  # Too long
+            "abcdefghijk.dkr.ecr.us-east-1.amazonaws.com/repo",  # Non-numeric
+            "123456789.dkr.ecr.us-east-1.amazonaws.com/repo",  # Too short
         ]
-        
+
         for url in invalid_account_ids:
             assert is_ecr_image(url) is False, f"Expected False for invalid account ID: {url}"
 
@@ -183,6 +185,6 @@ class TestIsEcrImageSecurity:
             "123456789012.dkr.ecr.ap-southeast-1.amazonaws.com/repo",
             "123456789012.dkr.ecr.ca-central-1.amazonaws.com/repo",
         ]
-        
+
         for url in valid_regions:
             assert is_ecr_image(url) is True, f"Expected True for valid region: {url}"

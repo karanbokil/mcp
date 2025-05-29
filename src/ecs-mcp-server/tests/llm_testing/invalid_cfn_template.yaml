@@ -27,8 +27,10 @@ Resources:
     Type: AWS::ECS::Service
     Properties:
       ServiceName: scenario-01-service
-      Cluster: !Ref ECSCluster
-      TaskDefinition: !Ref TaskDefinition
+      Cluster: 
+        Ref: ECSCluster
+      TaskDefinition: 
+        Ref: TaskDefinition
       DesiredCount: 1
       LaunchType: FARGATE
       # Missing required NetworkConfiguration will cause failure

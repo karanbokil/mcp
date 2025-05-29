@@ -27,9 +27,9 @@ Resources:
     Type: AWS::ECS::Service
     Properties:
       ServiceName: scenario-01-service
-      Cluster: 
+      Cluster:
         Ref: ECSCluster
-      TaskDefinition: 
+      TaskDefinition:
         Ref: TaskDefinition
       DesiredCount: 1
       LaunchType: FARGATE
